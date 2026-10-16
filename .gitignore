@@ -1,0 +1,34 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+build/
+out/
+
+# 原版游戏的下载文件（作者作品，不进仓库）
+analysis/
+vendor-original/
+*.chunk.js
+index.original.js
+
+# 取证中间产物（JSON）
+*.evidence.json
+
+# 环境与密钥
+.env
+.env.*
+
+# 编辑器与系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*
+
+# 临时文件
+tmp/
+.cache/
