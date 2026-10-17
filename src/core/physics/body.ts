@@ -45,6 +45,8 @@ const SERIAL_FIELDS = [
 export class Body {
   uid = -1;
   active = true;
+  /** 碰撞半径（Sphere 覆写；接触力臂计算需要，基类默认 0）。 */
+  radius = 0;
   mass: number;
   invMass: number;
   acc = PHYSICS.gravity.clone();

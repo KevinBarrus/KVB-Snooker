@@ -23,7 +23,7 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 ## 施工单元状态
 
 - [x] `rng.ts`（core/rng：播种 RNG，09-扩展规划 §0.1）+ `constants.ts` + `body.ts` + `ball.ts`
-- [ ] `contact.ts` / `tip-contact.ts`
+- [x] `contact.ts`（ContactBase 模22 + ContactSS 模37）/ `tip-contact.ts`（模86）
 - [ ] `collision-polygon.ts` / `mesh-body.ts`
 - [ ] `solver.ts` / `island.ts`
 - [ ] `world.ts` / `world-client.ts`
