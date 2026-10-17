@@ -352,11 +352,12 @@ export class ActiveContactSet {
         scan = scan.next;
       }
       // —— 二遍搬移：把后段中连着组件的接触搬进组件链尾 ——
+      // 原作（L14519-14535）推进用「搬移后 i.next」：搬移把不连通项挤到链尾，残段重扫可终止并回抓；
+      // 提前捕获 nextScan 会错过后置连通项（5 球回字用例曾错拆两岛，已冻结）。
       scan = componentEnd.next;
       while (scan) {
         const rowI = scan.idi - start;
         const rowJ = scan.idj - start;
-        const nextScan = scan.next;
         if (pure[rowI] === componentIndex || pure[rowJ] === componentIndex) {
           pure[rowI] = componentIndex;
           map[rowI] = componentId;
@@ -364,8 +365,8 @@ export class ActiveContactSet {
             pure[rowJ] = componentIndex;
             map[rowJ] = componentId;
           }
-          scan.prev!.next = nextScan;
-          if (nextScan) nextScan.prev = scan.prev;
+          scan.prev!.next = scan.next;
+          if (scan.next) scan.next.prev = scan.prev;
           if (componentEnd.next) componentEnd.next.prev = scan;
           scan.next = componentEnd.next;
           componentEnd.next = scan;
@@ -373,7 +374,7 @@ export class ActiveContactSet {
           componentEnd = scan;
           count++;
         }
-        scan = nextScan;
+        scan = scan.next;
       }
       // —— 收束本组件岛（原作顺序：先捕残留，再断链）——
       const leftoverNext = componentEnd.next;

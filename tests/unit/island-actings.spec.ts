@@ -309,6 +309,32 @@ describe("ActiveContactSet（PCOL L14264 原模 94）", () => {
     expect(set.getIslandByIdi(5)!.needsUpdate).toBe(true);
     expect(set.getIslandByIdi(6)!.needsUpdate).toBe(false);
   });
+
+  it("__pureIsland 拆分：5 球回字链 remove 一接触后仍为一个连通岛（原作 L14519-14535 推进语义）", () => {
+    // 最小复现（曾因二遍搬移提前捕获 nextScan 而错拆为两岛）：接触按 A-B、D-E、C-D、B-C 加入
+    const set = makeSet();
+    const A = new BodySphere(1, 1, 0, 0, 0); A.uid = 5;
+    const B = new BodySphere(1, 1, 0, 0, 0); B.uid = 6;
+    const C = new BodySphere(1, 1, 0, 0, 0); C.uid = 7;
+    const D = new BodySphere(1, 1, 0, 0, 0); D.uid = 8;
+    const E = new BodySphere(1, 1, 0, 0, 0); E.uid = 9;
+    set.add(makeSSContact(A, B));
+    set.add(makeSSContact(D, E));
+    set.add(makeSSContact(C, D));
+    set.add(makeSSContact(B, C));
+    expect(set.nIslands).toBe(1);
+    expect(set.totalItems).toBe(4);
+    // 移除 A-B → 岛剩 D-E/C-D/B-C（仍全连通）→ needsPure 重切分
+    const removed = set.getIslandByIdi(5)!.itemEntry!;
+    set.remove(removed, true);
+    expect(set.nIslands).toBe(1);        // 不可拆成两岛
+    expect(set.totalItems).toBe(3);
+    expect(set.getNContacts(5)).toBe(0); // A 无接触
+    expect(set.getNContacts(6)).toBe(1); // B-C
+    expect(set.getNContacts(7)).toBe(2); // B-C + C-D
+    expect(set.getNContacts(8)).toBe(2); // C-D + D-E
+    expect(set.getNContacts(9)).toBe(1); // D-E
+  });
 });
 
 const groundPolyCache: Record<number, CollisionPolygon> = {};
