@@ -181,7 +181,6 @@ interface CollisionMeshData {
 }
 ```
 
-> 版权注意：该 JSON 为原作数据，仅本地学习用；仓库保留。正式发布前需重制或获授权。
 
 ## 5. 目录结构（骨架）
 
@@ -234,7 +233,9 @@ tests/
 
 ```
 math → physics(常量/刚体→世界) → simulator → rules → ai
-  ── 里程碑 M1：Node 终端跑 AI-vs-AI 完整对局（无图形），规则自洽
+  ── 里程碑 M1：Node 终端跑通"回合权机"完整对局（gState 循环+轮换+break 累计，
+     复刻 practice/single play 两模式，机制见 `docs/spec/07-游戏流程.md`；
+     自动化测试可由 AI 大脑驱动玩家列表，仅为测试装置，非游戏模式）
 render → controller → ui → audio
   ── 里程碑 M2：可玩，手感对照原作
   ── 里程碑 M3：声音 + 打磨
