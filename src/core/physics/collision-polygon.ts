@@ -51,6 +51,9 @@ export class CollisionPolygon {
   collisionGroup = 1;
   uv: number[] | null = null;
   private _size: Vec3 | null = null;
+  /** uv4pg 通道（模80 nt 法线图注入）；接触子系统读取（sp-contact.ts）。 */
+  hasCustomNormalHandler = false;
+  customNormalHandler: ((cp: Vec3, normal: Vec3) => void) | null = null;
 
   constructor(normal: Vec3, edges: MeshEdge[]) {
     this.normal = normal;

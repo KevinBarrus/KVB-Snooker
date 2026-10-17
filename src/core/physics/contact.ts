@@ -47,7 +47,7 @@ export class ContactBase {
   protected spaceTransformDirty = false;
   protected _m_loc2Wor = new Matrix3();
   protected _m_wor2Loc = new Matrix3();
-  protected impulseTransformDirty = false;
+  impulseTransformDirty = false;
   protected _m_locVel2Imp = new Matrix3();
   protected _m_imp2LocVel = new Matrix3();
   protected m_imp2WorVel = new Matrix3();
@@ -146,20 +146,17 @@ export class ContactBase {
     return this.cdRoundI !== this.bi!.cdRound || this.markedAsKilled;
   }
 
+  /** 基类只养 I 侧；J 侧语义（位置快照/复核/唤醒）全部在 ContactSS 重写（原模 22/37 分工）。 */
   startResting(): void {
     const bi = this.bi!;
     const bj = this.bj!;
     this.restingCheckPosI.copy(bi.position);
-    this.restingCheckPosJ.copy(bj.position);
     this.restitution = bi.restitution > bj.restitution ? bj.restitution : bi.restitution;
     this.friction = bi.friction > bj.friction ? bi.friction : bj.friction;
   }
 
   needsUpdateResting(): boolean {
-    return (
-      !this.restingCheckPosI.almostEquals(this.bi!.position) ||
-      !this.restingCheckPosJ.almostEquals(this.bj!.position)
-    );
+    return !this.restingCheckPosI.almostEquals(this.bi!.position);
   }
 
   resetRestingWithPeneNormal(depth: number, normal: Vec3): void {
@@ -174,7 +171,6 @@ export class ContactBase {
 
   stopResting(): void {
     this.bi!.wakeUp();
-    this.bj!.wakeUp();
   }
 
   resetWithBiBj(bi: Body, bj: Body | null): void {
@@ -249,7 +245,7 @@ export class ContactBase {
   }
 
   /** 冲量-等效速度矩阵 B = W2L·(−Σ I⁻¹·[arm]×²)·L2W + invMass·I → invert（单体版）。 */
-  protected updateImpulseTransform(): void {
+  updateImpulseTransform(): void {
     this.impulseTransformDirty = false;
     const m = this._m_imp2LocVel;
     const skew = this.skewSymmetric.setSkewSymmetric(this.armI);
@@ -307,6 +303,16 @@ export class ContactSS extends ContactBase {
     );
   }
 
+  override startResting(): void {
+    this.restingCheckPosJ.copy(this.bj!.position);
+    super.startResting();
+  }
+
+  override stopResting(): void {
+    this.bi!.wakeUp();
+    this.bj!.wakeUp();
+  }
+
   override needsUpdateResting(): boolean {
     return super.needsUpdateResting() || !this.restingCheckPosJ.almostEquals(this.bj!.position);
   }
@@ -358,7 +364,7 @@ export class ContactSS extends ContactBase {
   }
 
   /** 双体版：两侧各自的 B(-) 相加后再变换（PCOL L11670-11686）。 */
-  protected override updateImpulseTransform(): void {
+  override updateImpulseTransform(): void {
     this.impulseTransformDirty = false;
     const m = this._m_imp2LocVel;
     let skew = this.skewSymmetric.setSkewSymmetric(this.armI);

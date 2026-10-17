@@ -4,7 +4,7 @@ import { Body } from "./body.js";
 
 /** PCOL L11577-11602（原模 36）：球形刚体，语义 1:1。 */
 export class BodySphere extends Body {
-  radiusSq: number;
+  override radiusSq: number;
   /** 渲染层插值状态（syncStates 每 WorldClient.step 后驱动视觉平滑）。 */
   states = {
     position: new Vec3(),

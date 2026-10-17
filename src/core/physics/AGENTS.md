@@ -26,8 +26,14 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 - [x] `contact.ts`（ContactBase 模22 + ContactSS 模37）/ `tip-contact.ts`（模86）
 - [x] `collision-polygon.ts`（MeshEdge 模83 + CollisionPolygon 模82）/ `mesh-body.ts`（PolyGroup 模81 + MeshBody 模84 + schema 类型）
 - [x] `solver.ts`（模21：接触冲量 / 贪心岛屿求解 / 穿透偏移，`Solver.sharedInstance`，24 项单测）
-- [ ] `island.ts`
-- [ ] `world.ts` / `world-client.ts`
+- [x] `pool.ts`（模38 对象池）/ `sp-contact.ts`（模92 SP 接触）/ `island.ts`（模93）/ `actings.ts`（模94 cActings）/ `ccd.ts`（模34：CCD/TOI/岛屿维护全套，11 项单测）
+- [ ] `world.ts` / `world-client.ts`（模39/95，最后一单元，M1 关口）
+
+## 转写时新发现的怪癖（不可"改进"）
+
+10. `__pureIsland`（模94）：组件收束**先捕残留再断链**（`leftoverNext = componentEnd.next` 先于置空）——顺序颠倒第二个分量永远不生成（曾出错，测试已冻结）
+11. 同岛联通合并：A-b 有 SS 接触时，b 的 SP 接触会 push 进**合并岛**（不是新岛）——island 归属由 idMap 并查集语义决定
+12. Actings 网格：列下标 = idj（多边形 uid 或球 uid 混用）；手工构造接触时**必须赋 uid**（−1 会写入 typed array 陷阱静默失败）
 
 ## 必须原样复刻的怪癖（不可"改进"）
 
