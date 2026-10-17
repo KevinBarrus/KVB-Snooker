@@ -138,13 +138,17 @@ export interface Ball {
   serialize(balls: number[]): void                  // 规格 01 §4.4
 }
 
-// ---- MeshBody（台面碰撞体，规格 03） ----
+// ---- MeshBody（台面碰撞体，规格 03；id 由加载缓存赋值=任务名，spec 03 §1） ----
 export interface MeshBody {
-  readonly id: string                               // mbid 校验用
+  id: string
   readonly nPolygons: number
-  readonly lowestPosition: Vec3                     // 落袋判定阈值 y=0.6033
+  readonly nEdges: number
+  readonly groups: PolyGroup[]            // name 见 STRUCTURAL_ORDER: ground/side/tunnel
   readonly ground: CollisionPolygon | null
-  getPolygonsByFlag(flag: string): CollisionPolygon[]
+  readonly lowestPosition: Vec3           // 落袋判定阈值（实测台面 y≈0.6033）
+  getGroupByName(name: string): PolyGroup | null
+  getPolygonByID(uid: number): CollisionPolygon | null
+  slice(name: string): { groups: PolyGroup[] }   // 原作鸭子类型：WorldClient 预测只留 ground
 }
 
 // ---- Simulator（模 50 等价：表现层唯一入口） ----

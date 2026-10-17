@@ -50,11 +50,12 @@ export function setBallFrictionAndRestitution(t: FrictionTarget): void {
 }
 
 /** 库边/台面：标记旗标（ground/sidehard/sidesoft/tunnel/pocket，同名字段存在性）→ 恢复系数查表。 */
-export function setPolyFrictionAndRestitution(t: { [key: string]: unknown; friction: number; restitution: number }): void {
+export function setPolyFrictionAndRestitution(t: { friction: number; restitution: number }): void {
   t.friction = PHYSICS.frictionP;
   const table = PHYSICS.restitution as RestitutionKeys;
+  const flags = t as unknown as Record<string, unknown>;
   for (const key in table) {
-    if ((t as { [key: string]: unknown })[key]) {
+    if (flags[key]) {
       t.restitution = table[key as keyof RestitutionKeys];
       return;
     }
