@@ -1,0 +1,103 @@
+import { SnookerRef, type RulesContext } from "./rules/snooker.js";
+import type { Simulator } from "./simulator/simulator.js";
+import type { SerialData, StrokeVars } from "./simulator/shot-result.js";
+import { Player } from "./player.js";
+
+// PCOL L8922-8931
+export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16 } as const;
+export type GameState = typeof GAME_STATE[keyof typeof GAME_STATE];
+export type GameMode = "practice" | "single-play";
+
+export interface GameContext extends RulesContext {
+  playerIndex: number;
+  nRounds: number;
+}
+
+// PCOL L3660-3772
+export class GameSession {
+  readonly context: GameContext = { inHand: 0, ballOn: 0, playerIndex: -1, nRounds: 0 };
+  readonly players: Player[];
+  readonly result = { score: 0, foulCode: 0 };
+  private readonly ref = new SnookerRef();
+  private currentState: GameState = GAME_STATE.NO_GAME;
+  private serialData: SerialData | null = null;
+
+  constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play") {
+    this.players = mode === "practice" ? [new Player("USER")] : [new Player("USER"), new Player("AI")];
+    this.currentState = GAME_STATE.PENDING;
+    this.ref.syncAreaWithSimulator(simulator);
+    this.reset();
+  }
+
+  get state(): GameState { return this.currentState; }
+  get finished(): boolean { return this.mode === "single-play" && this.context.ballOn === 0; }
+  get snapshot(): SerialData | null {
+    return this.serialData && { ...this.serialData, balls: [...this.serialData.balls] };
+  }
+
+  reset(): void {
+    this.currentState = GAME_STATE.JUDGING;
+    for (const player of this.players) player.clearScores();
+    this.context.playerIndex = this.context.nRounds = 0;
+    this.ref.resetGContext(this.context);
+    if (this.mode === "practice") {
+      this.context.inHand = 1;
+      this.context.ballOn = this.ref.sysReservedBallOn;
+    }
+    this.result.score = this.result.foulCode = 0;
+    this.simulator.reset(true, true);
+    this.response();
+  }
+
+  placeCueBall(x: number, y: number, z: number): boolean {
+    if (this.state !== GAME_STATE.READY || this.finished) return false;
+    if (!this.ref.placeCueBallCheck(x, y, z, this.simulator)) return false;
+    this.currentState = GAME_STATE.JUDGING;
+    this.simulator.respotIndexXYZ(0, x, this.simulator.spotY, z);
+    if (this.context.inHand > 1) this.context.inHand = 1;
+    this.response();
+    return true;
+  }
+
+  stroke(playerIndex: number, vars: StrokeVars): boolean {
+    if (this.state !== GAME_STATE.READY || this.finished || playerIndex !== this.context.playerIndex) return false;
+    this.players[playerIndex].shootingCount++;
+    this.currentState = GAME_STATE.SIMULATING;
+    this.simulator.stroke(vars);
+    return true;
+  }
+
+  step(dt: number): void {
+    if (this.state !== GAME_STATE.SIMULATING) return;
+    this.simulator.step(dt);
+    if (this.simulator.nAwakened !== 0) return;
+    this.currentState = GAME_STATE.JUDGING;
+    this.ref.checkResult(this.context, this.simulator, this.result);
+    const index = this.context.playerIndex;
+    const player = this.players[index];
+    this.context.nRounds++;
+    if (this.result.score > 0) {
+      player.pts += this.result.score;
+      player.scoreCount++;
+      player.brk += this.result.score;
+    } else {
+      player.penalty += this.result.score;
+      player.brk = 0;
+      this.context.playerIndex = (index + 1) % this.players.length;
+    }
+    this.response();
+  }
+
+  private response(): void {
+    let count = 0;
+    while (this.simulator.nAwakened !== 0) {
+      if (++count > 200) {
+        this.currentState = GAME_STATE.ERROR;
+        throw new Error("too much ff(>200), must be some error!");
+      }
+      this.simulator.step(0.1);
+    }
+    this.serialData = this.simulator.serialize();
+    this.currentState = GAME_STATE.READY;
+  }
+}

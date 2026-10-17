@@ -37,3 +37,7 @@ PCOL（tq.ztr8.uk 斯诺克游戏）的 1:1 复刻项目。
 ## 施工期顺序
 
 math → physics → simulator → rules → ai（里程碑 M1：Node 终端跑通回合权机对局）→ render → controller → ui → audio。扩展规划见 `docs/09-扩展规划.md`。
+
+## M1 终端装配
+
+`src/core/game.ts` / `player.ts` / `demo.ts` 为 Node 装配根；章程见 `src/core/AGENTS.md`。`npm run demo` 跑 single play，`npm run demo -- --mode practice` 跑自由练习；读取本地台面数据，不提交 analysis/ 原作文件。

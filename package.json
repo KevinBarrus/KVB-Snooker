@@ -5,7 +5,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "demo": "tsc --noEmit false --outDir .cache/demo && node .cache/demo/src/core/demo.js"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
