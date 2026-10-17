@@ -49,29 +49,50 @@ EventBus 实现放 `core/event-bus.ts`：`on/off/emit`，类型化载荷，≤10
 
 ### 4.1 数学库 `src/core/math/`
 
-从规格 01 §实现，API 对齐原作方法名（可读性优先，必要时加拼音注释映射原作）：
+从规格 01 §3 实现的方法全集（语义 1:1，含原作怪癖；怪癖清单见 `src/core/math/AGENTS.md`）：
 
 ```ts
 export class Vec3 {
   x: number; y: number; z: number
-  constructor(x?: number, y?: number, z?: number)
-  set(x: number, y: number, z: number): this
-  copy(v: Vec3): this
-  clone(): Vec3
-  add(v: Vec3): this; addScaled(v: Vec3, s: number): this
-  subVectors(a: Vec3, b: Vec3): this
-  scale(s: number): this; scaleVector(s: number, v: Vec3): this
-  dot(v: Vec3): number
-  crossVectors(a: Vec3, b: Vec3): this
-  normalize(): this; normalizeVector(v: Vec3): this
-  length(): number; lengthSq(): number
-  distanceTo(v: Vec3): number; distanceToSq(v: Vec3): number
-  almostEquals(v: Vec3, e?: number): boolean
   static readonly ZERO / UNIT_X / UNIT_Y / UNIT_Z: Vec3
-  static readonly EPSILON: number   // 原作常量，规格 01 §3
+  static readonly EPSILON: number          // 1e-6
+  constructor(x?, y?, z?)
+  // 基础
+  set(v3) / setZero() / copy(v) / copyNeg(v) / clone()
+  toArray(target, offset) / fromArray(source, offset?) → 3
+  // 度量
+  length() / lengthSq() / distanceTo(v) / distanceToSq(v) / dot(v) / isZero()
+  normalize() (零向量→全0) / normalizeVector(v) (安全)
+  almostZero(eps?) 默认 EPSILON / almostEquals(v) 阈值固定 EPSILON，无参重载
+  // 组合
+  add(v) / addScaled(v, s) / addVectors(a, b) / sub(v) / subVectors(a, b) / interpolate(a, b, ratio)
+  scale(s) / scaleVector(s, v) (标量在前) / multiply(v) 逐分量 / negate() / lerp(v, r)
+  cross(v) / crossVectors(a, b) / setCrossThenAdd(a, b, c)   // this = a×b + c，整体覆盖
+  applyQuaternion(q) / vectorApplyQuaternion(p, q)            // 标准右手系主动旋转
 }
-export class Quaternion { /* set(9参3x3)/setFromEuler/setFromAngleAxis/multiply/integrate/integrateQuad — 规格 01 §3 */ }
-export class Matrix3 { /* Float32Array(9)：set(9参)/copy/clone/fromArray/identity/multiply — 规格 01 §3 */ }
+
+export class Matrix3 {                        // Float32Array(9)
+  data: Float32Array
+  // 语义约定：set(9参) 落位后 transform 的有效矩阵是参数矩阵的转置；
+  // multiply 以存储块为行主序自洽，含原作自乘别名行为（AGENTS 怪癖 4）
+  set(9参) / identity() / copy(m) / clone() / fromArray(arr, o?) → 9 (原始按序拷贝)
+  toArray(target, offset) / toString()
+  transform(v, out) / transformTranspose(v, out)
+  multiply(m) / multiplyScalar(s) / add(m) / addToDiagonal(d)
+  setInverse(m) (奇异→warn+identity) / setTranspose(m) / transpose()
+  setSkewSymmetric(v) ([v]×) / setComponents(a, b, c) (无返回值)
+}
+
+export class Quaternion {                     // (x, y, z, w)
+  constructor(x?, y?, z?, w?)                 // 默认 identity
+  set(x, y, z, w) / copy(q) / clone() / toArray(...) / fromArray(...) → 4 / toString()
+  setFromAngleAxis(axis, angle)
+  setFromEuler(x, y, z, order?) 缺省序=XYZ；六序可选；未知序抛 "Unknown order"
+  normalize() (零长度→重置(0,0,0,1)，区别于 Vec3)
+  integrate(w, dt) (q + ½·dt·(ω⊗q) 后归一) / integrateQuad(q, wPrev, dt)
+  slerpQuaternions(a, b, t) (无返回值，写入自身)
+  multiply(q) (this = this ⊗ q)
+}
 ```
 
 ### 4.2 模拟核心 `src/core/`

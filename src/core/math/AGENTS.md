@@ -16,11 +16,16 @@
   - Matrix3：L8969-9184（原模 17）
   - Quaternion：L9633-9835（原模 23）
 
-## 必须原样复刻的怪癖（video 不可"改进"）
+## 必须原样复刻的怪癖（不可"改进"）
 
 1. `Vec3`：`normalize()` 零向量 → 全 0（不清除 NaN）；`scaleVector(s, v)` 参序为标量在前；`almostEquals` 阈值固定 `EPSILON=1e-6`，不得参数化
-2. `Matrix3`：`set(9参)` 为**行主序入参、列主序存储**（`data[0..2]` 是第一列），`copy/fromArray/clone` 均按此转换；`setInverse` 奇异时仅 `console.warn` 并置 identity
+2. `Matrix3`：`set(9参)` 落位后 transform 的有效矩阵为参数矩阵的转置；`setInverse` 奇异时仅 `console.warn` 并置 identity
 3. `Quaternion`：`normalize()` 零长度 → 重置为 `(0,0,0,1)`；`integrate(ω, dt)` = `q + ½·dt·(ω⊗q)` 后归一；`integrateQuad` 为对称梯形变体，公式照抄不可重排
+4. `Matrix3.multiply(this)` **自乘别名**：写入先于读取污染后续行（结果见回归测试"原作自乘别名语义"），上层 need 双份时由调用方自行 clone——与原作逐字节一致
+
+## 与原作的已登记差异
+
+- `Matrix3.clone()`：原作 L9017-9019 返回数字 9（`fromArray` 返回值泄漏，游戏内无调用点），本实现返回 `Matrix3`。其余方法与原作逐字节等价。
 
 ## 测试要求
 
