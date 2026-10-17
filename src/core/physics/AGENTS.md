@@ -25,7 +25,8 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 - [x] `rng.ts`（core/rng：播种 RNG，09-扩展规划 §0.1）+ `constants.ts` + `body.ts` + `ball.ts`
 - [x] `contact.ts`（ContactBase 模22 + ContactSS 模37）/ `tip-contact.ts`（模86）
 - [x] `collision-polygon.ts`（MeshEdge 模83 + CollisionPolygon 模82）/ `mesh-body.ts`（PolyGroup 模81 + MeshBody 模84 + schema 类型）
-- [ ] `solver.ts` / `island.ts`
+- [x] `solver.ts`（模21：接触冲量 / 贪心岛屿求解 / 穿透偏移，`Solver.sharedInstance`，24 项单测）
+- [ ] `island.ts`
 - [ ] `world.ts` / `world-client.ts`
 
 ## 必须原样复刻的怪癖（不可"改进"）
@@ -39,6 +40,13 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 7. `serialize` 非可序列化体 push `-1−floor(10·rand)`；**登记差异**：原作 Math.random → 本实现走 `coreRandom()` 播种（09-扩展规划 §0.1）
 8. `deserialize` 不恢复 uid（由 World 重建环境时重排；stream 第 0 位仅残留轨迹值）
 9. `Sphere invInertia = diag(1/(0.4·m·r²))`；`getMotion() = vSq + wSq·r²`
+10. Solver 摩擦上限直接取 `d.x * friction`，不额外取绝对值（L9347-9352）；滚动摩擦标量独立经 `p/armLen` 传入 `applyImpulseAtPoint`（L9354-9358）
+11. Solver 每轮最多贪心求解 `totalItems` 次，最多 4 轮；单接触最多求解一次即退出；穿透 `< -EPSILON` 才登记双方各半偏移，由 `Body.step` 应用（L9373-9413）
+
+## Solver 登记差异
+
+- 原模 20 性能统计尚未移植，省略 `startTick` / `stopTick` / `count`（L9361、L9371、L9384、L9396）；仅影响诊断，不影响求解行为。
+- 岛屿实现尚未施工，Solver 内仅声明 `dirty` / `totalItems` / `itemEntry` / `next` 的结构类型供链表输入使用，不实现岛屿管理。
 
 ## 测试模型说明
 
