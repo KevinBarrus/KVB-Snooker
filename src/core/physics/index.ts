@@ -12,3 +12,7 @@ export { Island } from "./island.js";
 export { ActiveContactSet } from "./actings.js";
 export { MeshEdge, CollisionPolygon } from "./collision-polygon.js";
 export { MeshBody, type CollisionMeshData, type CollisionMeshGroupData, type CollisionMeshPolyData } from "./mesh-body.js";
+export { Solver, SolverEngine } from "./solver.js";
+export { ScenePendings } from "./pendings.js";
+export { World } from "./world.js";
+export { WorldClient } from "./world-client.js";

@@ -287,6 +287,20 @@ export class Body {
     return false;
   }
 
+  /** PCOL L11436-11445：仅置空引用（池销毁路径；原作类型为动态语言置 null）。 */
+  dispose(): void {
+    const n = null as unknown as Vec3;
+    this.acc = n;
+    this.v = n;
+    this.vProp_dir = n;
+    this.vProp0_dir = n;
+    this.w = n;
+    this.invInertia = n as unknown as never;
+    this.position = n;
+    this.orientation = n as unknown as never;
+    this.userData = null;
+  }
+
   addPeneOffset(depth: number, offset: Vec3): void {
     if (depth < this.penetration) {
       this.penetration = depth;

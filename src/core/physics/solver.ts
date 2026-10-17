@@ -64,7 +64,7 @@ export class Solver {
     this._sloveChildrenPene(island);
   }
 
-  private _solveMostUrgentChildren(island: SolverIsland): boolean {
+  protected _solveMostUrgentChildren(island: SolverIsland): boolean {
     if (island.totalItems === 1) {
       const contact = island.itemEntry!;
       if (contact.getCloseSpeed() < -Vec3.EPSILON) this.solveContact(contact);
@@ -95,5 +95,58 @@ export class Solver {
         if (contact.isSS) contact.bj!.addPeneOffset(depth, penetrationOffset.scale(-1));
       }
     }
+  }
+}
+
+// PCOL L13580-13644（原模 85）：预测引擎变体——callback 命中即置 interrupt 中断整个求解链。
+export class SolverEngine extends Solver {
+  static override sharedInstance = new SolverEngine();
+  private callback: ((contact: ContactBase) => boolean) | null = null;
+  interrupt = false;
+
+  reset(t: ((contact: ContactBase) => boolean) | null): void {
+    this.callback = t;
+  }
+
+  override solveList(
+    list: { entry: SolverIsland | null },
+    all: boolean
+  ): void {
+    if (this.interrupt) return;
+    for (let island = list.entry; island; island = island.next) {
+      if (all) this.solveIsland(island);
+      else if (island.dirty) this.solveIsland(island);
+      if (this.interrupt) return;
+    }
+  }
+
+  protected override _solveMostUrgentChildren(island: SolverIsland): boolean {
+    if (island.totalItems === 1) {
+      const contact = island.itemEntry!;
+      if (contact.getCloseSpeed() >= -Vec3.EPSILON) return true;
+      this.solveContact(contact);
+      if (this.callback?.(contact)) {
+        this.interrupt = true;
+      }
+      return true;
+    }
+    for (let solved = 0, total = island.totalItems; solved !== total; ++solved) {
+      let mostUrgent: ContactBase | null = null;
+      let minSpeed = 0;
+      for (let contact = island.itemEntry; contact; contact = contact.next) {
+        const speed = contact.getCloseSpeed();
+        if (speed < minSpeed) {
+          minSpeed = speed;
+          mostUrgent = contact;
+        }
+      }
+      if (!mostUrgent || minSpeed >= -Vec3.EPSILON) return true;
+      this.solveContact(mostUrgent);
+      if (this.callback?.(mostUrgent)) {
+        this.interrupt = true;
+        return true;
+      }
+    }
+    return false;
   }
 }

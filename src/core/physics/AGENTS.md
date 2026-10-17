@@ -27,7 +27,8 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 - [x] `collision-polygon.ts`（MeshEdge 模83 + CollisionPolygon 模82）/ `mesh-body.ts`（PolyGroup 模81 + MeshBody 模84 + schema 类型）
 - [x] `solver.ts`（模21：接触冲量 / 贪心岛屿求解 / 穿透偏移，`Solver.sharedInstance`，24 项单测）
 - [x] `pool.ts`（模38 对象池）/ `sp-contact.ts`（模92 SP 接触）/ `island.ts`（模93）/ `actings.ts`（模94 cActings）/ `ccd.ts`（模34：CCD/TOI/岛屿维护全套，11 项单测）
-- [ ] `world.ts` / `world-client.ts`（模39/95，最后一单元，M1 关口）
+- [x] `pendings.ts`（模91 双栈撞击簇）/ `world.ts`（模39 步进主循环）/ `world-client.ts`（模95 预测客户端）+ `solver.ts` 追加 `SolverEngine`（模85 callback/interrupt 变体）+ `Body.dispose`（L11436）
+- **physics 全域完成（141 项测试）→ M1 物理底盘闭合**
 
 ## 转写时新发现的怪癖（不可"改进"）
 
@@ -39,7 +40,7 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 
 1. Body 构造时 `energy = Body.minEnergy`（World.stepSize 未设定前为 NaN）
 2. `predVelocities(dt)`：rfDir 被复用为"归一化力"（先归一自身，再按各轴钳制 w），随后整体置零——原作复用技巧，不得重排
-3. `step()`：`minEnergy 且 canSleep` → 立即 `setSleep()` 并 return true；`penetration≠0` 时位置追加 peneOffset 且 `canSleep=false`
+3. `step()`：`minEnergy 且 canSleep` → 立即 `setSleep()` 并 return true；`penetration≠0` 时位置追加 peneOffset 且 `canSleep=false`（返回值语义：true = 已睡/入睡，false = 仍活动）
 4. `updateVProps`：vSq 低于 `Vec3.EPSILON` 时 v/dir/sq 三者原地清零
 5. `applyImpulseAtPoint`：rfDir 累加的是**扭矩**（e×t），rfPower 取 max
 6. v/w 的可信值必须经 `predVelocities`/`applyImpulse`/`solveContact` 路径置脏——直接 set 不置脏读到旧缓存是**原作语义**（测试即按此模型：手工 set 必先 markDirty）
@@ -48,11 +49,18 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 9. `Sphere invInertia = diag(1/(0.4·m·r²))`；`getMotion() = vSq + wSq·r²`
 10. Solver 摩擦上限直接取 `d.x * friction`，不额外取绝对值（L9347-9352）；滚动摩擦标量独立经 `p/armLen` 传入 `applyImpulseAtPoint`（L9354-9358）
 11. Solver 每轮最多贪心求解 `totalItems` 次，最多 4 轮；单接触最多求解一次即退出；穿透 `< -EPSILON` 才登记双方各半偏移，由 `Body.step` 应用（L9373-9413）
+12. **碰撞门反向**（L11118-11119）：`A.collGroup & B.collMask 真则跳过`——即 **mask & group == 0 才参与碰撞**（mask = "禁撞位"语义，非常规引擎的"允许位"）
+13. `ScenePendings.step2`（模91）：弹出的是"同撞刻簇"（toi ∈ [最早, 最早+tPrecision]），**返回值 = 组内最大 toi（e[out.length−1]），非最早**——球推进到最后撞点，簇内毫秒级误差由原作有意统一
+14. `ScenePendings` 双栈：`stack`/`idleStack` swap；`add` 置脏 → 下轮 step2 才 resort（TOISorter 降序 + 同 toi 大穿透优先）
+15. `WorldClient.predict`：预测台面 = `meshBody.slice("ground")`（只有地面多边形）；碰撞锁定后双方 `collisionMask = 12`（禁类型位——绝不能再撞）；其余球 inactivate；`getMotion() < 1` 收束阈值 + 迭代 ≤ 70
+16. `World.deserialize` 先逐球恢复 23 字段、后 `reset()`（重算岛）再回填 evolution（覆盖 reset 的 ++）——顺序不得换
+17. `World.reset` 中 `nRechecks !== 0` 必须抛错（确定性回放的强校验）
 
-## Solver 登记差异
+## 登记差异
 
-- 原模 20 性能统计尚未移植，省略 `startTick` / `stopTick` / `count`（L9361、L9371、L9384、L9396）；仅影响诊断，不影响求解行为。
-- 岛屿实现尚未施工，Solver 内仅声明 `dirty` / `totalItems` / `itemEntry` / `next` 的结构类型供链表输入使用，不实现岛屿管理。
+- 原模 20 性能统计尚未移植，省略 `startTick`/`stopTick`/`count`（World.step/internalStep/求解器多处）；仅影响诊断，不影响行为。
+- 原模 91 `log()` 调试方法未移植。
+- 模 85 的 `interrupt` 在 callback 为 null 时退化为基础 Solver；`SolverEngine.sharedInstance` 供预测路径专用。
 
 ## 测试模型说明
 
