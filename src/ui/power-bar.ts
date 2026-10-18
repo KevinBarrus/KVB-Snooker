@@ -32,13 +32,11 @@ export class PowerBar {
     }
   }
 
-  // PCOL L1508：alpha 为 0 即不可见
+  // PCOL L1508
   get visible(): boolean {
     return this.autoAlphaValue !== 0;
   }
 }
-
-// ---- DOM 视图 ----
 
 export class PowerBarDom {
   readonly element: HTMLElement;

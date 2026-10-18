@@ -10,7 +10,6 @@ export class Hud {
   readonly foulNotice = new FoulNotice();
   readonly powerBar = new PowerBar();
   readonly shortcutsBar = new ShortcutsBar();
-  ballOn = 0;
   playerIndex = 0;
   private readonly disposers: Array<() => void> = [];
 
@@ -27,16 +26,13 @@ export class Hud {
         this.scorePanel.setPlayerIndex(playerIndex);
         this.shortcutsBar.active = true;
       }),
-      bus.on("game/ball-on-changed", ({ ballOn }) => {
-        this.ballOn = ballOn;
-        this.scorePanel.setBallOn(ballOn);
-      }),
+      bus.on("game/ball-on-changed", ({ ballOn }) => this.scorePanel.setBallOn(ballOn)),
       bus.on("game/frame-events", () => {
         this.scorePanel.syncResults(this.players(), this.playerIndex);
       }),
-      // PCOL L8012-8016：终局（ballOn=0）走结算面板，不弹 FOUL
+      // PCOL L8012-8016
       bus.on("game/foul", ({ foulCode, description, score }) => {
-        if (foulCode !== 0 && this.ballOn !== 0) this.foulNotice.showFoul(score, description);
+        if (foulCode !== 0 && this.scorePanel.ballOn !== 0) this.foulNotice.showFoul(score, description);
       }),
       bus.on("ctrl/state-change-start", () => {
         this.shortcutsBar.active = false;

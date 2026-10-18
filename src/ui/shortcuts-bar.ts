@@ -4,13 +4,10 @@ export const CTRL_STATE = { STAND: 0, AIM: 1 } as const;
 
 export class ShortcutsBar {
   active = false;
-  /** 当前显示的按键组：1 为 aim-group，其余一律 stand-group（PCOL L5960）。 */
   group = -1;
 }
 
-// ---- DOM 视图 ----
-
-// PCOL L12122，模板原样照抄
+// PCOL L12122
 const SHORTCUTS_BAR_TEMPLATE =
   '<div class="shortcut-group no-drag stand-group">\n' +
   '\t\t<div class="shortcut-item aim-key"><span class="kb">W</span>AIM</div>\n' +
@@ -52,7 +49,7 @@ export class ShortcutsBarDom {
     }
   }
 
-  // PCOL L5932-5940 显示用 flex；L5958-5964 组切换
+  // PCOL L5932-5940、L5958-5964
   sync(bar: ShortcutsBar): void {
     if (bar.active !== this.renderedActive) {
       this.renderedActive = bar.active;

@@ -1,7 +1,5 @@
 // PCOL L12110（score-container 模板）/ L7540-7592（As scoreBar 行为）。
-// 状态部分零 DOM，smoke test 直接消费；DOM 视图仅在本文件后半。
 
-/** 记分板读取的玩家字段（core Player 的结构子集，只读）。 */
 export interface ScoreSource {
   readonly pts: number;
   readonly penalty: number;
@@ -12,7 +10,7 @@ export interface ScoreGroupState {
   head: string;
   pts: number;
   brk: number;
-  /** 当前展示在 ball-on 图标上的 mask；非当前玩家恒为 0（PCOL L7582/7587）。 */
+  // PCOL L7582/7587
   ballOn: number;
   visible: boolean;
 }
@@ -25,13 +23,17 @@ export class ScorePanel {
   readonly groups: [ScoreGroupState, ScoreGroupState] = [makeGroup(), makeGroup()];
   private playerCountValue = 1;
   private playerIndex = 0;
-  private ballOn = 0;
+  private ballOnValue = 0;
 
   get playerCount(): number {
     return this.playerCountValue;
   }
 
-  // PCOL L7562-7575：resetPlayers
+  get ballOn(): number {
+    return this.ballOnValue;
+  }
+
+  // PCOL L7562-7575
   resetPlayers(names: readonly string[]): void {
     const [g0, g1] = this.groups;
     g0.head = (names[0] ?? "").toUpperCase();
@@ -47,19 +49,17 @@ export class ScorePanel {
     }
   }
 
-  /** game/ball-on-changed → 目标球指示（只更新缓存，落组由 applyBallOn 完成）。 */
   setBallOn(ballOn: number): void {
-    this.ballOn = ballOn;
+    this.ballOnValue = ballOn;
     this.applyBallOn();
   }
 
-  /** sim/shooting-start → 当前击球玩家。 */
   setPlayerIndex(playerIndex: number): void {
     this.playerIndex = playerIndex;
     this.applyBallOn();
   }
 
-  // PCOL L7577-7592：syncResults；显示分 = 本人 pts − 对方 penalty
+  // PCOL L7577-7592
   syncResults(players: readonly ScoreSource[], playerIndex: number): void {
     const s = players[0];
     if (s === undefined) return;
@@ -78,14 +78,12 @@ export class ScorePanel {
   }
 
   private applyBallOn(): void {
-    this.groups[0].ballOn = this.playerIndex === 0 ? this.ballOn : 0;
-    this.groups[1].ballOn = this.playerIndex === 1 ? this.ballOn : 0;
+    this.groups[0].ballOn = this.playerIndex === 0 ? this.ballOnValue : 0;
+    this.groups[1].ballOn = this.playerIndex === 1 ? this.ballOnValue : 0;
   }
 }
 
-// ---- DOM 视图 ----
-
-// PCOL L12110，模板原样照抄
+// PCOL L12110
 const SCORE_PANEL_TEMPLATE =
   '<div class="left">\n' +
   '\t\t<h2 class="head"></h2>\n' +
@@ -110,7 +108,7 @@ interface GroupElements {
   pts: HTMLElement;
 }
 
-/** 上次写入值（PCOL L7535-7552）：pts/brk 为 NaN 首帧必写；ballOn 初值 0，故 mask 0 永不写 b-0 类名。 */
+// PCOL L7535-7552
 interface GroupCache {
   head: string;
   pts: number;
@@ -160,7 +158,7 @@ export class ScorePanelDom {
     this.syncGroup(1, panel.groups[1]);
   }
 
-  // PCOL L7553-7560：仅值变化才写；ball-on 图标类名直接拼 mask
+  // PCOL L7553-7560
   private syncGroup(index: number, state: ScoreGroupState): void {
     const els = this.groups[index];
     const cache = this.cache[index];

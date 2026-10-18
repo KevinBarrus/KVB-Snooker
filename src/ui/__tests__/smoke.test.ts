@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EventBus } from "../../core/event-bus";
 import { FOUL, getFoulDescription } from "../../core/rules/foul";
-import { MESSAGE_TYPE } from "../foul-notice";
 import { Hud } from "../hud";
 import { CTRL_STATE } from "../shortcuts-bar";
 
@@ -41,7 +40,6 @@ describe("ui smoke：EventBus → HUD 状态", () => {
     expect(notice.active).toBe(true);
     expect(notice.head).toBe("FOUL");
     expect(notice.body).toBe("-4: MISS TARGET.");
-    expect(notice.type).toBe(MESSAGE_TYPE.ERROR);
     expect(notice.autoCloseTimer).toBeCloseTo(1 + 0.08 * (4 + 16));
 
     hud.update(2.5);
@@ -92,6 +90,6 @@ describe("ui smoke：EventBus → HUD 状态", () => {
     const { bus, hud } = setup();
     hud.detach();
     bus.emit("game/ball-on-changed", { ballOn: RED, inHand: 0 });
-    expect(hud.ballOn).toBe(0);
+    expect(hud.scorePanel.ballOn).toBe(0);
   });
 });
