@@ -14,6 +14,7 @@
 ## 施工单元状态
 
 - [x] player.ts / game.ts / demo.ts；npm run demo 接入；5 项真实物理/规则回合测试。
+- [x] event-bus.ts：docs/architecture.md §3 事件目录 + ContactEvent/FoulEvent/BallOnChangedEvent/FrameEvents 载荷契约；on/off/emit（类型化，≤100 行），on 返回取消函数，emit 快照遍历。测试 tests/unit/event-bus.spec.ts。
 - 验收：189 项全量测试与 tsc 通过；原作 22 球台面单局 52 杆结束，ballOn=0，总分 61:65，最高 break 14:39；practice 完成 3 杆。
 
 ## 转写时新发现的怪癖（不可"改进"）
