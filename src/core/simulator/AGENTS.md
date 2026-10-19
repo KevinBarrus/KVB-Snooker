@@ -16,6 +16,7 @@ PCOL 模拟器装配、球 wrapper 与单杆结果统计。
 ## 施工单元状态
 
 - [x] ball.ts / scene.ts / shot-result.ts / simulator.ts（15 项单测，含真实 SnookerRef 接入）。
+- [x] BallView.renderPosition / renderOrientation（2026-10-19 用户批准扩展）：只读数值快照；重摆及显式 restore 同步显示状态；新增 13 项单测，模块共 28 项，全量 235 项与 typecheck 通过。
 
 ## 转写时新发现的怪癖（不可"改进"）
 
@@ -25,6 +26,9 @@ PCOL 模拟器装配、球 wrapper 与单杆结果统计。
 4. touchBalls 阈值为 (clearance+r)²−EPSILON，默认 clearance=1.02r；规则重置采用 1.05r。
 5. reset 第二个参数实际控制 clearResult，不是是否归位；hard 才重置位置。
 6. stroke/resetBallXYZ/resetBallPosition(null) 仅令本地 nAwakened++，step 才刷新为物理计数。
+7. 原作渲染读取 states.position / states.orientation，阴影显隐却用物理 position.y（L1886-1900）；不能把 BallView.position 改成显示位置。
+8. WorldClient 显示位置按剩余时间外推；剩余时间大于 stepSize 时改用 0（L14706-14714）。predict 使用 internalStep，不刷新 states，结束还原物理状态后保留原显示姿态（L14715-14741）。
+9. Body.reset 清速度并重摆位置，但不重置 orientation（L11535-11546）；显示快照必须保留重摆前的物理朝向。
 
 ## 登记差异
 
@@ -32,6 +36,8 @@ PCOL 模拟器装配、球 wrapper 与单杆结果统计。
 - getBallView/getCueBallPosition/getResult/predict 的契约视图返回拷贝；Ref 所需内部 getBalls/result 保留原作引用语义。
 - 架构 BallView.async 无原作对应字段，映射为 active && !asleep，表示仍在演化的球。
 - predict 先保存当前世界，避免依赖浏览器 gameflow 先调用 save 的时序。
+- 经用户批准，BallView 新增 renderPosition/renderOrientation 只读数值字段，返回普通对象拷贝，不暴露 states 内部引用；position 继续返回物理位置拷贝。
+- 原作在 step 后统一刷新 states；本项目为支持下一次 step 前读取视图，在 resetBallXYZ 和显式 restore 后额外调用已有 syncStates(0)。构造/默认归位/硬重置复用 resetBallXYZ；不修改物理层、存档格式或 accumulator。stroke 与 predict 不额外刷新 states。
 
 ## 测试模型说明
 

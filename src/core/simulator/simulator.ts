@@ -93,10 +93,14 @@ export class Simulator {
   getBallCount(): number { return this.balls.length; }
   getCueBallPosition(): Readonly<Vec3> { return this.balls[0].position.clone(); }
 
+  // PCOL L1886-1900
   getBallView(index: number): BallView {
     const ball = this.balls[index];
+    const { position, orientation } = ball.states;
     return { index: ball.index, number: ball.number, active: ball.active,
-      position: ball.position.clone(), async: ball.active && !ball.asleep };
+      position: ball.position.clone(), async: ball.active && !ball.asleep,
+      renderPosition: { x: position.x, y: position.y, z: position.z },
+      renderOrientation: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w } };
   }
 
   getResult(): Readonly<ShotResult> {
@@ -120,6 +124,7 @@ export class Simulator {
 
   resetBallXYZ(ball: Ball, x: number, y: number, z: number): void {
     ball.reset(x, y, z);
+    ball.syncStates(0);
     ball.active = true;
     this.awakened++;
   }
@@ -152,6 +157,7 @@ export class Simulator {
 
   restore(data: SerialData): void {
     this.world.restore(data);
+    for (const ball of this.balls) ball.syncStates(0);
     this.awakened = this.world.nAwakened;
   }
 

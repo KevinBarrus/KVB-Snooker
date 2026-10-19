@@ -21,6 +21,8 @@ export interface BallView {
   active: boolean;
   position: Vec3;
   async: boolean;
+  readonly renderPosition: Readonly<{ x: number; y: number; z: number }>;
+  readonly renderOrientation: Readonly<{ x: number; y: number; z: number; w: number }>;
 }
 
 export interface PredictionContext {

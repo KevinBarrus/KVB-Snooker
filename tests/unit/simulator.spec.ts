@@ -30,6 +30,12 @@ function stroke(sim: Simulator, speed = 10): Float32Array {
   return new Float32Array([p.x - sim.ballRadius, p.y, p.z, 1, 0, 0, speed, 0.005]);
 }
 
+function spinStroke(sim: Simulator): Float32Array {
+  const vars = stroke(sim, 20);
+  vars[2] += sim.ballRadius / 3;
+  return vars;
+}
+
 function settle(sim: Simulator): void {
   for (let i = 0; i < 200 && sim.nAwakened !== 0; ++i) sim.step(0.1);
   expect(sim.nAwakened).toBe(0);
@@ -180,6 +186,151 @@ describe("Simulator（PCOL L12273-12510）", () => {
     sim.getResult().pottedIndices.push(1);
     expect(sim.getBallAtIndex(0).position.x).toBe(5);
     expect(sim.result.pottedIndices).toEqual([]);
+  });
+
+  it("首次 step 前全部 22 球已有摆位与单位旋转快照", () => {
+    const sim = new Simulator(makeTable());
+    for (let index = 0; index < sim.getBallCount(); ++index) {
+      const view = sim.getBallView(index);
+      expect(view.renderPosition).toEqual({ x: view.position.x, y: view.position.y, z: view.position.z });
+      expect(view.renderOrientation).toEqual({ x: 0, y: 0, z: 0, w: 1 });
+    }
+  });
+
+  it("不足一个物理步时按剩余时间外推显示位置和旋转，物理姿态不动", () => {
+    const sim = makeSim();
+    sim.stroke(spinStroke(sim));
+    const cue = sim.getBallAtIndex(0);
+    const physical = sim.serialize();
+    const dt = 0.005;
+    expect(cue.w.length()).toBeGreaterThan(0);
+    expect(sim.step(dt)).toBe(0);
+    const view = sim.getBallView(0);
+    expect(view.renderPosition.x).toBeCloseTo(view.position.x + cue.v.x * dt, 12);
+    expect(view.renderPosition.y).toBeCloseTo(view.position.y + cue.v.y * dt, 12);
+    expect(view.renderPosition.z).toBeCloseTo(view.position.z + cue.v.z * dt, 12);
+    expect(view.renderPosition.x).not.toBe(view.position.x);
+    const half = dt / 2;
+    const norm = Math.hypot(cue.w.x * half, cue.w.y * half, cue.w.z * half, 1);
+    expect(view.renderOrientation.x).toBeCloseTo(cue.w.x * half / norm, 12);
+    expect(view.renderOrientation.y).toBeCloseTo(cue.w.y * half / norm, 12);
+    expect(view.renderOrientation.z).toBeCloseTo(cue.w.z * half / norm, 12);
+    expect(view.renderOrientation.w).toBeCloseTo(1 / norm, 12);
+    expect(sim.serialize()).toEqual(physical);
+  });
+
+  it("完整物理步后的快照只外推余量，position 保持物理坐标", () => {
+    const sim = makeSim();
+    sim.stroke(spinStroke(sim));
+    expect(sim.step(0.02)).toBeCloseTo(0.0167, 12);
+    const cue = sim.getBallAtIndex(0);
+    const view = sim.getBallView(0);
+    expect(view.position).toEqual(cue.position);
+    expect(view.renderPosition.x).toBeCloseTo(cue.position.x + cue.v.x * 0.0033, 12);
+    expect(view.renderPosition.y).toBeCloseTo(cue.position.y + cue.v.y * 0.0033, 12);
+    expect(view.renderPosition.z).toBeCloseTo(cue.position.z + cue.v.z * 0.0033, 12);
+    expect(view.renderOrientation).toEqual(cue.states.orientation);
+  });
+
+  it("超过十步追赶上限后沿用原作零外推分支", () => {
+    const sim = makeSim();
+    sim.respotIndexXYZ(0, 5, 20, 5);
+    sim.reset(false, true);
+    sim.stroke(spinStroke(sim));
+    expect(sim.step(0.3)).toBeCloseTo(0.167, 12);
+    const cue = sim.getBallAtIndex(0);
+    const view = sim.getBallView(0);
+    expect(cue.v.length()).toBeGreaterThan(0);
+    expect(view.renderPosition).toEqual(view.position);
+    for (const axis of ["x", "y", "z", "w"] as const) {
+      expect(view.renderOrientation[axis]).toBeCloseTo(cue.orientation[axis], 12);
+    }
+  });
+
+  it.each(["default", "xyz", "position", "ballXYZ", "hardReset"] as const)(
+    "%s 重摆在下一步前同步快照，并保留原作球体朝向", path => {
+      const sim = makeSim();
+      sim.stroke(spinStroke(sim));
+      sim.step(0.02);
+      const cue = sim.getBallAtIndex(0);
+      const orientation = cue.orientation.clone();
+      expect(Math.abs(orientation.y)).toBeGreaterThan(0);
+      const target = new Vec3(7, sim.spotY, 7);
+      switch (path) {
+        case "default": sim.respotIndexDefault(0); break;
+        case "xyz": sim.respotIndexXYZ(0, target.x, target.y, target.z); break;
+        case "position": sim.resetBallPosition(cue, target); break;
+        case "ballXYZ": sim.resetBallXYZ(cue, target.x, target.y, target.z); break;
+        case "hardReset": sim.reset(true, true); break;
+      }
+      const view = sim.getBallView(0);
+      expect(view.renderPosition).toEqual(path === "default" || path === "hardReset" ? cue.spot : target);
+      expect(cue.orientation).toEqual(orientation);
+      for (const axis of ["x", "y", "z", "w"] as const) {
+        expect(view.renderOrientation[axis]).toBeCloseTo(orientation[axis], 12);
+      }
+      sim.resetBallPosition(cue, null);
+      expect(sim.getBallView(0).active).toBe(false);
+      expect(sim.getBallView(0).async).toBe(false);
+    }
+  );
+
+  it("restore 后立即显示存档姿态，不沿用读档前的显示位置", () => {
+    const sim = makeSim();
+    sim.stroke(spinStroke(sim));
+    sim.step(0.02);
+    const saved = sim.serialize();
+    const position = sim.getBallAtIndex(0).position.clone();
+    const orientation = sim.getBallAtIndex(0).orientation.clone();
+    sim.respotIndexXYZ(0, 7, sim.spotY, 7);
+    sim.restore(saved);
+    const view = sim.getBallView(0);
+    expect(view.position).toEqual(position);
+    expect(view.renderPosition).toEqual(position);
+    for (const axis of ["x", "y", "z", "w"] as const) {
+      expect(view.renderOrientation[axis]).toBeCloseTo(orientation[axis], 12);
+    }
+    expect(sim.serialize()).toEqual(saved);
+  });
+
+  it("反复预测保留全部显示快照，包括非零剩余时间的偏移", () => {
+    const sim = makeSim();
+    sim.stroke(spinStroke(sim));
+    sim.step(0.005);
+    const views = Array.from({ length: sim.getBallCount() }, (_, index) => sim.getBallView(index));
+    expect(views[0].renderPosition.x).not.toBe(views[0].position.x);
+    for (let repeat = 0; repeat < 2; ++repeat) {
+      sim.predict(stroke(sim, 20), 5);
+      for (let index = 0; index < views.length; ++index) {
+        expect(sim.getBallView(index)).toEqual(views[index]);
+      }
+    }
+  });
+
+  it("stroke 和软 reset 不立即改变显示姿态", () => {
+    const sim = makeSim();
+    sim.stroke(spinStroke(sim));
+    sim.step(0.005);
+    const view = sim.getBallView(0);
+    sim.stroke(stroke(sim));
+    sim.reset(false, true);
+    expect(sim.getBallView(0)).toEqual(view);
+  });
+
+  it("显示数值快照与核心及其他快照隔离，旧快照不随步进改变", () => {
+    const sim = makeSim();
+    const first = sim.getBallView(0);
+    const second = sim.getBallView(0);
+    const physical = sim.serialize();
+    Reflect.set(first.renderPosition, "x", -999);
+    Reflect.set(first.renderOrientation, "w", -999);
+    expect(sim.getBallView(0)).toEqual(second);
+    expect(sim.serialize()).toEqual(physical);
+    sim.stroke(spinStroke(sim));
+    sim.step(0.005);
+    expect(second.renderPosition).toEqual({ x: 5, y: sim.spotY, z: 5 });
+    expect(second.renderOrientation).toEqual({ x: 0, y: 0, z: 0, w: 1 });
+    expect(sim.getBallView(0).renderPosition.x).not.toBe(second.renderPosition.x);
   });
 
   it.each([
