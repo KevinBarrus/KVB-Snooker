@@ -41,3 +41,7 @@ math → physics → simulator → rules → ai（里程碑 M1：Node 终端跑�
 ## M1 终端装配
 
 `src/core/game.ts` / `player.ts` / `demo.ts` 为 Node 装配根；章程见 `src/core/AGENTS.md`。`npm run demo` 跑 single play，`npm run demo -- --mode practice` 跑自由练习；读取本地台面数据，不提交 analysis/ 原作文件。
+
+## Render 浏览器验收
+
+`src/app.ts` 为最小浏览器装配根，`src/render/AGENTS.md` 记录分步状态。`npm run assets:prepare` 校验本地原作资源，`npm run dev` 启动，`npm run test:render` 用已有 Chrome 验证；`npm run build` 构建。DOM lib 按 ui/render 目录隔离，core 继续用根 tsconfig 的 ES2022 环境。

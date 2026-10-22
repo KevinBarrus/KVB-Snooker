@@ -1,0 +1,102 @@
+{
+  "ball-ao-new": {
+    "file": "bccbcdf0859ab8fd3ba7f7adac09c284.png",
+    "sha256": "30abf54cdab2ffe6a0df75e78f36a58db6b939e05cc5b5faa3aa1f4e8b027331"
+  },
+  "ball-ref-g8.rad": {
+    "file": "b5198a9d33ee6ddd70a2b62c32cbc866.hdr",
+    "sha256": "3bc9008b6ed4012e8957155bd7e91d9cd6916d9a9fb9fd7563054b6f1f11761a"
+  },
+  "carpet-light": {
+    "file": "dbbde6970d29f635825a2403197b8699.jpg",
+    "sha256": "cffd521a163a230b79d81ffeee8e7fa0c4a98072c585a842e0e45b12286e49d3"
+  },
+  "carpet-normal": {
+    "file": "d9ffaafe595fd0df1c3eb7f32b7ece5a.jpg",
+    "sha256": "ff83544f3c11d8965d372b915e0473cc0b4c675eabf6162c282e265c690b2b48"
+  },
+  "carpet-overlay": {
+    "file": "1d6ef5b7e6c568c14684b0458ea0f5f4.png",
+    "sha256": "ca06ecb5b8d12ccec8b32857f7c0b77247d61cc410c48a6d2b0ba46ab74ca485"
+  },
+  "carpet-tiled": {
+    "file": "154a31248c69da93379562cbf6763238.jpg",
+    "sha256": "4e6ea676cef0d056ec6fd89658aaf9ab1f40c6f9dfdc319ab309a18bdab9fc67"
+  },
+  "com-irrd0": {
+    "file": "819e348970711b27f3ad5f5ffeeac62e.hdr",
+    "sha256": "a3215d438c2433b575c44b5d020f7f39bd9703a57c366e15e1f3c08a84f98fbf"
+  },
+  "com-irrd1": {
+    "file": "19cfc57b94b49b3ebac00319a7b7a0f0.hdr",
+    "sha256": "6cb93810cfb503a488461c13c4df16da7fbadf114b5920dfaaeec23c9a3e3cae"
+  },
+  "frame-diffuse": {
+    "file": "f04dbae40e7d593c7914bf51880dfe87.jpg",
+    "sha256": "e5123fa813d4cc0fba7bab80a5448195c3add905e8b7461b82e2f9765954940a"
+  },
+  "frame-light": {
+    "file": "5401661d949732feeeb754ef7f93f5be.jpg",
+    "sha256": "e295eff5130988840587b236f8e07c2e0dbd90a11d85e5ae56eb4cbf6c6732d0"
+  },
+  "frame-normal-1024": {
+    "file": "d6e4cbeb6e1babc3e26cb444422bed49.png",
+    "sha256": "e94581fc4467260c1d233c09e0afcb1c0929a3a66544ebfa637e41f8d784a015"
+  },
+  "frame-ref": {
+    "file": "49d071e163c3ec19a212dd057dad38a1.hdr",
+    "sha256": "dda79c4027ac00c99f482839ddb06d0a41f40ccebd970f4c5a236fa2028e0823"
+  },
+  "frame-roughness": {
+    "file": "912c4020723463fc80e708a4ed8356cf.jpg",
+    "sha256": "b3ec3edc232489e4d07b9adf9c753b2ba98b0775c3f0fa03403596ccf6f5879e"
+  },
+  "ground-tiled": {
+    "file": "fab6def1bc4a56974cd45ffc0be44b25.jpg",
+    "sha256": "8108744ea2c14c53021541453bb701d98f6a09e31abf2f424659fce90bcb805e"
+  },
+  "mask-table": {
+    "file": "0b8abbd09ae011d71d4558e0d30e0c85.png",
+    "sha256": "dc0421170290541f75d543d9e930b10d8ce8530fa98844fbade5131ee70d39e3"
+  },
+  "model": {
+    "file": "413ac7b2bf52ce05e45f4f6d8497a651.babylon",
+    "sha256": "8c7fe334be3aa5fe0f5620c6cb2d9661dfe486fba61a6e131b49973f05974b5c"
+  },
+  "pocket-glossy": {
+    "file": "50bfb6586540c6eca915efab8949b3fc.jpg",
+    "sha256": "8b6f0387f482cdb35623701fe4d944bf3dd3b42100f08f4fadc9ea793191d1dd"
+  },
+  "table-ui": {
+    "file": "1a2152a3740bde223ab5523cc9458021.png",
+    "sha256": "dde41bfa214c9ea3add008c8c343748457f9ac9abf41ad04bf7b5480c5eb0ef7"
+  },
+  "pillars-com.jpg": {
+    "file": "pillars-com.jpg",
+    "sha256": "d249515957988d6091ce90e91a3fc8e0e6a07bb5944e0c90bee4d4a720bfda3b"
+  },
+  "items-com.jpg": {
+    "file": "items-com.jpg",
+    "sha256": "314710796d0bdc4f895f26aa9c83746e0088a8757e90978be577b6ff6c9ab590"
+  },
+  "pocket-normal.jpg": {
+    "file": "pocket-normal.jpg",
+    "sha256": "92cb5e6b41e2eec43b6a0997287b1aa1db6ca49e6d94253d39438fa10fdd887e"
+  },
+  "ground-com.jpg": {
+    "file": "ground-com.jpg",
+    "sha256": "72ac82658b4000f9aa98b5559ffa6d7b38945bdff2b909355f6ed1409857c62e"
+  },
+  "corridor-com.jpg": {
+    "file": "corridor-com.jpg",
+    "sha256": "7cc5dacb95a4922e333cf0d60172fc5c7e9e614a2629d31798e4f4fb4fc0569a"
+  },
+  "room-com.jpg": {
+    "file": "room-com.jpg",
+    "sha256": "1df9b626fb0600ab77988a5507f6a3cf9ad65fdf20f9eb2b8e92fad6b006f4fd"
+  },
+  "mainlight-com.jpg": {
+    "file": "mainlight-com.jpg",
+    "sha256": "cc75fe4dd5f6d15fff48e16e47ac41b148d82724de1e1fc70474c86de67c194e"
+  }
+}

@@ -9,6 +9,7 @@ out/
 # 原版游戏的下载文件（作者作品，不进仓库）
 analysis/
 vendor-original/
+public/assets/render/
 *.chunk.js
 index.original.js
 
