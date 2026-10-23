@@ -8,3 +8,5 @@
 - 完整场景验收读取 app.ts 导出的 runtime，断言灯光作用范围、材质就绪、阴影与木框参数；需要 Vite 开发服务。
 - 资源准备同时校验物理台面摘要并复制到 public/assets/physics/table.json；第三个 argv 可指定物理文件，默认 analysis/tiger-club-sno-rgb.json。所有资源校验成功后才开始复制。
 - 浏览器验收覆盖22球初始同步、真实击球位置/旋转、渲染不改物理序列化、落袋隐藏、重摆、释放及错误物理资源拒绝；不修改 core。
+
+- controller-smoke.mjs 覆盖瞄准、滚轮、加塞/清塞、触球延迟、防连发、练习回合、手中球入口、失焦停止走位和人类→AI 接棒。仅使用装配根/公开命令，120秒超时关闭自建浏览器；npm run test:controller。

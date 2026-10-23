@@ -14,7 +14,7 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 ## 施工单元状态
 
 - [x] 相机与球杆数值控制、独立单测：12 项相机 + 9 项球杆/动画测试，全量270项与 typecheck 通过。
-- [ ] 输入、出杆时序、手中球与 AI 接入。
+- [x] 输入、出杆时序、手中球与 AI 接入；新增6项流程测试，全量278项（含预测循环2项回归）、typecheck 和 Chrome 键鼠/练习回合/AI接棒验收通过。
 - [ ] 可视化、装配与浏览器验收。
 
 ## 转写时新发现的怪癖（不可“改进”）
@@ -29,7 +29,16 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 8. 零加塞、零手动抬杆仍略向下：支撑点 localY=0.5r+midRadius，触点 localY=0。
 9. 球杆动画收敛因子按帧增加0.05，ready 要求 ratio===1、触点无脏值且因子===1；不能仅以状态名 AIM 判可击球。
 
+10. 原作进入出杆动画即冻结输入，物理冲量仍延迟至触球；裁决等球静止且动作起身结束才发生。
+11. AI 思考/发射延迟为1+随机数，power=0.3+route.powerFactor，负 fbSpin 时手动角度0.025π；沿用同一球杆动画。
+
 ## 登记差异
 
 - 相机默认固定原作台面参数（outer radius2.05、scaleX1.55、inner radius0.38）；未额外做多球台配置接口。
 - TipMotion 不保存原作外部 launchingController 引用，由出杆调度器持有；reset、三段时序与位置计算按原作保留。
+
+- app-game.ts 作为浏览器装配根拆分文件，连接 GameSession、规则、AI 与既有 Hud；通过回调注入 controller，未反向依赖表现层。
+- Input 使用现代 PointerEvent / PointerCapture，省略旧版鼠标事件回退；失焦、禁用与释放状态时撤销持续按键。
+- 手中球射线与台面不相交时隐藏预览并拒绝放球；不输出无穷/NaN坐标。
+- AI 延迟随机数由装配根注入 coreRandom，遵守项目可播种规则。
+- WorldClient.predict 原有转写括号误译在接入时修正，恢复原作距离与迭代上限；详见 physics/AGENTS.md。

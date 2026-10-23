@@ -50,4 +50,4 @@ render 三步已完成：完整场景与22球只读显示同步。app.ts 装配�
 
 ## Controller 施工
 
-设计与源码证据见 docs/controller-design.md，单元状态见 src/controller/AGENTS.md。相机/球杆数值控制已完成；controller 使用独立 DOM tsconfig，根核心编译继续无 DOM。
+设计与源码证据见 docs/controller-design.md，单元状态见 src/controller/AGENTS.md。相机/球杆数值控制、键鼠输入、出杆时序、手中球与 AI 接入已完成；app-game.ts 拆分浏览器装配，npm run test:controller 验证练习与人机回合。controller 使用独立 DOM tsconfig，根核心编译继续无 DOM。

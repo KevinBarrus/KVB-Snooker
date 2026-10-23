@@ -10,7 +10,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "assets:prepare": "node scripts/prepare-render-assets.mjs",
-    "test:render": "node scripts/render-smoke.mjs"
+    "test:render": "node scripts/render-smoke.mjs",
+    "test:controller": "node scripts/controller-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

@@ -7,6 +7,7 @@ import { loadTableScene } from "./render/scene.js";
 import { loadTexture } from "./render/assets.js";
 import { BallRenderer } from "./render/balls.js";
 import { waitForScene } from "./render/ready.js";
+import { BrowserGame } from "./app-game.js";
 
 async function loadSimulator(): Promise<Simulator> {
   const response = await fetch("/assets/physics/table.json");
@@ -22,7 +23,7 @@ async function loadSimulator(): Promise<Simulator> {
   return new Simulator(mesh);
 }
 
-async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer }> {
+async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer; game: BrowserGame }> {
   const canvas = document.querySelector("canvas");
   const status = document.querySelector("output");
   if (!canvas || !status) throw new Error("Missing render host");
@@ -36,12 +37,14 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       loadBallLighting(scene), loadTexture(scene, "table-ui"), loadTexture(scene, "mask-table")
     ]);
     const balls = new BallRenderer(scene, simulator, DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask);
+    if (!(scene.activeCamera instanceof B.TargetCamera)) throw new Error("Missing game camera");
+    const game = new BrowserGame(simulator, scene, scene.activeCamera, canvas);
     await waitForScene(scene);
     scene.render();
     const resize = () => engine.resize();
     window.addEventListener("resize", resize);
     engine.runRenderLoop(() => {
-      simulator.step(engine.getDeltaTime() / 1000);
+      game.update(engine.getDeltaTime() / 1000);
       balls.sync();
       scene?.render();
     });
@@ -49,10 +52,11 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     document.body.dataset.state = "ready";
     window.addEventListener("pagehide", () => {
       window.removeEventListener("resize", resize);
+      game.dispose();
       balls.dispose();
       scene?.dispose(); engine.dispose();
     }, { once: true });
-    return { engine, scene, simulator, balls };
+    return { engine, scene, simulator, balls, game };
   } catch (error) {
     scene?.dispose(); engine.dispose();
     throw error;

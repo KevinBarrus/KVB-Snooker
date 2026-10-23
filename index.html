@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="data:,">
-    <title>KVB-Snooker · Render</title>
+    <title>KVB-Snooker</title>
     <style>
       html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #13100d; }
-      canvas { width: 100%; height: 100%; display: block; }
+      canvas { width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
       output { position: absolute; left: 16px; bottom: 16px; color: white; font: 14px system-ui; }
     </style>
   </head>
   <body>
-    <canvas aria-label="斯诺克球台"></canvas>
+    <canvas tabindex="0" aria-label="斯诺克球台：W 瞄准，A D 绕台，空格出杆"></canvas>
     <output role="status">加载球台资源…</output>
     <script type="module" src="/src/app.ts"></script>
   </body>
