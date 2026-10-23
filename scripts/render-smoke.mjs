@@ -18,6 +18,32 @@ try {
     .catch(error => { throw new Error(`${error.message}\n${errors.join("\n")}`); });
   const state = await page.locator("body").getAttribute("data-state");
   assert.equal(state, "ready", await page.locator("output").textContent());
+  const sceneState = await page.evaluate(async () => {
+    const { scene } = await (await import("/src/app.ts")).runtime;
+    const gameLight = scene.getLightByName("GameLight");
+    const pocketLight = scene.getLightByName("PocketLight");
+    const balls = scene.meshes.filter(mesh => /^ball-\d+$/.test(mesh.name));
+    const shadow = scene.getMeshByName("ball-shadows");
+    const frame = scene.getMeshByName("Frame").material;
+    return {
+      meshes: ["Room", "Ground", "TableInner", "Pocket", "Frame"].every(name => scene.getMeshByName(name)?.isReady()),
+      light: [gameLight.intensity, gameLight.position.y, gameLight.angle],
+      lightMeshes: gameLight.includedOnlyMeshes.map(mesh => mesh.name),
+      pocketMeshes: pocketLight.includedOnlyMeshes.map(mesh => mesh.name),
+      materials: [...new Set(balls.map(ball => ball.material.name))].sort(),
+      ready: balls.every(ball => ball.material.isReady(ball)),
+      shadow: [shadow.position.y, shadow.getTotalVertices(), ...new Set(shadow.getVerticesData("alpha"))],
+      frame: [frame.metallic, frame.roughness, frame.disableLighting]
+    };
+  });
+  assert.equal(sceneState.meshes, true);
+  assert.deepEqual(sceneState.light, [60, 3.6, 175 / 180 * Math.PI]);
+  assert.deepEqual(sceneState.lightMeshes, ["TableInner"]);
+  assert.deepEqual(sceneState.pocketMeshes, ["Pocket"]);
+  assert.deepEqual(sceneState.materials, Array.from({ length: 8 }, (_, i) => `ball-material-${i}`));
+  assert.equal(sceneState.ready, true);
+  assert.deepEqual(sceneState.shadow, [0.881, 32, Math.fround(0.8)]);
+  assert.deepEqual(sceneState.frame, [1, 0.8, true]);
   assert.deepEqual(errors, [], errors.join("\n"));
   const colors = await page.locator("canvas").evaluate(canvas => {
     const sample = document.createElement("canvas");

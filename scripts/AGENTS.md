@@ -5,3 +5,4 @@
 - 不改 core，不下载或执行原作 JS。
 - 已完成：25 项 render 资源准备；缺失或哈希不符立即失败。
 - render-smoke.mjs 用已安装 Chrome 检查本地页面、shader/资源错误与画面；截图仅写入 .cache/render，退出时关闭自己创建的浏览器。
+- 完整场景验收读取 app.ts 导出的 runtime，断言灯光作用范围、材质就绪、阴影与木框参数；需要 Vite 开发服务。
