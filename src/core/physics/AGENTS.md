@@ -56,6 +56,10 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 16. `World.deserialize` 先逐球恢复 23 字段、后 `reset()`（重算岛）再回填 evolution（覆盖 reset 的 ++）——顺序不得换
 17. `World.reset` 中 `nRechecks !== 0` 必须抛错（确定性回放的强校验）
 
+## 转写修正
+
+- controller 浏览器接入发现预测循环括号误译：PCOL L14728-14733 的距离、迭代、运动三项条件必须共同控制退出。恢复原作最多69次 internalStep，新增短距离/迭代上限两项回归，预测后仍恢复存档。
+
 ## 登记差异
 
 - 原模 20 性能统计尚未移植，省略 `startTick`/`stopTick`/`count`（World.step/internalStep/求解器多处）；仅影响诊断，不影响行为。

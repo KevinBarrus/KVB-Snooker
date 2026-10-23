@@ -139,16 +139,13 @@ export class WorldClient extends World {
     ctx.onPredictionStart(t);
     this.shoot(t, e);
     ctx.impactV1.copy(t.v);
-    for (
-      ;
-      distance < i &&
-      ++iterations < 70 &&
-      (this.predictorSolver.interrupt = false, this.internalStep(), distance += ctx.onStepped()),
-        ctx.impactOccured || ctx.impactV1.copy(t.v),
-        t.getMotion() >= 1;
-
-    ) {
-      // 循环体为空：不撞不动与运动低于阈值时收束
+    // PCOL L14728-14733
+    for (; distance < i && ++iterations < 70;) {
+      this.predictorSolver.interrupt = false;
+      this.internalStep();
+      distance += ctx.onStepped();
+      if (!ctx.impactOccured) ctx.impactV1.copy(t.v);
+      if (t.getMotion() < 1) break;
     }
     this.meshBody = this.originMeshBody;
     this.touchPresolveHandler = savedTouchPresolve;

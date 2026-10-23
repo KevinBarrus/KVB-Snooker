@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BodySphere } from "../../src/core/physics/ball.js";
 import { MeshBody, type CollisionMeshData } from "../../src/core/physics/mesh-body.js";
 import { World, WorldClient } from "../../src/core/physics/index.js";
@@ -152,4 +152,34 @@ describe("WorldClient.predict（PCOL L14609-14745）", () => {
     expect(world.balls[0].position.x).toBeCloseTo(5, 5);
     expect(world.balls[1].position.x).toBeCloseTo(7, 5);
   });
+});
+
+// PCOL L14728-14733
+it.each([0.01, Infinity])("predict terminates at distance/iteration limit %s while still moving", maxDistance => {
+  const world = new WorldClient();
+  world.stepSize = 0.0167;
+  world.setMeshBody(makeTable());
+  const cue = new BodySphere(1, 1.5, 2, GROUND_Y + 1, 5);
+  world.addBall(cue);
+  world.reset();
+  world.save();
+  const before = world.serialize(World.makeSerialData());
+  const onStepped = world.predictionCtx.onStepped.bind(world.predictionCtx);
+  let steps = 0;
+  const guard = vi.spyOn(world.predictionCtx, "onStepped").mockImplementation(() => {
+    if (++steps > 70) throw new Error("Prediction exceeded original iteration limit");
+    return onStepped();
+  });
+  const getMotion = cue.getMotion.bind(cue);
+  const motion = vi.spyOn(cue, "getMotion");
+  motion.mockImplementation(() => {
+    if (motion.mock.calls.length > 1000) throw new Error("Prediction stalled without stepping");
+    return getMotion();
+  });
+  const context = world.predict(cue, [0.995, cue.position.y, 5, 1, 0, 0, 20, 0.005], maxDistance);
+  expect(steps).toBe(maxDistance === Infinity ? 69 : 1);
+  expect(context.cueVSq).toBeGreaterThan(0);
+  expect(world.serialize(World.makeSerialData())).toEqual(before);
+  guard.mockRestore();
+  motion.mockRestore();
 });
