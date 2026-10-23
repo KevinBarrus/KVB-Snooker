@@ -5,7 +5,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p src/ui && tsc --noEmit -p src/render",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/ui && tsc --noEmit -p src/render && tsc --noEmit -p src/controller",
     "demo": "tsc --noEmit false --outDir .cache/demo && node .cache/demo/src/core/demo.js",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
