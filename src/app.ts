@@ -1,11 +1,28 @@
 import * as B from "babylonjs/es6.js";
-import { BallMaterial, loadBallLighting } from "./render/materials.js";
+import { MeshBody, type CollisionMeshData } from "./core/physics/mesh-body.js";
+import { Simulator } from "./core/simulator/simulator.js";
+import { DEFAULT_SCENE } from "./core/simulator/scene.js";
+import { loadBallLighting } from "./render/materials.js";
 import { loadTableScene } from "./render/scene.js";
 import { loadTexture } from "./render/assets.js";
-import { BallShadows } from "./render/shadows.js";
+import { BallRenderer } from "./render/balls.js";
 import { waitForScene } from "./render/ready.js";
 
-async function main(): Promise<{ engine: B.Engine; scene: B.Scene }> {
+async function loadSimulator(): Promise<Simulator> {
+  const response = await fetch("/assets/physics/table.json");
+  if (!response.ok) throw new Error(`Physics table: HTTP ${response.status}`);
+  const bytes = await response.arrayBuffer();
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const hash = Array.from(digest, byte => byte.toString(16).padStart(2, "0")).join("");
+  if (hash !== "04acfb245368bc1762cdcdf94f0bb81ab82dd82f785af661a4f63d3de9ccbbc9") {
+    throw new Error("Physics table digest mismatch");
+  }
+  const mesh = new MeshBody(JSON.parse(new TextDecoder().decode(bytes)) as CollisionMeshData);
+  mesh.id = "tiger-club-sno-rgb";
+  return new Simulator(mesh);
+}
+
+async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer }> {
   const canvas = document.querySelector("canvas");
   const status = document.querySelector("output");
   if (!canvas || !status) throw new Error("Missing render host");
@@ -13,30 +30,29 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene }> {
   engine.enableOfflineSupport = false;
   let scene: B.Scene | undefined;
   try {
+    const simulator = await loadSimulator();
     scene = await loadTableScene(engine);
     const [lighting, atlas, mask] = await Promise.all([
       loadBallLighting(scene), loadTexture(scene, "table-ui"), loadTexture(scene, "mask-table")
     ]);
-    const shadows = new BallShadows(scene, 8, 0.02625, atlas, mask);
-    for (let number = 0; number < 8; ++number) {
-      const ball = B.MeshBuilder.CreateSphere(`ball-${number}`, { segments: number === 0 ? 32 : 20, diameter: 0.0525 }, scene);
-      ball.position.set(-0.7 + number * 0.2, 0.90625, 0);
-      ball.material = new BallMaterial(scene, number, lighting);
-      shadows.setBall(number, ball.position.x, ball.position.z, true);
-    }
-    shadows.flush();
+    const balls = new BallRenderer(scene, simulator, DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask);
     await waitForScene(scene);
     scene.render();
     const resize = () => engine.resize();
     window.addEventListener("resize", resize);
-    engine.runRenderLoop(() => scene?.render());
-    status.textContent = "球台与八种球色验证";
+    engine.runRenderLoop(() => {
+      simulator.step(engine.getDeltaTime() / 1000);
+      balls.sync();
+      scene?.render();
+    });
+    status.textContent = "KVB-Snooker";
     document.body.dataset.state = "ready";
     window.addEventListener("pagehide", () => {
       window.removeEventListener("resize", resize);
+      balls.dispose();
       scene?.dispose(); engine.dispose();
     }, { once: true });
-    return { engine, scene };
+    return { engine, scene, simulator, balls };
   } catch (error) {
     scene?.dispose(); engine.dispose();
     throw error;

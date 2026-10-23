@@ -18,7 +18,7 @@
 
 - [x] 第一步：Babylon 3.2 ES Module、Vite、本地资源校验；单球/台呢 shader、HDR/PNG 立方图集与探针插值。新增 9 项测试；全量 244 项、typecheck、build 与 Chrome 出图验证通过。
 - [x] 第二步：原始模型、房间、灯光隔离、台呢/袋口/木框材质、八种球色与批量阴影。244 项测试、typecheck、build 和 Chrome 场景参数/出图检查通过。
-- [ ] 第三步：Simulator 显示快照同步与运动/显隐验收。
+- [x] 第三步：BallRenderer 消费 Simulator 显示快照；22 球同步、两档共享几何、同色共享材质及资源释放。新增 5 项测试，全量 249 项、typecheck、build 与真实球台浏览器运动/旋转/落袋/重摆验证通过。
 
 ## 转写时新发现的怪癖（不可“改进”）
 
@@ -31,6 +31,8 @@
 7. 原作台呢 shader 的无 NORMAL/有 CHAOTIC 分支括号不完整；保留原文，本场景使用 NORMAL 分支。
 8. 所有导入材质先关闭直接光；仅 Pocket 重新开启，GameLight 仅照 TableInner。Frame metallic=1 且关闭直接光，不能改成普通木质漫反射。
 9. 球影是台面 y+0.001 上的贴图平面，宽高=2.6r、alpha=0.8，由台面 mask 的 R 通道裁切；不是 Babylon ShadowGenerator。
+10. 球位置和四元数来自显示快照；阴影是否显示却取物理 position.y >= 0.88。跌落时可能球仍可见但阴影已消失；失活则隐藏球与影。
+11. 母球细分32，其他球20；几何按细分档克隆共享，材质按 number 缓存。重摆保留朝向，render 不主动重置四元数。
 
 ## 登记差异
 
@@ -39,6 +41,9 @@
 - 探针仍保存上次单元编号及哨兵状态，每次绑定重算权重，省略原作 transform dirty 观察器；不改变采样公式。
 - 资源异步加载失败显式报错；编译/就绪等待上限20秒。资产表含25项（顶层17项、共享1项、模型内7项），修正规格旧“15项”描述。
 - 阴影复用原作 planebatch shader 的黑色分支；省略用于瞄准/摆球图标的 color attribute，这些控件归 controller 后续接入。
+- BallRenderer 的球数/半径在构造时固定，对应当前 Simulator 球组；切换 Simulator/球台需 dispose 后重新构造。dispose 只释放自有网格/材质，共享贴图由场景管理。
+- app.ts 仅做浏览器装配与步进；不包含人类输入、球杆、相机走位、回合控制或 UI/audio 联动。导出 runtime 供集成及浏览器验收消费。
+- app.ts 在解析碰撞 JSON 前校验 SHA-256（`04acfb245368bc1762cdcdf94f0bb81ab82dd82f785af661a4f63d3de9ccbbc9`），只接受已核对的原始台面数据；先校验后装配渲染场景。
 
 ## 外部 shader 证据
 
@@ -49,8 +54,10 @@ PCOL L1105-1115 使用 planebatch，L9911 指定 shader 根路径。当前同源
 
 ## 运行与验收
 
-- 将原始25项资源放入 vendor-original/render；npm run assets:prepare 校验 SHA-256 后复制。也可 npm run assets:prepare -- /资源目录。
+- 将原始25项资源放入 vendor-original/render，物理台面默认读取 analysis/tiger-club-sno-rgb.json；npm run assets:prepare 校验 SHA-256 后复制。也可 npm run assets:prepare -- /资源目录 /物理台面文件。物理文件写入 public/assets/physics/table.json，排除于 Git。
 - npm run dev；另一个终端 npm run test:render，默认使用 /usr/bin/google-chrome，可用 CHROME_BIN 覆盖，RENDER_URL 指定服务地址。
 - Chrome 使用隔离无头进程及软件 WebGL；检查错误、资源HTTP状态、非空画面，截图位于 .cache/render/smoke.png，不提交。
 - 完整模型使用原始 UV；Chrome 检查灯光隔离/参数、八种球材质就绪、阴影几何/透明度和木框参数。截图已目检，未宣称逐像素一致；真实 GPU 性能仍需实机验收。
 - 每步 npm run test、npm run typecheck、npm run build、浏览器验证通过，同步章程后独立提交推送。
+- NullEngine 单测验证快照只读、物理高度阴影判据、重摆和共享资源所有权；浏览器测试通过 Simulator.stroke/step 真实击球落袋，不手改 v/w，也不读取 World 内部。
+- 已知工具提示：Babylon 3.2 发布包缺少其声明的 source map，Vitest 会提示但测试通过；Vite 提示完整 Babylon bundle 大于500 kB，当前 gzip 约450 kB，尚未做体积优化。

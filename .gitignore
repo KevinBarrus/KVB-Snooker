@@ -10,6 +10,7 @@ out/
 analysis/
 vendor-original/
 public/assets/render/
+public/assets/physics/
 *.chunk.js
 index.original.js
 

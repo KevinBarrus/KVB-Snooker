@@ -81,5 +81,12 @@ export class BallShadows {
     this.mesh.updateVerticesData("alpha", this.alphas);
   }
 
-  dispose(): void { this.mesh.dispose(false, true); }
+  hideBall(index: number): void {
+    this.alphas.fill(0, index * 4, index * 4 + 4);
+  }
+
+  dispose(): void {
+    this.mesh.material?.dispose();
+    this.mesh.dispose();
+  }
 }
