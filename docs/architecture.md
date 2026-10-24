@@ -226,6 +226,12 @@ interface CollisionMeshData {
 ```
 
 
+### 4.4 击球观察与回放扩展（2026-10-24 用户批准）
+
+需求与施工契约见 `docs/camera-replay-design.md`。自然起身、母球/子球观察共享原有相机位置轨迹，只改变视线焦点；V切换、短提示与偏好保存由表现层及装配根完成。
+
+controller可新增观察/回放状态类及装配回调；ui只接受普通状态值与回调；render继续消费`Pick<Simulator, "getBallCount" | "getBallView">`结构视图，装配根切换实时与录制快照。上一杆回放不写回真实模拟器，不推进真实回合或AI。§3事件、§4.2核心接口与序列化格式不变。
+
 ## 5. 目录结构（骨架）
 
 ```
