@@ -49,7 +49,7 @@ export class PersonController {
     this.camera.update(dt);
     this.stick.syncPerson(this.camera.bodyPosition, this.camera.azimuth, this.camera.stateRatio);
     this.stick.update();
-    this.camera.updateHead(this.stick.angleH1, this.stick.rotationZ1);
+    this.camera.updateHead(this.stick.angleH1, this.stick.rotationZ1, dt);
     if (this.stick.consumePredictionChanged()) this.predictionDirty = true;
   }
 

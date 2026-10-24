@@ -26,7 +26,7 @@ export class ShotController {
     if (this.busy || !person.isReadyToStroke() || !this.motion.isReady() || !this.commands.begin(person.playerIndex)) return false;
     this.actor = person;
     this.bus.emit("sim/shooting-start", { playerIndex: person.playerIndex });
-    if (person.playerIndex === 0) person.camera.follow(() => person.simulator.getCueBallPosition());
+    if (person.playerIndex === 0) person.camera.beginShotView();
     this.standDelay = 0.5;
     this.strokeDelay = this.motion.launch(person.stick, person.strokePower);
     return true;
@@ -63,6 +63,7 @@ export class ShotController {
   }
 
   finish(): void {
+    this.actor?.camera.endShotView();
     this.actor?.camera.unfollow();
     this.actor = null;
     this.motion.reset();

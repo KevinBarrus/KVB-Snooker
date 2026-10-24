@@ -5,6 +5,7 @@ import { CameraLook, type CameraPoint } from "./camera-look.js";
 import { CameraOrbit } from "./camera-orbit.js";
 import { CameraAzimuth } from "./camera-smoothing.js";
 import { CameraTween } from "./camera-tween.js";
+import { ShotView } from "./shot-view.js";
 
 // PCOL L5656-5901, L7660-7667
 export class CameraRig {
@@ -13,6 +14,7 @@ export class CameraRig {
   readonly position = new B.Vector3(0, 0, 0);
   readonly target = new B.Vector3(0, 0, 0);
   readonly azimuth = new CameraAzimuth();
+  readonly shotView = new ShotView();
   private readonly transition = new CameraTween(1.2);
   private readonly squat = new CameraTween(0.6);
   private readonly horizon: CameraOrbit;
@@ -73,11 +75,13 @@ export class CameraRig {
   standUp(): void { this.squat.reverse(); if (this.squat.needsUpdate) this.dirty |= 4; }
 
   moveLookAt(dx: number, dy: number): void {
+    if (dx !== 0 || dy !== 0) this.takeManualView();
     if (this.state === 1) this.head.move(dx, dy);
     else { this.look.move(dx, dy, this.azimuth); if (this.look.needsUpdate) this.dirty |= 8; }
   }
 
   resetLookAt(): void {
+    this.takeManualView();
     if (this.state === 1) this.head.resetLook();
     else this.lookTo(0, 0);
   }
@@ -88,6 +92,16 @@ export class CameraRig {
 
   follow(source: () => CameraPoint): void { this.look.follow(source); this.dirty |= 8; }
   unfollow(): void { this.look.unfollow(); }
+
+  beginShotView(): void { this.unfollow(); this.shotView.begin(this.target); }
+  endShotView(): void { this.takeManualView(); this.shotView.end(); }
+
+  private takeManualView(): void {
+    if (!this.shotView.active || this.shotView.manual) return;
+    this.lookTo(this.target.x - this.head.lookAtOffset.x * this.renderedRatio,
+      this.target.z - this.head.lookAtOffset.z * this.renderedRatio, true);
+    this.shotView.takeManual();
+  }
 
   update(dt: number): boolean {
     let flags = this.dirty;
@@ -119,12 +133,14 @@ export class CameraRig {
     return changed;
   }
 
-  updateHead(horizontal: number, vertical: number): void {
+  updateHead(horizontal: number, vertical: number, dt = 0): void {
     this.head.setAngles(horizontal, vertical);
     if (this.head.needsUpdate) this.head.update();
     B.Vector3.LerpToRef(this.bodyPosition, this.head.position, this.renderedRatio, this.position);
     this.target.copyFromFloats(this.lockedTarget.x + this.head.lookAtOffset.x * this.renderedRatio,
       this.lockedTarget.y + this.head.lookAtOffset.y * this.renderedRatio,
       this.lockedTarget.z + this.head.lookAtOffset.z * this.renderedRatio);
+    this.shotView.update(dt, this.renderedRatio);
+    if (this.shotView.active && !this.shotView.manual) this.target.copyFrom(this.shotView.target);
   }
 }

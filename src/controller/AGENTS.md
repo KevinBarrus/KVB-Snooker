@@ -13,6 +13,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 
 ## 施工单元状态
 
+- [x] 观察扩展单元1：默认自然起身、稳定焦点、拖动手动接管；295项测试、typecheck、build、Chrome controller通过。位置轨迹不变，登记用户批准差异。
+
 - [x] 相机与球杆数值控制、独立单测：12 项相机 + 9 项球杆/动画测试，全量270项与 typecheck 通过。
 - [x] 输入、出杆时序、手中球与 AI 接入；新增6项流程测试，全量278项（含预测循环2项回归）、typecheck 和 Chrome 键鼠/练习回合/AI接棒验收通过。
 - [x] 球杆模型/材质、摆球标记、既有 UI 联动与浏览器装配；全量279项、typecheck、build、Chrome controller/render 验收通过。
@@ -40,6 +42,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 14. 0.5秒自动起身延迟从跟杆动画结束后开始消耗；原作切换更新处理器保证只请求一次起身，不得每帧重复请求（L6376-6385）。
 
 ## 登记差异
+
+- 用户批准的观察扩展见 docs/camera-replay-design.md：默认出杆使用稳定的自然起身焦点，取代原作自动follow；CameraRig/ShotView只改变最终target，共享原有位置轨迹。拖动与复位注视立即接管，下一杆恢复自动观察。原作怪癖13作为来源事实保留，不再约束扩展的默认策略。
 
 - 相机默认固定原作台面参数（outer radius2.05、scaleX1.55、inner radius0.38）；未额外做多球台配置接口。
 - TipMotion 不保存原作外部 launchingController 引用，由出杆调度器持有；reset、三段时序与位置计算按原作保留。
