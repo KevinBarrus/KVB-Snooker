@@ -58,7 +58,7 @@ export class ShotController {
       if (this.motion.needsUpdate) return;
     }
     this.commands.step(remaining);
-    if (person && (this.standDelay -= remaining) < 0) person.gotoState0();
+    if (person && this.standDelay >= 0 && (this.standDelay -= remaining) < 0) person.gotoState0();
     updatePeople(remaining);
   }
 

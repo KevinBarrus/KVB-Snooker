@@ -17,6 +17,7 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 - [x] 输入、出杆时序、手中球与 AI 接入；新增6项流程测试，全量278项（含预测循环2项回归）、typecheck 和 Chrome 键鼠/练习回合/AI接棒验收通过。
 - [x] 球杆模型/材质、摆球标记、既有 UI 联动与浏览器装配；全量279项、typecheck、build、Chrome controller/render 验收通过。
 - [x] 原作五段辅助线：用户已批准9字段 PredictionContext 扩展并完成三步实施；全量290项、typecheck、build 和 Chrome gunsight/controller/render 验收通过。
+- [x] 起身镜头源码复核：保持原作低增益注视跟随与独立起身轨道，修复自动起身重复请求；新增3项回归，全量293项、typecheck 和 Chrome controller 验收通过；详细证据见 docs/controller-design.md。
 
 ## 转写时新发现的怪癖（不可“改进”）
 
@@ -34,6 +35,9 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 11. AI 思考/发射延迟为1+随机数，power=0.3+route.powerFactor，负 fbSpin 时手动角度0.025π；沿用同一球杆动画。
 
 12. 辅助线 alpha=0.6×力度条 autoAlpha：俯身 renderedRatio 超过0.8才显现，后拉进度参与衰减，触球前已隐藏（L7670-7681）；摆球或玩家失活时隐藏。
+
+13. 出杆时 follow 仅追踪母球 x/z 注视点，增益固定0.05、按帧递推；起身时不解除跟随，不更新内轨中心或头部原点。站姿手动观察或回合收尾才解除跟随，落袋不降低注视高度（L4702-4776、L5762-5772、L6338-6423）。
+14. 0.5秒自动起身延迟从跟杆动画结束后开始消耗；原作切换更新处理器保证只请求一次起身，不得每帧重复请求（L6376-6385）。
 
 ## 登记差异
 

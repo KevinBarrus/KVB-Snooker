@@ -81,6 +81,26 @@ describe("Controller shot flow", () => {
     expect(person.updatePrediction()).toBe(true);
   });
 
+  it("跟杆结束后等待0.5秒且只触发一次起身，跟随持续到回合收尾", () => {
+    const { person, shots, aim } = setup();
+    aim();
+    const stand = vi.spyOn(person, "gotoState0");
+    expect(shots.launch(person)).toBe(true);
+    expect(person.camera.isFollowing).toBe(true);
+    for (let i = 0; i < 2000 && shots.motion.needsUpdate; ++i) shots.update(.001, dt => person.update(dt));
+    expect(shots.motion.needsUpdate).toBe(false);
+    shots.update(.49, dt => person.update(dt));
+    expect(stand).not.toHaveBeenCalled();
+    shots.update(.02, dt => person.update(dt));
+    expect(stand).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 180; ++i) shots.update(1 / 60, dt => person.update(dt));
+    expect(stand).toHaveBeenCalledTimes(1);
+    expect(person.camera.stateRatio).toBe(0);
+    expect(person.camera.isFollowing).toBe(true);
+    shots.finish();
+    expect(person.camera.isFollowing).toBe(false);
+  });
+
   it("AI等待后将路线注入同一个球杆/出杆通道，只发一次AI事件", () => {
     const { person, shots, bus, stroke } = setup(1);
     const next = vi.fn(() => ({ dx: 1, dz: .1, fbSpin: -.3, powerFactor: .4 }));

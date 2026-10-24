@@ -91,6 +91,39 @@ describe("PCOL camera rig", () => {
     expect(rig.target.y).toBeGreaterThan(0.93625);
   });
 
+  it("跟随首两帧使用原作0.05增益，响应按帧计算而非按dt放大", () => {
+    for (const fps of [30, 60, 120, 144]) {
+      const rig = new CameraRig(new EventBus(), cue);
+      rig.lookTo(0, 0, true); advance(rig, 1, 0);
+      rig.follow(() => ({ x: 1, y: -4, z: .5 }));
+      advance(rig, 1, 1 / fps);
+      expect(rig.target.x).toBeCloseTo(.0125, 12);
+      expect(rig.target.z).toBeCloseTo(.00625, 12);
+      advance(rig, 1, 1 / fps);
+      expect(rig.target.x).toBeCloseTo(.03109375, 12);
+      expect(rig.target.z).toBeCloseTo(.015546875, 12);
+      expect(rig.target.y).toBeCloseTo(.93625, 12);
+    }
+  });
+
+  it("横向跟球只改变注视点，起身的位置轨迹与不跟球时一致", () => {
+    const stationary = new CameraRig(new EventBus(), cue);
+    const following = new CameraRig(new EventBus(), cue);
+    for (const rig of [stationary, following]) { rig.setState(1, true); advance(rig); }
+    const moving = { ...cue };
+    following.follow(() => moving);
+    for (let frame = 0; frame < 180; ++frame) {
+      moving.x = cue.x + frame / 200;
+      moving.z = cue.z + .7 * Math.sin(frame / 50);
+      if (frame === 30) { stationary.setState(0); following.setState(0); }
+      advance(stationary, 1); advance(following, 1);
+      expect(following.position.asArray()).toEqual(stationary.position.asArray());
+    }
+    expect(following.stateRatio).toBe(0);
+    expect(following.position.y).toBe(1.7);
+    expect(following.target.subtract(stationary.target).length()).toBeGreaterThan(.5);
+  });
+
   it("瞄准侧看有角度/距离限幅，重置后回到原注视点", () => {
     const rig = new CameraRig(new EventBus(), cue);
     rig.setState(1, true); advance(rig);
