@@ -13,7 +13,7 @@ export class PersonController {
   private power = 0.5;
   private predictionDirty = true;
 
-  constructor(readonly simulator: Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "predict">,
+  constructor(readonly simulator: Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "getResult" | "predict">,
     bus: EventBus, readonly radius: number, readonly playerIndex = 0) {
     this.camera = new CameraRig(bus, simulator.getCueBallPosition());
     this.stick = new StickController(simulator, radius);
@@ -49,6 +49,7 @@ export class PersonController {
     this.camera.update(dt);
     this.stick.syncPerson(this.camera.bodyPosition, this.camera.azimuth, this.camera.stateRatio);
     this.stick.update();
+    this.camera.shotView.track(this.simulator);
     this.camera.updateHead(this.stick.angleH1, this.stick.rotationZ1, dt);
     if (this.stick.consumePredictionChanged()) this.predictionDirty = true;
   }

@@ -12,7 +12,8 @@
     "assets:prepare": "node scripts/prepare-render-assets.mjs",
     "test:render": "node scripts/render-smoke.mjs",
     "test:controller": "node scripts/controller-smoke.mjs",
-    "test:gunsight": "node scripts/gunsight-smoke.mjs"
+    "test:gunsight": "node scripts/gunsight-smoke.mjs",
+    "test:camera": "node scripts/camera-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

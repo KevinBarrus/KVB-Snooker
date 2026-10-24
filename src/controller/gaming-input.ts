@@ -7,6 +7,7 @@ export interface InputGame {
   state(): number;
   canAim(): boolean;
   canPlace(): boolean;
+  cycleView?(): void;
 }
 
 // PCOL L6130-6230, L4177-4345
@@ -20,6 +21,7 @@ export class GamingInput {
     const all = 4 | 8 | 16;
     this.inHand = new InHand(camera, placement);
     this.input = new Input(canvas, {
+      "86": { states: all, down: () => game.cycleView?.() },
       "68|39": { states: all, down: () => camera.orbit(undefined, 1), up: () => camera.orbit(undefined, 0) },
       "65|37": { states: all, down: () => camera.orbit(1), up: () => camera.orbit(0) },
       "87|38": { states: 4, down: () => this.aim() },

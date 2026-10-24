@@ -41,12 +41,16 @@
 
 ## 登记差异
 
+- 用户批准的观察扩展：ViewNotice/ViewNoticeDom显示装配根传入的中文模式名称，2.2秒自动隐藏，使用role=status；不订阅新增核心事件，不导入controller。
+
 - 原作力度条是挂在球杆上的 Babylon 网格（shader `powerview`，高亮色 H.BLUE、bgAlpha 0.25）；此处改为 DOM 条，颜色与底透明度照抄，位置/形状属美化弹性处理。
 - 原作快捷键条显示还需 gState=READY 且 stateRatio∈{0,1}（L6306-6309）；UI 拿不到 gState，以 `sim/shooting-start` 代理 READY，`state-change-end` 代理 stateRatio 落定。
 - FOUL 抑制读 `ScorePanel` 持有的 ballOn：若 rules 在同一结算中先发 `game/foul` 再发 `game/ball-on-changed`，终局犯规仍会弹出；集成时需保证 ball-on 先发。
 - 消息框的拖拽/钉住/关闭按钮、练习与单局结算面板（L6460-6480、L7700-7730）、侧栏菜单未移植。
 
 ## 测试
+
+观察扩展单元2新增提示计时测试；全量299项、typecheck、build及Chrome camera专项（文案、隐藏、偏好恢复）通过。
 
 `src/ui/__tests__/smoke.test.ts`：EventBus 派发 `game/foul`、`game/ball-on-changed`、`game/frame-events`、`ctrl/state-change-*`、`sim/shooting-start`，断言状态类字段；不引 DOM / Babylon。
 

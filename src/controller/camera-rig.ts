@@ -140,7 +140,7 @@ export class CameraRig {
     this.target.copyFromFloats(this.lockedTarget.x + this.head.lookAtOffset.x * this.renderedRatio,
       this.lockedTarget.y + this.head.lookAtOffset.y * this.renderedRatio,
       this.lockedTarget.z + this.head.lookAtOffset.z * this.renderedRatio);
-    this.shotView.update(dt, this.renderedRatio);
+    this.shotView.update(dt, this.renderedRatio, this.position);
     if (this.shotView.active && !this.shotView.manual) this.target.copyFrom(this.shotView.target);
   }
 }

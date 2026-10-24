@@ -13,6 +13,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 
 ## 施工单元状态
 
+- [x] 观察扩展单元2：三模式、V动态切换、首碰子球锁定、落袋冻结、按视场加强的限速平滑；299项测试、typecheck、build、Chrome camera专项通过。偏好与短提示由装配根接入。
+
 - [x] 观察扩展单元1：默认自然起身、稳定焦点、拖动手动接管；295项测试、typecheck、build、Chrome controller通过。位置轨迹不变，登记用户批准差异。
 
 - [x] 相机与球杆数值控制、独立单测：12 项相机 + 9 项球杆/动画测试，全量270项与 typecheck 通过。
@@ -42,6 +44,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 14. 0.5秒自动起身延迟从跟杆动画结束后开始消耗；原作切换更新处理器保证只请求一次起身，不得每帧重复请求（L6376-6385）。
 
 ## 登记差异
+
+- 观察扩展单元2：V(86)没有既有冲突；natural/cue/object共用ShotView，只调整最终焦点。首次碰撞目标取getResult，触球前不消费上一杆残留；失活/入袋后冻结焦点。FocusSmoothing按dt子步推进并随横向视场偏离加强响应，不修改原作CameraSpring。运动中切换从当前焦点接续，拖动保持手动至下一杆或再次V。
 
 - 用户批准的观察扩展见 docs/camera-replay-design.md：默认出杆使用稳定的自然起身焦点，取代原作自动follow；CameraRig/ShotView只改变最终target，共享原有位置轨迹。拖动与复位注视立即接管，下一杆恢复自动观察。原作怪癖13作为来源事实保留，不再约束扩展的默认策略。
 

@@ -74,5 +74,5 @@
 
 - 需求文档：f5a8b20，已先独立提交推送。
 - 单元1：已实现稳定焦点与手动接管，位置轨迹逐帧对照；295项测试、typecheck、build、Chrome controller通过。
-- 单元2：待实现。
+- 单元2：三模式、V无冲突、动态切换、首碰锁定、落袋冻结、2.2秒短提示和localStorage偏好完成；299项测试、typecheck、build、Chrome camera专项通过。存储非法值与写入拒绝均不阻断操作。
 - 单元3：待实现。
