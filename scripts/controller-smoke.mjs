@@ -12,9 +12,10 @@ try {
   page.on("console", event => { if (event.type() === "error") errors.push(event.text()); });
   await page.goto(process.env.RENDER_URL ?? "http://127.0.0.1:5173");
   await page.waitForFunction(() => document.body.dataset.state === "ready", undefined, { timeout: 30000 });
-  await page.evaluate(async () => { const { engine } = await (await import("/src/app.ts")).runtime; engine.stopRenderLoop(); });
+  await page.evaluate(async () => { const { engine } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime; engine.stopRenderLoop(); });
+  assert.equal(await page.locator(".hud").count(), 1, "Tests must reuse the page entry module");
   const advance = async (count, dt = .0167) => page.evaluate(async ({ count, dt }) => {
-    const { game, scene, balls } = await (await import("/src/app.ts")).runtime;
+    const { game, scene, balls } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     for (let i = 0; i < count; ++i) game.update(dt);
     balls.sync(); scene.render();
     return { state: game.human.camera.state, ratio: game.human.camera.stateRatio, power: game.human.strokePower,
@@ -34,12 +35,12 @@ try {
   await page.mouse.down(); await page.mouse.move(680, 400); await page.mouse.up();
   await page.keyboard.up("Alt");
   await advance(30);
-  const before = await page.evaluate(async () => Array.from((await (await import("/src/app.ts")).runtime).game.human.getStrokeVars()));
+  const before = await page.evaluate(async () => Array.from((await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.human.getStrokeVars()));
   await page.keyboard.press("c"); await advance(30);
-  const cleared = await page.evaluate(async () => Array.from((await (await import("/src/app.ts")).runtime).game.human.getStrokeVars()));
+  const cleared = await page.evaluate(async () => Array.from((await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.human.getStrokeVars()));
   assert.notDeepEqual(before, cleared);
   const cueView = await page.evaluate(async () => {
-    const { scene, game } = await (await import("/src/app.ts")).runtime;
+    const { scene, game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     const cue = scene.getMeshByName("StickAlpha");
     return { visible: cue.isVisible, ready: cue.material.isReady(cue),
       transform: Array.from(cue.getWorldMatrix().m).every((value, i) => Math.abs(value - game.human.stick.worldMatrix.m[i]) < 1e-6),
@@ -56,9 +57,9 @@ try {
   for (let i = 0; i < 100 && state.rounds === 0; ++i) state = await advance(30);
   assert.equal(state.rounds, 1); assert.equal(state.busy, false);
   await page.keyboard.press("p"); await advance(120);
-  assert.equal(await page.evaluate(async () => (await (await import("/src/app.ts")).runtime).game.controls.inHand.active), true);
+  assert.equal(await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.controls.inHand.active), true);
   const projected = await page.evaluate(async () => {
-    const { game, scene, engine } = await (await import("/src/app.ts")).runtime;
+    const { game, scene, engine } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     game.human.camera.lookTo(-1.3, 0, true);
     for (let i = 0; i < 120; ++i) game.update(.0167);
     scene.render();
@@ -70,10 +71,10 @@ try {
     });
   });
   await page.mouse.move(...projected[0]); await advance(2);
-  assert.equal(await page.evaluate(async () => (await (await import("/src/app.ts")).runtime).game.controls.inHand.valid), true);
+  assert.equal(await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.controls.inHand.valid), true);
   await page.mouse.down(); await page.mouse.up(); await advance(2);
   const placed = await page.evaluate(async () => {
-    const { simulator, scene } = await (await import("/src/app.ts")).runtime;
+    const { simulator, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     const cue = simulator.getCueBallPosition();
     return { x: cue.x, z: cue.z, displayed: scene.getMeshByName("ball-0").position.asArray(), color: scene.getMeshByName("respot-preview").getVerticesData("color").slice(0, 3) };
   });
@@ -83,13 +84,13 @@ try {
   await page.screenshot({ path: ".cache/controller/placement.png" });
   await page.mouse.move(...projected[1]); await advance(2);
   const denied = await page.evaluate(async () => {
-    const { game, scene } = await (await import("/src/app.ts")).runtime;
+    const { game, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     return { valid: game.controls.inHand.valid, red: scene.getMeshByName("respot-preview").getVerticesData("color")[0] };
   });
   assert.deepEqual(denied, { valid: false, red: 1 });
   await page.mouse.down(); await page.mouse.up(); await advance(2);
   const unchanged = await page.evaluate(async () => {
-    const { simulator } = await (await import("/src/app.ts")).runtime;
+    const { simulator } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     const point = simulator.getCueBallPosition();
     return [point.x, point.z];
   });
@@ -98,16 +99,16 @@ try {
   await page.keyboard.down("d"); await advance(10);
   await page.locator("canvas").evaluate(canvas => canvas.blur());
   await advance(90);
-  const position = await page.evaluate(async () => (await (await import("/src/app.ts")).runtime).game.human.camera.bodyPosition.asArray());
+  const position = await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.human.camera.bodyPosition.asArray());
   await advance(30);
-  const stopped = await page.evaluate(async () => (await (await import("/src/app.ts")).runtime).game.human.camera.bodyPosition.asArray());
+  const stopped = await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.human.camera.bodyPosition.asArray());
   assert.deepEqual(stopped, position);
   await page.keyboard.up("d");
   await page.selectOption('select[name="mode"]', "single-play");
   await page.selectOption('select[name="difficulty"]', "EASY");
   await page.getByRole("button", { name: "开始新局" }).click();
   await page.evaluate(async () => {
-    const { game } = await (await import("/src/app.ts")).runtime;
+    const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     game.human.camera.resetWithKissDir(0, 1);
     game.human.gotoState1(true);
   });

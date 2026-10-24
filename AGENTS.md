@@ -50,6 +50,6 @@ render 三步已完成：完整场景与22球只读显示同步。app.ts 装配�
 
 ## Controller 施工
 
-设计与源码证据见 docs/controller-design.md，单元状态见 src/controller/AGENTS.md。相机/球杆数值控制、键鼠输入、出杆时序、手中球与 AI 接入已完成，球杆/摆球显示及既有 HUD 已接线；完整辅助线的 PredictionContext 扩展已于2026-10-24批准，正在按三步方案实施。app-game.ts 拆分浏览器装配，npm run test:controller 验证练习与人机回合。controller 使用独立 DOM tsconfig，根核心编译继续无 DOM。
+设计与源码证据见 docs/controller-design.md，单元状态见 src/controller/AGENTS.md。相机/球杆数值控制、键鼠输入、出杆时序、手中球与 AI 接入已完成，球杆/摆球显示及既有 HUD 已接线；完整辅助线已完成（2026-10-24批准的 PredictionContext 只读扩展）；npm run test:gunsight 验证五段显示、交互时序与预测无损。app-game.ts 拆分浏览器装配，npm run test:controller 验证练习与人机回合。controller 使用独立 DOM tsconfig，根核心编译继续无 DOM。
 
 浏览器入口的布局在 src/app.css，模式/难度/新局控件在 index.html，由 app.ts 接线；资源仍仅本地准备，不提交原始资产。

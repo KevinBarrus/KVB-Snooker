@@ -8,6 +8,7 @@ import { loadTexture } from "./render/assets.js";
 import { BallRenderer } from "./render/balls.js";
 import { waitForScene } from "./render/ready.js";
 import { loadCue } from "./render/cue.js";
+import { Gunsight } from "./render/gunsight.js";
 import { PlacementMarkers } from "./render/placement.js";
 import { BrowserGame } from "./app-game.js";
 
@@ -45,6 +46,9 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     disposeGame = () => game.dispose();
     const cue = await loadCue(scene, lighting);
     const placement = new PlacementMarkers(scene, atlas, mask);
+    const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
+    let lastPrediction: typeof game.human.prediction = null;
+    let lastBallOn = -1;
     const options = document.querySelector<HTMLFormElement>(".game-options");
     const newGame = options?.querySelector("button");
     const startGame = (event: Event) => {
@@ -63,6 +67,14 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       cue.rotation.copyFromFloats(0, person.stick.rotation.y, person.stick.rotation.z);
       cue.computeWorldMatrix(true);
       placement.sync(simulator.getCueBallPosition(), game.controls.inHand);
+      const prediction = game.human.prediction;
+      const ballOn = game.session.context.ballOn;
+      if (prediction && (prediction !== lastPrediction || ballOn !== lastBallOn)) {
+        gunsight.syncPrediction(prediction, ballOn);
+        lastPrediction = prediction; lastBallOn = ballOn;
+      }
+      // PCOL L7651-7655, L7670-7681
+      gunsight.alpha = prediction && !game.controls.inHand.active ? .6 * game.hud.powerBar.autoAlpha : 0;
       if (newGame) newGame.disabled = game.shots.busy;
       status.textContent = game.session.finished ? "本局结束 · 可开始新局" : game.controls.inHand.active
         ? "点击 D 区放置母球 · Esc 退出" : game.session.context.playerIndex === 1
@@ -84,7 +96,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       window.removeEventListener("resize", resize);
       options?.removeEventListener("submit", startGame);
       game.dispose();
-      placement.dispose();
+      placement.dispose(); gunsight.dispose();
       cue.material?.dispose(); cue.dispose();
       balls.dispose();
       scene?.dispose(); engine.dispose();

@@ -22,7 +22,9 @@
 
 - [x] controller 可视化接入：StickAlpha 原模型及 IBL 材质、摆球双图标、既有 HUD 布局；新增1项标记生命周期测试，全量279项、typecheck、build、Chrome controller/render 验收通过。PredictionContext 扩展已批准并实现。
 
-- [x] 辅助线第二步：五段几何、原图集 UV、顶点渐隐与目标合法性配色；7项单测，全量290项与 typecheck 通过；浏览器接线在第三步。
+- [x] 辅助线第二步：五段几何、原图集 UV、顶点渐隐与目标合法性配色；7项单测，全量290项与 typecheck 通过；浏览器接线见第三步。
+
+- [x] 辅助线第三步：app.ts 只读接线与渐隐；Chrome 专项验证无撞击/球球/库边/贴球、红白目标、键鼠刷新、出杆与AI回合隐藏、100组连续无损预测。controller/render 回归及截图目检通过。
 
 ## 转写时新发现的怪癖（不可“改进”）
 

@@ -19,7 +19,7 @@ try {
   const state = await page.locator("body").getAttribute("data-state");
   assert.equal(state, "ready", await page.locator("output").textContent());
   const sceneState = await page.evaluate(async () => {
-    const { scene } = await (await import("/src/app.ts")).runtime;
+    const { scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     const gameLight = scene.getLightByName("GameLight");
     const pocketLight = scene.getLightByName("PocketLight");
     const balls = scene.meshes.filter(mesh => /^ball-\d+$/.test(mesh.name));
@@ -36,6 +36,7 @@ try {
       frame: [frame.metallic, frame.roughness, frame.disableLighting]
     };
   });
+  assert.equal(await page.locator(".hud").count(), 1, "Tests must reuse the page entry module");
   assert.equal(sceneState.meshes, true);
   assert.deepEqual(sceneState.light, [60, 3.6, 175 / 180 * Math.PI]);
   assert.deepEqual(sceneState.lightMeshes, ["TableInner"]);
@@ -45,7 +46,7 @@ try {
   assert.deepEqual(sceneState.shadow, [0.881, 88, Math.fround(0.8)]);
   assert.deepEqual(sceneState.frame, [1, 0.8, true]);
   const motion = await page.evaluate(async () => {
-    const { engine, scene, simulator, balls } = await (await import("/src/app.ts")).runtime;
+    const { engine, scene, simulator, balls } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     engine.stopRenderLoop();
     const cue = scene.getMeshByName("ball-0");
     const positionsMatch = () => {
@@ -106,7 +107,7 @@ try {
   await mkdir(".cache/render", { recursive: true });
   await page.screenshot({ path: ".cache/render/smoke.png" });
   const disposed = await page.evaluate(async () => {
-    const { engine, scene, balls } = await (await import("/src/app.ts")).runtime;
+    const { engine, scene, balls } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     balls.dispose();
     const removed = !scene.meshes.some(mesh => mesh.name.startsWith("ball-"));
     const tableRetained = !!scene.getMeshByName("TableInner");

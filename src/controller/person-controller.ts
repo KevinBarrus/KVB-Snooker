@@ -36,6 +36,7 @@ export class PersonController {
     this.stick.leadingSpace = -0.015;
     this.strokePower = 0.5;
     this.predictionDirty = true;
+    this.prediction = null;
     this.update(0);
   }
 

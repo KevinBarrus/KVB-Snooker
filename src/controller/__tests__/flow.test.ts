@@ -76,6 +76,9 @@ describe("Controller shot flow", () => {
     expect(person.strokePower).toBe(0);
     expect(predict).toHaveBeenCalledTimes(2);
     expect(simulator.serialize()).toEqual(before);
+    person.activate();
+    expect(person.prediction).toBeNull();
+    expect(person.updatePrediction()).toBe(true);
   });
 
   it("AI等待后将路线注入同一个球杆/出杆通道，只发一次AI事件", () => {

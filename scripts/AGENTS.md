@@ -12,3 +12,6 @@
 - controller-smoke.mjs 覆盖瞄准、滚轮、加塞/清塞、触球延迟、防连发、练习回合、手中球入口、失焦停止走位和人类→AI 接棒。仅使用装配根/公开命令，120秒超时关闭自建浏览器；npm run test:controller。
 
 - controller 浏览器验收追加球杆材质/世界矩阵、力度条、鼠标摆球成功与 D 区外拒绝、页面模式入口；截图在 .cache/controller/stand.png、aim.png、placement.png。脚本先发送鼠标移动并步进，再单独 down/up，保留原作 dirty 预览拒绝机制。
+
+- gunsight-smoke.mjs（npm run test:gunsight）覆盖真实球台辅助线五部分、目标合法性、输入刷新、贴球/撞库、出杆渐隐和AI回合隐藏；100组方向/力度/塞/角度变化后逐项比较物理存档、显示视图、本杆结果和回合状态。截图 .cache/controller/gunsight-*.png 不提交。
+- 三套浏览器脚本必须从页面 script 标签读取带 Vite 时间戳的实际 app.ts 入口再 import。导入裸路径可能创建第二份 runtime；现以页面只存在一个 HUD 作回归断言。截图前等待动画帧并重绘，确保 WebGL 合成完成。
