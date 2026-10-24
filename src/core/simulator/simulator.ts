@@ -164,6 +164,11 @@ export class Simulator {
   predict(vars: StrokeVars, maxDist = Infinity): PredictionContext {
     this.world.save();
     const context = this.world.predict(this.balls[0], vars, maxDist);
-    return { impactV1: context.impactV1.clone(), impactOccured: context.impactOccured };
+    // PCOL L14626-14681
+    const point = (value: Readonly<Vec3>) => ({ x: value.x, y: value.y, z: value.z });
+    return { impactV1: context.impactV1.clone(), impactOccured: context.impactOccured,
+      p0: point(context.p0), p1: point(context.p1), cue: point(context.cue), cueVSq: context.cueVSq,
+      p2: point(context.p2), target: point(context.target), targetVSq: context.targetVSq,
+      targetNumber: context.targetNumber, hasImpactTarget: context.hasImpactTarget };
   }
 }

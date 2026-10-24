@@ -172,7 +172,18 @@ export interface BallView {
   readonly renderPosition: Readonly<{ x: number; y: number; z: number }>
   readonly renderOrientation: Readonly<{ x: number; y: number; z: number; w: number }>
 }
-export interface PredictionContext { impactV1: Vec3; impactOccured: boolean /* 原作字段名 */ }
+export interface PredictionContext {
+  impactV1: Vec3; impactOccured: boolean /* 原作字段名 */
+  readonly p0: Readonly<{ x: number; y: number; z: number }>
+  readonly p1: Readonly<{ x: number; y: number; z: number }>
+  readonly cue: Readonly<{ x: number; y: number; z: number }>
+  readonly cueVSq: number
+  readonly p2: Readonly<{ x: number; y: number; z: number }>
+  readonly target: Readonly<{ x: number; y: number; z: number }>
+  readonly targetVSq: number
+  readonly targetNumber: number
+  readonly hasImpactTarget: boolean
+}
 
 // ---- 规则引擎（规格 05） ----
 export interface RulesContext { inHand: 0 | 1 | 2; ballOn: number; playerIndex: number; nRounds: number }
@@ -197,6 +208,8 @@ export interface AIRoute { dx: number; dy: number; dz: number; fbSpin: number; p
 **表现层数据只读原则**：`BallView`/`PredictionContext` 是控制器/渲染可感知的全部核心状态，禁止把 `World`/`Vec3` 内部引用直接交给渲染层改写。
 
 **BallView 显示快照（2026-10-19 用户批准扩展）**：`position` 保留物理位置拷贝；`renderPosition` / `renderOrientation` 为独立的只读数值快照，分别取原作 `states.position` / `states.orientation`（PCOL L1886-1900）。正常 `step` 复用 WorldClient 的剩余时间外推（L14706-14714）；构造、重摆及显式 `restore` 后，在下一次步进前按物理姿态同步显示状态。`stroke` 不立即移动姿态，`predict` 保留预测前显示状态。存档格式不变，不增加显示状态或剩余时间字段。
+
+**PredictionContext 辅助线快照（2026-10-24 用户批准扩展）**：新增9个只读字段，源于 PCOL L14626-14681。位置为普通对象副本，不暴露刚体引用；`p1` 仅在 `impactOccured` 时有效，`p2/target/targetVSq/targetNumber` 仅在 `hasImpactTarget` 时有效。保留无撞击时未清空旧值的原作行为，显示层按标志取用；物理算法与存档格式不变。
 
 ### 4.3 物理台面数据 `public/assets/physics/table.json`
 

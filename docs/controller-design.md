@@ -25,7 +25,7 @@ REA 复用原始源码分析 `ev_41ca1d053560e9d34dc5fbdb9e6fc5a183cedd748a40af0
 - 跟杆距离是触球后减速距离，后拉距离另由 Power1.easeOut(power)*0.25 计算。物理触球时按原作循环分片，最多0.02秒一片。
 - 视线/球杆朝向缓存只比较斜率，反方向但同斜率可能不更新；原样保留并测试。
 
-## 待批准的最小接口扩展：PredictionContext
+## 已批准的最小接口扩展：PredictionContext（2026-10-24）
 
 现有公开契约只返回 `impactV1`、`impactOccured`。原作辅助线还读取以下9个字段，全部已存在于 WorldClient 的内部预测结果。本提案只在 Simulator 边界复制数值，不改物理计算、存档或现有字段，不暴露 b1/b2 刚体引用。
 
@@ -41,7 +41,7 @@ readonly targetNumber: number
 readonly hasImpactTarget: boolean
 ```
 
-字段仅在对应 `impactOccured` / `hasImpactTarget` 成立时消费，保留原作未命中时旧字段残留的行为。批准后同步 architecture §4.2、simulator 类型/拷贝实现及测试。验证包括无撞击、球球撞击、库边撞击、快照隔离与预测前后物理/显示状态不变。
+字段仅在对应 `impactOccured` / `hasImpactTarget` 成立时消费，保留原作未命中时旧字段残留的行为。用户已批准三步方案；同步 architecture §4.2、simulator 类型/拷贝实现及测试。验证包括无撞击、球球撞击、库边撞击、快照隔离与预测前后物理/显示状态不变。
 
 ## 交付单元
 
@@ -55,5 +55,5 @@ readonly hasImpactTarget: boolean
 
 - 单元1已推送 e78ee10；单元2已推送 df860b3。
 - 浏览器瞄准触发既有预测循环卡死，源码对照确认是转写漏括号，修正095dc90恢复 PCOL L14728-14733 的距离/迭代退出限制。
-- 单元3已接原作球杆模型/IBL、摆球双标记、现有 HUD 和最小模式入口；完整五段辅助线仍待上述接口批准。
+- 单元3已接原作球杆模型/IBL、摆球双标记、现有 HUD 和最小模式入口；完整五段辅助线已获用户批准，按快照接口→几何显示→交互验收三步实施。
 - 当前验收是静态源码对照与本地 Chrome 自动化；未进行原作实机手感盲测或逐像素对照，不宣称 M2 整体通过。

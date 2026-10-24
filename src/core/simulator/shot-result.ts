@@ -28,6 +28,15 @@ export interface BallView {
 export interface PredictionContext {
   impactV1: Vec3;
   impactOccured: boolean;
+  readonly p0: Readonly<{ x: number; y: number; z: number }>;
+  readonly p1: Readonly<{ x: number; y: number; z: number }>;
+  readonly cue: Readonly<{ x: number; y: number; z: number }>;
+  readonly cueVSq: number;
+  readonly p2: Readonly<{ x: number; y: number; z: number }>;
+  readonly target: Readonly<{ x: number; y: number; z: number }>;
+  readonly targetVSq: number;
+  readonly targetNumber: number;
+  readonly hasImpactTarget: boolean;
 }
 
 // PCOL L9270-9277

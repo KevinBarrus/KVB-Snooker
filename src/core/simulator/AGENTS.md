@@ -18,6 +18,8 @@ PCOL 模拟器装配、球 wrapper 与单杆结果统计。
 - [x] ball.ts / scene.ts / shot-result.ts / simulator.ts（15 项单测，含真实 SnookerRef 接入）。
 - [x] BallView.renderPosition / renderOrientation（2026-10-19 用户批准扩展）：只读数值快照；重摆及显式 restore 同步显示状态；新增 13 项单测，模块共 28 项，全量 235 项与 typecheck 通过。
 
+- [x] PredictionContext 辅助线快照（2026-10-24 用户批准）：新增9个只读字段，4项无损预测/隔离测试，全量283项与 typecheck 通过。
+
 ## 转写时新发现的怪癖（不可"改进"）
 
 1. ballSet 按 number/x/z 三元组读取，y = ground.centerPosition.y + ballRadius；球 wrapper 构造位置为零，reset 才搬到 spot。
@@ -29,6 +31,8 @@ PCOL 模拟器装配、球 wrapper 与单杆结果统计。
 7. 原作渲染读取 states.position / states.orientation，阴影显隐却用物理 position.y（L1886-1900）；不能把 BallView.position 改成显示位置。
 8. WorldClient 显示位置按剩余时间外推；剩余时间大于 stepSize 时改用 0（L14706-14714）。predict 使用 internalStep，不刷新 states，结束还原物理状态后保留原显示姿态（L14715-14741）。
 9. Body.reset 清速度并重摆位置，但不重置 orientation（L11535-11546）；显示快照必须保留重摆前的物理朝向。
+
+10. 预测开始仅重置命中标志和起点；无撞击时 p1、p2、target 等旧值残留（L14644-14681），必须按 impactOccured/hasImpactTarget 取用，不能主动清零。
 
 ## 登记差异
 
@@ -46,3 +50,5 @@ PCOL 模拟器装配、球 wrapper 与单杆结果统计。
 ## 完成定义（DoD）
 
 npm run test 与 npx tsc --noEmit 全绿；同步章程；Conventional Commits 提交并推送。
+
+- 辅助线位置 p0/p1/cue/p2/target 均为普通对象拷贝，新增标量直接复制；不暴露 b1/b2，不改变既有 impactV1 类型或预测求解器。
