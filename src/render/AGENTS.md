@@ -20,7 +20,9 @@
 - [x] 第二步：原始模型、房间、灯光隔离、台呢/袋口/木框材质、八种球色与批量阴影。244 项测试、typecheck、build 和 Chrome 场景参数/出图检查通过。
 - [x] 第三步：BallRenderer 消费 Simulator 显示快照；22 球同步、两档共享几何、同色共享材质及资源释放。新增 5 项测试，全量 249 项、typecheck、build 与真实球台浏览器运动/旋转/落袋/重摆验证通过。
 
-- [x] controller 可视化接入：StickAlpha 原模型及 IBL 材质、摆球双图标、既有 HUD 布局；新增1项标记生命周期测试，全量279项、typecheck、build、Chrome controller/render 验收通过。完整辅助线等待 PredictionContext 接口批准。
+- [x] controller 可视化接入：StickAlpha 原模型及 IBL 材质、摆球双图标、既有 HUD 布局；新增1项标记生命周期测试，全量279项、typecheck、build、Chrome controller/render 验收通过。PredictionContext 扩展已批准并实现。
+
+- [x] 辅助线第二步：五段几何、原图集 UV、顶点渐隐与目标合法性配色；7项单测，全量290项与 typecheck 通过；浏览器接线在第三步。
 
 ## 转写时新发现的怪癖（不可“改进”）
 
@@ -38,6 +40,11 @@
 
 12. 球杆 glossy 贴图经 reflectivityRoughness 通道，radiance=0.12、roughness=1、toneMapping=2；LOD falloff 内部第二项为 far-near=8.5。
 13. 摆球原位标记只在进入模式时抓取母球位置，逐帧转0.06；点下新位置后不跟随移动。
+
+14. 母球碰后长度是 min(0.5×位移平方+0.5×速度平方, 1.6−入射距离)，不是预测点间距离；目标线 min(0.5×targetVSq,0.4)。
+15. 入射距离≤2r 时隐藏线但保留 impactV1 的朝向供目标扇形使用；无撞击距离≤r 隐藏线。
+16. 扇形按1−两方向点积张开，宽度因子2.8；短线仍保留最小贴图端帽，不能压缩到小于两端帽长度。
+17. 原线条为纯白，球心标记为218/255灰白；目标线为黄色，非法目标仅球心标记变红；顶点4及以后 alpha=0。
 
 ## 登记差异
 
@@ -66,3 +73,5 @@ PCOL L1105-1115 使用 planebatch，L9911 指定 shader 根路径。当前同源
 - 每步 npm run test、npm run typecheck、npm run build、浏览器验证通过，同步章程后独立提交推送。
 - NullEngine 单测验证快照只读、物理高度阴影判据、重摆和共享资源所有权；浏览器测试通过 Simulator.stroke/step 真实击球落袋，不手改 v/w，也不读取 World 内部。
 - 已知工具提示：Babylon 3.2 发布包缺少其声明的 source map，Vitest 会提示但测试通过；Vite 提示完整 Babylon bundle 大于500 kB，当前 gzip 约450 kB，尚未做体积优化。
+
+- Gunsight 复用 table-overlay 的原作 planebatch shader、图集与mask，五段用独立网格共享材质；高度为台面+0.001+0.0001，目标标记 alphaIndex=10，其余−10。不依赖 controller，不读 World。
