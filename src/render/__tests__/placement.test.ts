@@ -1,0 +1,33 @@
+import { expect, it } from "vitest";
+import * as B from "babylonjs/es6.js";
+import { PlacementMarkers } from "../placement.js";
+import { TABLE_COLORS } from "../table-overlay.js";
+
+it("摆球图标保留进入时母球位置；预览红绿切换、退出隐藏，释放不销毁共享贴图", () => {
+  const engine = new B.NullEngine();
+  const scene = new B.Scene(engine);
+  const atlas = new B.Texture("", scene), mask = new B.Texture("", scene);
+  const markers = new PlacementMarkers(scene, atlas, mask);
+  const cue = { x: -1.2, z: 0 };
+  const state = { active: true, visible: false, valid: false, spot: { x: -1.3, z: .1 } };
+  const before = structuredClone(state);
+  markers.sync(cue, state);
+  expect(markers.origin.position.asArray()).toEqual([-1.2, .881, 0]);
+  expect(markers.preview.isVisible).toBe(false);
+  expect(markers.origin.rotation.y).toBe(.06);
+  cue.x = -1.3; state.visible = true;
+  markers.sync(cue, state);
+  expect(markers.origin.position.x).toBe(-1.2);
+  expect(Array.from(markers.preview.getVerticesData("color")!).slice(0, 3)).toEqual(TABLE_COLORS.red);
+  state.valid = true; markers.sync(cue, state);
+  expect(Array.from(markers.preview.getVerticesData("color")!).slice(0, 3)).toEqual(TABLE_COLORS.green);
+  expect(markers.preview.position.asArray()).toEqual([-1.3, .881, .1]);
+  expect(state.spot).toEqual(before.spot);
+  state.active = false; markers.sync(cue, state);
+  expect(markers.origin.isVisible || markers.preview.isVisible).toBe(false);
+  markers.dispose();
+  expect(scene.meshes).toHaveLength(0);
+  expect(scene.textures).toContain(atlas);
+  expect(scene.textures).toContain(mask);
+  engine.dispose();
+});

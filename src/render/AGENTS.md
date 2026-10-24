@@ -20,6 +20,8 @@
 - [x] 第二步：原始模型、房间、灯光隔离、台呢/袋口/木框材质、八种球色与批量阴影。244 项测试、typecheck、build 和 Chrome 场景参数/出图检查通过。
 - [x] 第三步：BallRenderer 消费 Simulator 显示快照；22 球同步、两档共享几何、同色共享材质及资源释放。新增 5 项测试，全量 249 项、typecheck、build 与真实球台浏览器运动/旋转/落袋/重摆验证通过。
 
+- [x] controller 可视化接入：StickAlpha 原模型及 IBL 材质、摆球双图标、既有 HUD 布局；新增1项标记生命周期测试，全量279项、typecheck、build、Chrome controller/render 验收通过。完整辅助线等待 PredictionContext 接口批准。
+
 ## 转写时新发现的怪癖（不可“改进”）
 
 1. 球 toneMappingMode=2（指数映射），台呢 mode=3（ACES）；不能统一套全局 ACES。
@@ -34,15 +36,18 @@
 10. 球位置和四元数来自显示快照；阴影是否显示却取物理 position.y >= 0.88。跌落时可能球仍可见但阴影已消失；失活则隐藏球与影。
 11. 母球细分32，其他球20；几何按细分档克隆共享，材质按 number 缓存。重摆保留朝向，render 不主动重置四元数。
 
+12. 球杆 glossy 贴图经 reflectivityRoughness 通道，radiance=0.12、roughness=1、toneMapping=2；LOD falloff 内部第二项为 far-near=8.5。
+13. 摆球原位标记只在进入模式时抓取母球位置，逐帧转0.06；点下新位置后不跟随移动。
+
 ## 登记差异
 
 - Babylon 3.2 CommonJS 包装依赖非严格 this，Vite 浏览器加载会报 CANNON 访问错误；采用同一包的 es6.js，类型沿用官方 babylon.d.ts。
 - 以 ShaderMaterial 绑定原作 GLSL，使用普通 uniform 代替 UBO；台呢场景仅 GameLight，固定1盏灯。未启用原作场景未使用的骨骼/实例/镜像相机分支。
 - 探针仍保存上次单元编号及哨兵状态，每次绑定重算权重，省略原作 transform dirty 观察器；不改变采样公式。
-- 资源异步加载失败显式报错；编译/就绪等待上限20秒。资产表含25项（顶层17项、共享1项、模型内7项），修正规格旧“15项”描述。
-- 阴影复用原作 planebatch shader 的黑色分支；省略用于瞄准/摆球图标的 color attribute，这些控件归 controller 后续接入。
+- 资源异步加载失败显式报错；编译/就绪等待上限20秒。资产表含28项（原25项加球杆模型/颜色/光泽贴图3项），修正规格旧“15项”描述。
+- 球影与摆球图标共用原作 planebatch shader；球影的 color 恒为黑色，摆球采用原作红/绿/白色。图标独立网格，沿用原始 UV 与台面 mask，未合并进球影批次。
 - BallRenderer 的球数/半径在构造时固定，对应当前 Simulator 球组；切换 Simulator/球台需 dispose 后重新构造。dispose 只释放自有网格/材质，共享贴图由场景管理。
-- app.ts 仅做浏览器装配与步进；不包含人类输入、球杆、相机走位、回合控制或 UI/audio 联动。导出 runtime 供集成及浏览器验收消费。
+- app.ts / app-game.ts 负责浏览器装配；连接 controller、球杆/摆球显示与既有 UI。跨表现层引用仅在装配根发生，render 不 import controller。导出 runtime 供集成及浏览器验收消费。
 - app.ts 在解析碰撞 JSON 前校验 SHA-256（`04acfb245368bc1762cdcdf94f0bb81ab82dd82f785af661a4f63d3de9ccbbc9`），只接受已核对的原始台面数据；先校验后装配渲染场景。
 
 ## 外部 shader 证据
@@ -54,7 +59,7 @@ PCOL L1105-1115 使用 planebatch，L9911 指定 shader 根路径。当前同源
 
 ## 运行与验收
 
-- 将原始25项资源放入 vendor-original/render，物理台面默认读取 analysis/tiger-club-sno-rgb.json；npm run assets:prepare 校验 SHA-256 后复制。也可 npm run assets:prepare -- /资源目录 /物理台面文件。物理文件写入 public/assets/physics/table.json，排除于 Git。
+- 将原始28项资源放入 vendor-original/render，物理台面默认读取 analysis/tiger-club-sno-rgb.json；npm run assets:prepare 校验 SHA-256 后复制。也可 npm run assets:prepare -- /资源目录 /物理台面文件。物理文件写入 public/assets/physics/table.json，排除于 Git。
 - npm run dev；另一个终端 npm run test:render，默认使用 /usr/bin/google-chrome，可用 CHROME_BIN 覆盖，RENDER_URL 指定服务地址。
 - Chrome 使用隔离无头进程及软件 WebGL；检查错误、资源HTTP状态、非空画面，截图位于 .cache/render/smoke.png，不提交。
 - 完整模型使用原始 UV；Chrome 检查灯光隔离/参数、八种球材质就绪、阴影几何/透明度和木框参数。截图已目检，未宣称逐像素一致；真实 GPU 性能仍需实机验收。

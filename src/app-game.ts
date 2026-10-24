@@ -155,7 +155,7 @@ export class BrowserGame {
     this.hud.powerBar.percent = this.human.strokePower;
     const alpha = (1 - (this.shots.busy ? this.shots.motion.pullbackProgress : 0)) * this.human.camera.renderedRatio;
     this.hud.powerBar.autoAlpha = this.human.active && alpha > 0.8 ? (alpha - 0.8) / 0.2 : 0;
-    this.hud.shortcutsBar.active = this.canShoot(0) && !this.shots.busy &&
+    this.hud.shortcutsBar.active = !this.controls.inHand.active && this.canShoot(0) && !this.shots.busy &&
       (this.human.camera.stateRatio === 0 || this.human.camera.stateRatio === 1);
     this.hud.shortcutsBar.group = this.human.camera.state;
     this.hud.update(dt); this.hudDom.sync(this.hud);

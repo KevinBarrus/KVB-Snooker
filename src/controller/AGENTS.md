@@ -15,7 +15,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 
 - [x] 相机与球杆数值控制、独立单测：12 项相机 + 9 项球杆/动画测试，全量270项与 typecheck 通过。
 - [x] 输入、出杆时序、手中球与 AI 接入；新增6项流程测试，全量278项（含预测循环2项回归）、typecheck 和 Chrome 键鼠/练习回合/AI接棒验收通过。
-- [ ] 可视化、装配与浏览器验收。
+- [x] 球杆模型/材质、摆球标记、既有 UI 联动与浏览器装配；全量279项、typecheck、build、Chrome controller/render 验收通过。
+- [ ] 原作五段辅助线：等待 docs/controller-design.md 的9字段 PredictionContext 扩展批准；不能据此宣称 controller/M2 全部完成。
 
 ## 转写时新发现的怪癖（不可“改进”）
 
@@ -42,3 +43,6 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 - 手中球射线与台面不相交时隐藏预览并拒绝放球；不输出无穷/NaN坐标。
 - AI 延迟随机数由装配根注入 coreRandom，遵守项目可播种规则。
 - WorldClient.predict 原有转写括号误译在接入时修正，恢复原作距离与迭代上限；详见 physics/AGENTS.md。
+
+- 当前装配使用最小模式/难度/新局入口与现有 Hud DOM；不复刻完整原作菜单外观。手中球操作提示持续显示，暂未接原作消息弹层的首次提示/10秒重新提示。
+- 瞄准预测已通过 Simulator 调用且无损恢复；完整辅助线尚未接入，不能用 impactV1 替代原作 p0/p1/p2 等几何快照。

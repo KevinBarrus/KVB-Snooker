@@ -98,5 +98,17 @@
   "mainlight-com.jpg": {
     "file": "mainlight-com.jpg",
     "sha256": "cc75fe4dd5f6d15fff48e16e47ac41b148d82724de1e1fc70474c86de67c194e"
+  },
+  "cue-model": {
+    "file": "3427c4cbb59a2e2ab0efe1f0ecc91863.babylon",
+    "sha256": "c2d077b236c0833bf75495c8703c8fd91c8532375141f8bfb1559d06f0e65255"
+  },
+  "cue-color": {
+    "file": "1d7af82a4bcfa1d965e85bf46a90bb29.jpg",
+    "sha256": "c174f2fb1f7e64579fe09531653a41a59ef49cb56c55964ec19a69a4129be299"
+  },
+  "cue-glossy": {
+    "file": "fea245db64f3c20d58337e086797b65a.png",
+    "sha256": "7a0648baaad16bc54edad1193048be54ae069e844f7c67ba9f0dc3e26882f3b4"
   }
 }

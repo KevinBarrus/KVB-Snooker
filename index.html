@@ -5,14 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="data:,">
     <title>KVB-Snooker</title>
-    <style>
-      html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #13100d; }
-      canvas { width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
-      output { position: absolute; left: 16px; bottom: 16px; color: white; font: 14px system-ui; }
-    </style>
+    <link rel="stylesheet" href="/src/app.css">
   </head>
   <body>
     <canvas tabindex="0" aria-label="斯诺克球台：W 瞄准，A D 绕台，空格出杆"></canvas>
+    <form class="game-options" aria-label="新局设置">
+      <label>模式 <select name="mode"><option value="practice">自由练习</option><option value="single-play">人机对局</option></select></label>
+      <label>难度 <select name="difficulty"><option value="EASY">简单</option><option value="NORMAL" selected>普通</option><option value="HARD">困难</option></select></label>
+      <button type="submit">开始新局</button>
+      <details><summary>操作</summary><p>W 瞄准 · S 起身 · A / D 绕台<br>X 按住蹲下 · R 视线复位<br>拖拽观察 · 滚轮调力度<br>Alt / ⌘ + 拖拽加塞 · C 清塞<br>Alt / ⌘ + 滚轮抬杆<br>空格出杆 · P 摆球 · Esc 退出摆球</p></details>
+    </form>
     <output role="status">加载球台资源…</output>
     <script type="module" src="/src/app.ts"></script>
   </body>

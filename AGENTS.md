@@ -46,8 +46,10 @@ math → physics → simulator → rules → ai（里程碑 M1：Node 终端跑�
 
 `src/app.ts` 为最小浏览器装配根，`src/render/AGENTS.md` 记录分步状态。`npm run assets:prepare` 校验本地原作资源，`npm run dev` 启动，`npm run test:render` 用已有 Chrome 验证；`npm run build` 构建。DOM lib 按 ui/render 目录隔离，core 继续用根 tsconfig 的 ES2022 环境。
 
-render 三步已完成：完整场景与22球只读显示同步。app.ts 装配已有 Simulator 并驱动步进；控制器与交互留下一模块。资源准备同时校验物理台面并复制到 public/assets/physics/table.json，原始资源不提交。
+render 三步已完成：完整场景与22球只读显示同步。app.ts 装配已有 Simulator 并驱动步进；控制器与交互接入状态见下文。资源准备同时校验物理台面并复制到 public/assets/physics/table.json，原始资源不提交。
 
 ## Controller 施工
 
-设计与源码证据见 docs/controller-design.md，单元状态见 src/controller/AGENTS.md。相机/球杆数值控制、键鼠输入、出杆时序、手中球与 AI 接入已完成；app-game.ts 拆分浏览器装配，npm run test:controller 验证练习与人机回合。controller 使用独立 DOM tsconfig，根核心编译继续无 DOM。
+设计与源码证据见 docs/controller-design.md，单元状态见 src/controller/AGENTS.md。相机/球杆数值控制、键鼠输入、出杆时序、手中球与 AI 接入已完成，球杆/摆球显示及既有 HUD 已接线；完整辅助线等待 PredictionContext 扩展批准。app-game.ts 拆分浏览器装配，npm run test:controller 验证练习与人机回合。controller 使用独立 DOM tsconfig，根核心编译继续无 DOM。
+
+浏览器入口的布局在 src/app.css，模式/难度/新局控件在 index.html，由 app.ts 接线；资源仍仅本地准备，不提交原始资产。

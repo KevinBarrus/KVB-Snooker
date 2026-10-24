@@ -39,29 +39,41 @@ export interface BallLighting {
   brdf: B.BaseTexture;
 }
 
-// PCOL L443-466, L10450-10525
-export class BallMaterial extends B.ShaderMaterial {
+type Appearance = { number: number } | { diffuse: B.Texture; glossy: B.Texture };
+
+// PCOL L443-466, L1228-1239, L10450-10525
+class IblMaterial extends B.ShaderMaterial {
   private readonly samples = new WeakMap<B.Mesh, ProbeSample>();
 
-  constructor(scene: B.Scene, number: number, private readonly lighting: BallLighting) {
+  constructor(scene: B.Scene, private readonly lighting: BallLighting, appearance: Appearance) {
     registerShaders();
-    const color = BALL_COLORS[number];
-    if (!color) throw new Error(`Unknown ball number: ${number}`);
-    super(`ball-material-${number}`, scene, "pcolBall", {
-      attributes: ["position", "normal"],
+    const cue = "diffuse" in appearance;
+    const color = cue ? [1, 1, 1] as const : BALL_COLORS[appearance.number];
+    if (!color) throw new Error("Unknown ball number");
+    super(cue ? "cue-material" : `ball-material-${appearance.number}`, scene, "pcolBall", {
+      attributes: cue ? ["position", "normal", "uv"] : ["position", "normal"],
       uniforms: ["world", "viewProjection", "vEyePosition", "vDiffuseColor", "vReflectivity", "vLightProbeInfos",
         "vLodFallOff", "vAABB", "vAoInfos", "vDynamicRatios"],
       samplers: ["aoSampler", "radSampler", "environmentBrdfSampler", ...Array.from({ length: 8 }, (_, i) => `iradSampler${i}`)],
-      defines: ["NORMAL", "AO", "AODIRECTUV 10", "DIFFUSEDIRECTUV 0", "REFLECTIVITYROUGHNESSDIRECTUV 0", "DYAO", "RADIANCE", "IRRADIANCE", "USEPARALLAXCORRECTION",
+      defines: ["NORMAL", "DIFFUSEDIRECTUV 0", "REFLECTIVITYROUGHNESSDIRECTUV 0", "RADIANCE", "IRRADIANCE", "USEPARALLAXCORRECTION",
+        ...(cue ? ["UV1", "DIFFUSE", "REFLECTIVITYROUGHNESS", "USERADIANCELODROUGHNESS"] : ["AO", "AODIRECTUV 10", "DYAO"]),
         "USELODFALLOFF", "ENVIRONMENTBRDF", "TONEMAPPINGMODE 2", "PBR", "USEPHYSICALLIGHTFALLOFF",
         ...(scene.getEngine().getCaps().textureLOD ? ["LODBASEDMICROSURFACE"] : [])].map(value => `#define ${value}`)
     });
     this.setColor4("vDiffuseColor", new B.Color4(...color, 1));
-    this.setVector4("vReflectivity", new B.Vector4(0.04, 0.04, 0.04, 0.1));
-    this.setVector4("vLightProbeInfos", new B.Vector4(lighting.radiance.getSize().width, 1, 1, 0));
-    this.setVector4("vLodFallOff", new B.Vector4(1.5, 1.5, 5, 2));
+    this.setVector4("vReflectivity", new B.Vector4(0.04, 0.04, 0.04, cue ? 1 : 0.1));
+    this.setVector4("vLightProbeInfos", new B.Vector4(lighting.radiance.getSize().width, cue ? 0.12 : 1, 1, 0));
+    this.setVector4("vLodFallOff", cue ? new B.Vector4(1.5, 8.5, 2, 1.5) : new B.Vector4(1.5, 1.5, 5, 2));
     this.setMatrix3x3("vAABB", PROBE_AABB);
     this.setVector2("vAoInfos", new B.Vector2(0, 1));
+    if (cue) {
+      this.setTexture("diffuseSampler", appearance.diffuse);
+      this.setTexture("reflectivityRoughnessSampler", appearance.glossy);
+      this.setMatrix("diffuseMatrix", appearance.diffuse.getTextureMatrix());
+      this.setMatrix("reflectivityRoughnessMatrix", appearance.glossy.getTextureMatrix());
+      this.setVector2("vDiffuseInfos", new B.Vector2(appearance.diffuse.coordinatesIndex, appearance.diffuse.level));
+      this.setVector2("vReflectivityRoughnessInfos", new B.Vector2(appearance.glossy.coordinatesIndex, appearance.glossy.level));
+    }
   }
 
   override isReady(mesh?: B.AbstractMesh, useInstances?: boolean): boolean {
@@ -82,6 +94,16 @@ export class BallMaterial extends B.ShaderMaterial {
     sampleLightProbes(mesh.position, sample);
     effect.setArray("vDynamicRatios", Array.from(sample.ratios));
     for (let i = 0; i < 8; ++i) effect.setTexture(`iradSampler${i}`, this.lighting.irradiance[sample.indices[i]]);
+  }
+}
+
+export class BallMaterial extends IblMaterial {
+  constructor(scene: B.Scene, number: number, lighting: BallLighting) { super(scene, lighting, { number }); }
+}
+
+export class CueMaterial extends IblMaterial {
+  constructor(scene: B.Scene, lighting: BallLighting, diffuse: B.Texture, glossy: B.Texture) {
+    super(scene, lighting, { diffuse, glossy });
   }
 }
 
