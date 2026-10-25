@@ -13,6 +13,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 
 ## 施工单元状态
 
+- [x] AI自由旁观接线修复：app-game.ts移除AI出杆启动用户ShotView及跨玩家写struck；实时V以human.active限制，回放独立放行。未改相机算法、起身、防抖与物理规则；313项单测、typecheck、build和Chrome camera:ai/camera/replay通过，详见docs/camera-replay-design.md §11。
+
 - [x] 子球视线连续交接：首碰前轻随母球，真实首碰后约0.3秒平滑交接，不重置转速；新增5项回归。全量313项、typecheck、build、Chrome camera/replay通过；自然/母球模式及起身位置不变。
 
 - [x] 2026-10-25镜头体验修正：自然焦点与起身曲线同步到位；母球/子球统一限制yaw和pitch转速及加速度，首碰不再因焦点距离变化突抬视线。新增3项回归，覆盖30/60/144 FPS与首碰中手动接管；全量308项、typecheck、build及Chrome camera/replay/controller通过。详见docs/camera-replay-design.md §9。

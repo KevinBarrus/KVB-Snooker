@@ -119,6 +119,10 @@ try {
   assert.equal(await page.evaluate(() => window.replayTestRuntime.game.session.context.playerIndex), 1);
   const aiBefore = await snapshot();
   await page.getByRole("button", { name: "回看上一杆", exact: true }).click();
+  const replayMode = await page.evaluate(() => window.replayTestRuntime.game.human.camera.shotView.mode);
+  await page.locator("canvas").focus(); await page.keyboard.press("v");
+  assert.notEqual(await page.evaluate(() => window.replayTestRuntime.game.human.camera.shotView.mode), replayMode,
+    "Replay V must remain available while the paused live turn belongs to AI");
   await advance(600); assert.deepEqual(await snapshot(), aiBefore);
   await page.keyboard.press("Escape");
   assert.deepEqual(errors, []);

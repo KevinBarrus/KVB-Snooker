@@ -57,7 +57,6 @@ export class BrowserGame {
       stroke: (index, vars) => {
         if (!this.pendingShot || !this.session.stroke(index, vars)) return false;
         this.pendingShot = false; this.outSeen = 0;
-        this.human.camera.shotView.struck = true;
         return true;
       },
       step: dt => {
@@ -102,8 +101,7 @@ export class BrowserGame {
         this.controls.input.enabled = !active && !this.shots.inputLocked;
         this.hudDom.element.hidden = active;
       }, () => this.cycleView());
-    this.disposeBus = this.bus.on("sim/shooting-start", ({ playerIndex }) => {
-      if (playerIndex !== 0) this.human.camera.beginShotView();
+    this.disposeBus = this.bus.on("sim/shooting-start", () => {
       this.replay.begin();
       this.controls.update();
     });
@@ -114,6 +112,7 @@ export class BrowserGame {
   get activePerson(): PersonController { return this.shots.launchingController ?? (this.session.context.playerIndex === 0 ? this.human : this.opponent); }
 
   cycleView(): void {
+    if (!this.replay.active && !this.human.active) return;
     const view = this.human.camera.shotView;
     const mode = view.mode === "natural" ? "cue" : view.mode === "cue" ? "object" : "natural";
     if (this.replay.active) { view.mode = mode; this.replay.setMode(mode); }
