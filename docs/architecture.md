@@ -232,7 +232,7 @@ interface CollisionMeshData {
 
 controller可新增观察/回放状态类及装配回调；ui只接受普通状态值与回调；render继续消费`Pick<Simulator, "getBallCount" | "getBallView">`结构视图，装配根切换实时与录制快照。上一杆回放不写回真实模拟器，不推进真实回合或AI。§3事件、§4.2核心接口与序列化格式不变。
 
-实现边界：`ShotView`/`FocusSmoothing`仅输出焦点，`CameraRig.position`仍由原站立/瞄准过渡驱动；`ShotReplay`提供begin/record/finish与open/update/toggle/seek/restart/close，通过getBallCount/getBallView/getResult输出复制的播放快照。ReplayFrame记录time、balls、eye、target、aimRatio、firstKissIndex、struck及cue姿态。`BrowserReplay`为装配根，连接独立Input、ReplayControls与实际TargetCamera；真实BrowserGame.update在回放期间不调用AI或Simulator.step。
+实现边界：`ShotView`/`FocusSmoothing`仅输出焦点，`CameraRig.position`仍由原站立/瞄准过渡驱动；`ShotReplay`提供begin/record/finish与open/update/toggle/seek/restart/close，通过getBallCount/getBallView/getResult输出复制的播放快照。ReplayFrame记录time、balls、eye、target、aimRatio、firstKissIndex、struck及cue姿态。`BrowserReplay`为装配根，连接独立Input、ReplayControls与实际TargetCamera；真实BrowserGame.update在回放期间不调用AI或Simulator.step。2026-10-25批准修正：BrowserReplay默认固定原作全台机位，V仅改变焦点；自然焦点与起身过渡同步到位，FocusSmoothing同时约束水平和俯仰转动。
 
 ## 5. 目录结构（骨架）
 
