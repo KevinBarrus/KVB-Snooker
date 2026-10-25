@@ -14,6 +14,9 @@ export class BrowserReplay {
   private readonly target = B.Vector3.Zero();
   private readonly savedEye = B.Vector3.Zero();
   private readonly savedTarget = B.Vector3.Zero();
+  // PCOL L7160-7169
+  private readonly broadcastEye = new B.Vector3(3.66 / 2 + 1.6, .88 + 1.2, 0);
+  private readonly broadcastTarget = new B.Vector3(0, .88, 1e-5);
 
   constructor(private readonly camera: B.TargetCamera, private readonly canvas: HTMLCanvasElement,
     private readonly capture: () => ReplayCapture, private readonly canOpen: () => boolean,
@@ -87,15 +90,15 @@ export class BrowserReplay {
     this.clip.update(dt);
     const frame = this.clip.current;
     if (!frame) return;
-    this.camera.position.copyFromFloats(frame.eye.x, frame.eye.y, frame.eye.z);
+    this.camera.position.copyFrom(this.broadcastEye);
     if (this.view.active) {
       this.view.struck = frame.struck;
       this.view.smoothing.aspect = this.camera.getScene().getEngine().getAspectRatio(this.camera);
       this.view.smoothing.verticalFov = this.camera.fov;
       this.view.track(this.clip);
-      this.view.update(dt, frame.aimRatio, frame.eye);
+      this.view.update(dt, 0, this.broadcastEye);
       this.target.copyFrom(this.view.target);
-    } else this.target.copyFromFloats(frame.target.x, frame.target.y, frame.target.z);
+    } else this.target.copyFrom(this.broadcastTarget);
     this.camera.lockedTarget = this.target;
     this.sync();
   }

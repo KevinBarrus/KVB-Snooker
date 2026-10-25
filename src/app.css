@@ -32,6 +32,8 @@ details p { position: absolute; top: 28px; left: 0; width: 290px; padding: 14px;
 .replay-controls { position: absolute; left: 20px; bottom: 105px; }
 .replay-panel { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; max-width: calc(100vw - 64px); padding: 14px; background: #171713ed; }
 .replay-panel[hidden] { display: none; }
+.replay-controls:has(.replay-panel:not([hidden])) { bottom: 12px; }
+body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .replay-panel input { width: 200px; accent-color: #20b3ff; }
 .replay-panel span { flex-basis: 100%; color: #b7bcae; font-size: 12px; }
 .replay-panel button[aria-pressed="true"] { border-color: #20b3ff; color: #20b3ff; }

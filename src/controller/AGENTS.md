@@ -50,7 +50,7 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 
 ## 登记差异
 
-- 回放采用统一显示快照而非原作分轨压缩，额外记录球旋转；7202帧/120秒上限，异常长帧或容量超限丢弃整段。默认记录镜头，V切换观察对象；第一版不含原作自动袋口特写和C镜头轮换。BrowserReplay暂停真实调度并提供独立输入，不调用Simulator.restore。详见docs/camera-replay-design.md §8。
+- 回放采用统一显示快照而非原作分轨压缩，额外记录球旋转；7202帧/120秒上限，异常长帧或容量超限丢弃整段。默认全台固定机位（PCOL L7160-7188，由装配根提供），V切换观察对象；第一版不含原作自动袋口特写和C镜头轮换。BrowserReplay暂停真实调度并提供独立输入，不调用Simulator.restore。详见docs/camera-replay-design.md §8。
 
 - 观察扩展单元2：V(86)没有既有冲突；natural/cue/object共用ShotView，只调整最终焦点。首次碰撞目标取getResult，触球前不消费上一杆残留；失活/入袋后冻结焦点。FocusSmoothing按dt子步推进并随横向视场偏离加强响应，不修改原作CameraSpring。运动中切换从当前焦点接续，拖动保持手动至下一杆或再次V。
 

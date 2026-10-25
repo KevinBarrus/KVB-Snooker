@@ -59,3 +59,5 @@ render 三步已完成：完整场景与22球只读显示同步。app.ts 装配�
 用户确认的任务与分层见 docs/camera-replay-design.md。三模式共享起身位置轨迹，仅改变焦点；V切换，app-game.ts负责localStorage偏好和UI提示接线。回放通过装配根选择只读显示快照，不修改真实对局；各单元完成后分别提交推送。
 
 app-replay.ts为浏览器回放装配拆分文件，与app.ts/app-game.ts一起从根无DOM编译排除，继续由render工程检查。npm run test:camera验收三模式；npm run test:replay验收摄像机入口、播放控件、真实存档/分数/回合及AI隔离。
+
+回放默认机位已按PCOL L7160-7188修正为全台固定斜俯视，当前球台位置(3.43,2.08,0)，注视(0,.88,.00001)；V只改焦点，重播/进度定位回到全台，保留¼慢放。test:replay同时检查机位稳定和台面四角可见且未被控件遮挡；回放控制条在底部，隐藏重复状态条。
