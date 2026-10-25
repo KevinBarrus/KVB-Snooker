@@ -14,6 +14,8 @@ export class ShotView {
   struck = false;
   private objectIndex = 0;
   private focus: CameraPoint | null = null;
+  private cueFocus: CameraPoint | null = null;
+  private handoffTime = 0;
   private lost = false;
   private switching = false;
   active = false;
@@ -27,6 +29,7 @@ export class ShotView {
     this.struck = false;
     this.objectIndex = 0;
     this.focus = null; this.lost = false; this.smoothing.reset();
+    this.cueFocus = null; this.handoffTime = 0;
     this.switching = false;
   }
 
@@ -38,26 +41,44 @@ export class ShotView {
     this.manual = false;
     this.target.copyFromFloats(current.x, current.y, current.z);
     this.focus = null; this.lost = false; this.smoothing.reset();
+    this.cueFocus = null; this.handoffTime = 0;
     this.switching = this.active;
   }
 
   track(source: Pick<Simulator, "getBallCount" | "getBallView" | "getResult">): void {
     if (!this.active || !this.struck || this.manual || this.mode === "natural" || this.lost) return;
-    if (this.mode === "object" && this.objectIndex === 0) this.objectIndex = source.getResult().firstKissIndex;
-    const index = this.mode === "cue" ? 0 : this.objectIndex;
-    if (index < 0 || index >= source.getBallCount() || this.mode === "object" && index === 0) return;
-    const ball = source.getBallView(index);
-    if (!ball.active || ball.position.y < .88 || Math.abs(ball.position.x) > 1.9 || Math.abs(ball.position.z) > 1) {
-      this.lost = true;
-      return;
+    if (this.mode === "object") {
+      if (this.objectIndex === 0) {
+        const first = source.getResult().firstKissIndex;
+        if (first > 0 && first < source.getBallCount()) this.objectIndex = first;
+      }
+      if (this.handoffTime < .3) this.cueFocus = this.readFocus(source, 0) ?? this.cueFocus;
+      if (this.objectIndex === 0) { this.focus = this.cueFocus; return; }
     }
-    this.focus = { x: ball.renderPosition.x, y: .93625, z: ball.renderPosition.z };
+    const index = this.mode === "cue" ? 0 : this.objectIndex;
+    const focus = this.readFocus(source, index);
+    if (focus) this.focus = focus;
+    else this.lost = true;
+  }
+
+  private readFocus(source: Pick<Simulator, "getBallCount" | "getBallView">, index: number): CameraPoint | null {
+    if (index < 0 || index >= source.getBallCount()) return null;
+    const ball = source.getBallView(index);
+    if (!ball.active || ball.position.y < .88 || Math.abs(ball.position.x) > 1.9 || Math.abs(ball.position.z) > 1) return null;
+    return { x: ball.renderPosition.x, y: .93625, z: ball.renderPosition.z };
   }
 
   update(dt: number, aimRatio: number, eye?: CameraPoint): void {
     if (!this.active || this.manual || dt <= 0) return;
     if (this.mode !== "natural" && this.focus && eye) {
-      this.smoothing.update(this.target, this.focus, eye, dt);
+      let desired = this.focus;
+      if (this.mode === "object" && this.objectIndex > 0 && this.cueFocus && this.handoffTime < .3) {
+        const progress = this.handoffTime / .3, weight = progress * progress * (3 - 2 * progress);
+        desired = { x: this.cueFocus.x + (this.focus.x - this.cueFocus.x) * weight,
+          y: .93625, z: this.cueFocus.z + (this.focus.z - this.cueFocus.z) * weight };
+        this.handoffTime = Math.min(.3, this.handoffTime + Math.min(dt, .1));
+      }
+      this.smoothing.update(this.target, desired, eye, dt);
       return;
     }
     if (this.switching && eye) {

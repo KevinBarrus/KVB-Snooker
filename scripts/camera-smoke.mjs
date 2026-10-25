@@ -81,6 +81,7 @@ try {
       const stroke = Array.from(game.human.getStrokeVars());
       if (!game.shots.launch(game.human)) throw new Error("Camera trace could not launch the shot");
       const positions = [];
+      const approachTargets = [];
       let firstKiss = 0, samples = 0, central = 0, maxOffset = 0, minRatio = 1, movingFrames = 0;
       let contactPitch = null, contactAcceleration = null, maxAimPitch = 0, standingFrames = 0, standingDrift = 0;
       const pitch = () => {
@@ -94,6 +95,7 @@ try {
         positions.push(rig.position.asArray());
         const currentPitch = pitch(), deltaPitch = Math.abs(currentPitch - previousPitch) * 180 / Math.PI;
         const pitchSpeed = (currentPitch - previousPitch) * 60;
+        if (!firstKiss) approachTargets.push(rig.target.asArray());
         if (!firstKiss && simulator.getResult().firstKissIndex) {
           contactPitch = deltaPitch; contactAcceleration = Math.abs(pitchSpeed - previousPitchSpeed) * 60;
         }
@@ -121,7 +123,7 @@ try {
         maxOffset = Math.max(maxOffset, offset); ++samples;
         if (offset < .8) ++central;
       }
-      return { mode, direction, stroke, positions, firstKiss, samples, central, maxOffset, minRatio, movingFrames,
+      return { mode, direction, stroke, positions, approachTargets, firstKiss, samples, central, maxOffset, minRatio, movingFrames,
         contactPitch, contactAcceleration, maxAimPitch, standingFrames, standingDrift };
     }));
   });
@@ -131,7 +133,12 @@ try {
     assert.deepEqual(trace.stroke, reference.stroke);
     assert.deepEqual(trace.positions, reference.positions, "All modes must share the rising camera path");
     assert(trace.contactAcceleration !== null && trace.contactAcceleration < 12.001, `First-contact acceleration spike: ${JSON.stringify({ ...trace, positions: undefined })}`);
-    if (trace.mode === "object") assert(trace.contactPitch !== null && trace.contactPitch < .4, "New object focus must not snap upward");
+    if (trace.mode === "object") {
+      const cue = traces.find(value => value.direction === trace.direction && value.mode === "cue");
+      assert.deepEqual(trace.approachTargets, cue.approachTargets, "Object view must follow the cue before and on first contact without restarting");
+      const start = trace.approachTargets[0], end = trace.approachTargets.at(-1);
+      assert(Math.hypot(end[0] - start[0], end[2] - start[2]) > .05, "Pre-contact view must already be moving");
+    }
     assert(trace.maxAimPitch < .9, "Tracking must not snap upward before standing");
     if (trace.mode === "natural") {
       assert(trace.standingFrames > 5);

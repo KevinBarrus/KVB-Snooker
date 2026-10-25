@@ -92,11 +92,12 @@ describe("Shot observation", () => {
     for (const fps of [30, 60, 144]) {
       const data = source(), view = new ShotView(), eye = { x: -.38, y: 1.04, z: 0 };
       view.mode = "object"; view.begin({ x: 0, y: .93625, z: 0 }); view.struck = true;
-      view.track(data); view.update(1 / fps, 1, eye);
-      data.result.firstKissIndex = 1;
       const angles = () => [Math.atan2(view.target.z, view.target.x - eye.x),
         Math.atan2(view.target.y - eye.y, Math.hypot(view.target.x - eye.x, view.target.z))];
-      let previous = angles(), speed = [0, 0];
+      const before = angles();
+      view.track(data); view.update(1 / fps, 1, eye);
+      data.result.firstKissIndex = 1;
+      let previous = angles(), speed = previous.map((value, axis) => (value - before[axis]) * fps);
       for (let frame = 0; frame < fps * 3; ++frame) {
         const x = frame < fps ? 1.8 : .1, z = frame < fps ? 0 : -.4;
         data.balls[1].position.set(x, .90625, z);
