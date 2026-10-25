@@ -76,6 +76,17 @@ describe("Shot observation", () => {
     expect(isShotViewMode("cue")).toBe(true);
     expect(isShotViewMode("invalid")).toBe(false);
   });
+
+  it("尚未起身时切回自然模式也限制转向速度", () => {
+    const view = new ShotView(); view.begin({ x: 0, y: .93625, z: 0 });
+    const eye = { x: -.38, y: 1.02, z: 0 };
+    view.setMode("natural", { x: 0, y: .93625, z: .9 });
+    const before = Math.atan2(view.target.z, view.target.x - eye.x);
+    view.update(1 / 60, 1, eye);
+    const after = Math.atan2(view.target.z, view.target.x - eye.x);
+    expect(Math.abs(after - before)).toBeLessThanOrEqual(3.4 / 60);
+    expect(after).toBeLessThan(before);
+  });
   it("自然起身保持原位置轨迹，焦点稳定移向台面中央", () => {
     const original = ready(), natural = ready();
     natural.beginShotView();

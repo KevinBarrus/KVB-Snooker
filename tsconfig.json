@@ -14,5 +14,5 @@
     "types": ["node", "vitest/globals"]
   },
   "include": ["src/**/*", "tests/**/*"],
-  "exclude": ["src/ui", "src/render", "src/controller", "src/app.ts", "src/app-game.ts"]
+  "exclude": ["src/ui", "src/render", "src/controller", "src/app.ts", "src/app-game.ts", "src/app-replay.ts"]
 }

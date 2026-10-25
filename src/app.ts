@@ -40,10 +40,11 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const [lighting, atlas, mask] = await Promise.all([
       loadBallLighting(scene), loadTexture(scene, "table-ui"), loadTexture(scene, "mask-table")
     ]);
-    const balls = new BallRenderer(scene, simulator, DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask);
     if (!(scene.activeCamera instanceof B.TargetCamera)) throw new Error("Missing game camera");
     const game = new BrowserGame(simulator, scene, scene.activeCamera, canvas);
     disposeGame = () => game.dispose();
+    const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(), getBallView: index => game.getDisplayBallView(index) },
+      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask);
     const cue = await loadCue(scene, lighting);
     const placement = new PlacementMarkers(scene, atlas, mask);
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
@@ -61,6 +62,19 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     };
     options?.addEventListener("submit", startGame);
     const syncInteraction = () => {
+      if (game.replay.active) {
+        const recorded = game.replay.clip.current?.cue;
+        cue.isVisible = recorded?.visible ?? false;
+        if (recorded) {
+          cue.position.copyFromFloats(recorded.position.x, recorded.position.y, recorded.position.z);
+          cue.rotation.copyFromFloats(0, recorded.yaw, recorded.pitch); cue.computeWorldMatrix(true);
+        }
+        placement.sync(simulator.getCueBallPosition(), { active: false, visible: false, valid: false, spot: simulator.getCueBallPosition() });
+        gunsight.alpha = 0;
+        if (newGame) newGame.disabled = true;
+        status.textContent = "上一杆回放 · Space 播放/暂停 · V 视线 · Esc 返回";
+        return;
+      }
       const person = game.activePerson;
       cue.isVisible = person.camera.stateRatio > 0 && !game.controls.inHand.active;
       cue.position.copyFrom(person.stick.position);

@@ -15,6 +15,7 @@ export class ShotView {
   private objectIndex = 0;
   private focus: CameraPoint | null = null;
   private lost = false;
+  private switching = false;
   active = false;
   manual = false;
 
@@ -26,6 +27,7 @@ export class ShotView {
     this.struck = false;
     this.objectIndex = 0;
     this.focus = null; this.lost = false; this.smoothing.reset();
+    this.switching = false;
   }
 
   end(): void { this.active = false; this.manual = false; }
@@ -36,6 +38,7 @@ export class ShotView {
     this.manual = false;
     this.target.copyFromFloats(current.x, current.y, current.z);
     this.focus = null; this.lost = false; this.smoothing.reset();
+    this.switching = this.active;
   }
 
   track(source: Pick<Simulator, "getBallCount" | "getBallView" | "getResult">): void {
@@ -55,6 +58,11 @@ export class ShotView {
     if (!this.active || this.manual || dt <= 0) return;
     if (this.mode !== "natural" && this.focus && eye) {
       this.smoothing.update(this.target, this.focus, eye, dt);
+      return;
+    }
+    if (this.switching && eye) {
+      this.smoothing.update(this.target, { x: this.anchor.x * aimRatio,
+        y: .93625 + (this.anchor.y - .93625) * aimRatio, z: this.anchor.z * aimRatio }, eye, dt);
       return;
     }
     const blend = 1 - Math.exp(-3 * dt);

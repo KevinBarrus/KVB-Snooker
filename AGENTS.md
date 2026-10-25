@@ -57,3 +57,5 @@ render 三步已完成：完整场景与22球只读显示同步。app.ts 装配�
 ## 观察模式与回放扩展
 
 用户确认的任务与分层见 docs/camera-replay-design.md。三模式共享起身位置轨迹，仅改变焦点；V切换，app-game.ts负责localStorage偏好和UI提示接线。回放通过装配根选择只读显示快照，不修改真实对局；各单元完成后分别提交推送。
+
+app-replay.ts为浏览器回放装配拆分文件，与app.ts/app-game.ts一起从根无DOM编译排除，继续由render工程检查。npm run test:camera验收三模式；npm run test:replay验收摄像机入口、播放控件、真实存档/分数/回合及AI隔离。

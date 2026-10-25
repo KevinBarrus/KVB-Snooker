@@ -15,6 +15,8 @@ import { AIRunner } from "./controller/ai-runner.js";
 import { Hud, HudDom } from "./ui/hud.js";
 import { ViewNotice, ViewNoticeDom } from "./ui/view-notice.js";
 import { isShotViewMode } from "./controller/shot-view.js";
+import { BrowserReplay } from "./app-replay.js";
+import type { ReplayCapture } from "./controller/replay-frame.js";
 
 // PCOL L3662-3772, L7594-7627, L7990-8031
 export class BrowserGame {
@@ -27,6 +29,7 @@ export class BrowserGame {
   readonly hudDom = new HudDom();
   readonly viewNotice = new ViewNotice();
   readonly viewNoticeDom = new ViewNoticeDom();
+  readonly replay: BrowserReplay;
   session: GameSession;
   private readonly ref = new SnookerRef();
   private brain = new AIController(AI_PROFILES.NORMAL);
@@ -93,8 +96,15 @@ export class BrowserGame {
     });
     this.hud = new Hud(() => this.session.players);
     this.hud.attach(this.bus);
+    this.replay = new BrowserReplay(camera, canvas, () => this.captureReplay(),
+      () => !this.shots.busy && !this.pendingShot && this.session.state === GAME_STATE.READY && !this.controls.inHand.active,
+      active => {
+        this.controls.input.enabled = !active && !this.shots.inputLocked;
+        this.hudDom.element.hidden = active;
+      }, () => this.cycleView());
     this.disposeBus = this.bus.on("sim/shooting-start", ({ playerIndex }) => {
       if (playerIndex !== 0) this.human.camera.beginShotView();
+      this.replay.begin();
       this.controls.update();
     });
     document.body.append(this.hudDom.element, this.viewNoticeDom.element);
@@ -106,14 +116,15 @@ export class BrowserGame {
   cycleView(): void {
     const view = this.human.camera.shotView;
     const mode = view.mode === "natural" ? "cue" : view.mode === "cue" ? "object" : "natural";
-    view.setMode(mode, this.human.camera.target);
+    if (this.replay.active) { view.mode = mode; this.replay.setMode(mode); }
+    else view.setMode(mode, this.human.camera.target);
     this.viewNotice.show({ natural: "自然起身", cue: "视线跟随母球", object: "视线跟随子球" }[mode]);
     this.viewNoticeDom.sync(this.viewNotice);
     try { localStorage.setItem("snk.shot-view", mode); } catch {}
   }
 
   private canShoot(index: number): boolean {
-    return !this.pendingShot && this.session.state === GAME_STATE.READY && !this.session.finished && this.session.context.playerIndex === index;
+    return !this.replay?.active && !this.pendingShot && this.session.state === GAME_STATE.READY && !this.session.finished && this.session.context.playerIndex === index;
   }
 
   private activateTurn(): void {
@@ -124,10 +135,11 @@ export class BrowserGame {
   }
 
   setMode(mode: GameMode, difficulty: keyof typeof AI_PROFILES = "NORMAL"): boolean {
-    if (this.shots.busy) return false;
+    if (this.shots.busy || this.replay.active) return false;
     this.controls.inHand.exit();
     this.shots.finish();
     this.human.camera.endShotView();
+    this.replay.clear();
     this.session = new GameSession(this.simulator, mode);
     this.brain = new AIController(AI_PROFILES[difficulty]);
     this.human.gotoState0(true); this.opponent.gotoState0(true);
@@ -148,6 +160,7 @@ export class BrowserGame {
   private judge(): void {
     const result = this.simulator.getResult();
     const before = Array.from({ length: this.simulator.getBallCount() }, (_, i) => this.simulator.getBallView(i));
+    this.replay.finish();
     this.session.step(0);
     if (this.session.state !== GAME_STATE.READY) return;
     this.shots.finish();
@@ -171,9 +184,10 @@ export class BrowserGame {
     this.human.camera.shotView.smoothing.aspect = this.scene.getEngine().getAspectRatio(this.camera);
     this.human.camera.shotView.smoothing.verticalFov = this.camera.fov;
     this.viewNotice.update(dt); this.viewNoticeDom.sync(this.viewNotice);
+    if (this.replay.active) { this.replay.update(dt); return; }
     this.controls.update();
     this.ai.update(dt);
-    this.shots.update(dt, step => { this.human.update(step); this.opponent.update(step); });
+    this.shots.update(dt, step => { this.human.update(step); this.opponent.update(step); this.replay.record(step); });
     if (this.shots.canJudge && !Array.from({ length: this.simulator.getBallCount() }, (_, i) => this.simulator.getBallView(i)).some(ball => ball.async)) this.judge();
     if (!this.shots.busy && this.canShoot(0)) this.human.updatePrediction();
     this.camera.position.copyFrom(this.human.camera.position);
@@ -186,11 +200,26 @@ export class BrowserGame {
       (this.human.camera.stateRatio === 0 || this.human.camera.stateRatio === 1);
     this.hud.shortcutsBar.group = this.human.camera.state;
     this.hud.update(dt); this.hudDom.sync(this.hud);
+    this.replay.sync();
+  }
+
+  getDisplayBallView(index: number): ReturnType<Simulator["getBallView"]> {
+    return this.replay.active ? this.replay.clip.getBallView(index) : this.simulator.getBallView(index);
+  }
+
+  private captureReplay(): ReplayCapture {
+    const camera = this.human.camera, person = this.activePerson;
+    const point = (value: { x: number; y: number; z: number }) => ({ x: value.x, y: value.y, z: value.z });
+    return { balls: Array.from({ length: this.simulator.getBallCount() }, (_, index) => this.simulator.getBallView(index)),
+      eye: point(camera.position), target: point(camera.target), aimRatio: camera.renderedRatio,
+      struck: !this.pendingShot, firstKissIndex: this.pendingShot ? 0 : this.simulator.getResult().firstKissIndex,
+      cue: { visible: person.camera.stateRatio > 0, position: point(person.stick.position), yaw: person.stick.rotation.y, pitch: person.stick.rotation.z } };
   }
 
   dispose(): void {
     this.controls.dispose(); this.disposeBus();
     this.hud.detach(); this.hudDom.element.remove(); this.shots.finish();
     this.viewNoticeDom.element.remove();
+    this.replay.dispose();
   }
 }

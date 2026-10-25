@@ -68,6 +68,56 @@ try {
   assert(stable);
   await advance(200);
   assert.equal(await page.locator(".view-notice").isVisible(), false);
+  const traces = await page.evaluate(() => {
+    const { game, simulator, scene } = window.cameraTestRuntime;
+    return ["natural", "cue", "object"].map(mode => {
+      for (let i = 0; i < 3600 && game.shots.busy; ++i) game.update(1 / 60);
+      if (!game.setMode("practice")) throw new Error("Camera trace could not reset the game");
+      game.human.camera.shotView.mode = mode;
+      game.human.camera.resetWithKissDir(1, .1);
+      game.human.gotoState1(true);
+      for (let i = 0; i < 120; ++i) game.update(1 / 60);
+      game.human.strokePower = .8;
+      const stroke = Array.from(game.human.getStrokeVars());
+      if (!game.shots.launch(game.human)) throw new Error("Camera trace could not launch the shot");
+      const positions = [];
+      let firstKiss = 0, samples = 0, central = 0, maxOffset = 0, minRatio = 1, movingFrames = 0;
+      for (let i = 0; i < 360; ++i) {
+        game.update(1 / 60);
+        const rig = game.human.camera;
+        positions.push(rig.position.asArray());
+        firstKiss ||= simulator.getResult().firstKissIndex;
+        const ball = simulator.getBallView(mode === "object" && firstKiss ? firstKiss : 0);
+        minRatio = Math.min(minRatio, rig.stateRatio);
+        if (ball.async && ball.active) ++movingFrames;
+        if (rig.stateRatio > .8 || !ball.active || !ball.async || ball.position.y < .88) continue;
+        const eye = rig.position, target = rig.target;
+        let fx = target.x - eye.x, fy = target.y - eye.y, fz = target.z - eye.z;
+        const len = Math.hypot(fx, fy, fz); fx /= len; fy /= len; fz /= len;
+        const horizontal = Math.hypot(fx, fz), rx = fz / horizontal, rz = -fx / horizontal;
+        const ux = fy * rz, uy = fz * rx - fx * rz, uz = -fy * rx;
+        const dx = ball.renderPosition.x - eye.x, dy = ball.renderPosition.y - eye.y, dz = ball.renderPosition.z - eye.z;
+        const depth = dx * fx + dy * fy + dz * fz;
+        const fov = Math.tan(scene.activeCamera.fov / 2);
+        const x = (dx * rx + dz * rz) / (depth * fov * 1.6);
+        const y = (dx * ux + dy * uy + dz * uz) / (depth * fov);
+        const offset = depth > 0 ? Math.max(Math.abs(x), Math.abs(y)) : Infinity;
+        maxOffset = Math.max(maxOffset, offset); ++samples;
+        if (offset < .8) ++central;
+      }
+      return { mode, stroke, positions, firstKiss, samples, central, maxOffset, minRatio, movingFrames };
+    });
+  });
+  for (const trace of traces) {
+    assert(trace.firstKiss > 0, "High-power thin shot must hit an object ball");
+    assert.deepEqual(trace.stroke, traces[0].stroke);
+    assert.deepEqual(trace.positions, traces[0].positions, "All modes must share the rising camera path");
+    if (trace.mode !== "natural") {
+      assert(trace.samples > 5, JSON.stringify({ ...trace, positions: undefined }));
+      assert(trace.central / trace.samples > .95, JSON.stringify({ ...trace, positions: undefined }));
+    }
+  }
+  console.log("High-power tracking:", traces.map(({ mode, samples, central, maxOffset }) => ({ mode, samples, central, maxOffset })));
   await page.evaluate(() => localStorage.setItem("snk.shot-view", "invalid"));
   await page.reload(); await ready(); assert.equal(await mode(), "natural");
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new Error("Blocked storage"); }; });

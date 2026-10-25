@@ -50,6 +50,8 @@
 
 ## 登记差异
 
+- 回放接线由app.ts/app-game.ts/app-replay.ts装配：BallRenderer继续消费相同只读getBallView结构，切换到录制快照时不导入controller，不覆盖真实Simulator；球杆使用录制姿态，回放隐藏辅助线和摆球标记。退出恢复实时显示源。
+
 - Babylon 3.2 CommonJS 包装依赖非严格 this，Vite 浏览器加载会报 CANNON 访问错误；采用同一包的 es6.js，类型沿用官方 babylon.d.ts。
 - 以 ShaderMaterial 绑定原作 GLSL，使用普通 uniform 代替 UBO；台呢场景仅 GameLight，固定1盏灯。未启用原作场景未使用的骨骼/实例/镜像相机分支。
 - 探针仍保存上次单元编号及哨兵状态，每次绑定重算权重，省略原作 transform dirty 观察器；不改变采样公式。

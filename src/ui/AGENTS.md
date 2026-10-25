@@ -16,6 +16,8 @@
 | foul-notice.ts | FOUL 消息框与自动关闭计时 | L8014-8016、L8260-8285、L3212-3268 |
 | power-bar.ts | 力度条 percent/autoAlpha | L1454-1514、L7637-7683 |
 | shortcuts-bar.ts | 快捷键条（ctrl 状态切换的 UI 消费方） | L12122 模板、L5909-5970 |
+| view-notice.ts | 2.2秒观察模式提示 | 用户批准的观察扩展 |
+| replay-controls.ts | 摄像机入口、播放/¼慢放/进度/重播/退出 | L4134、L6481-6584、L12113 |
 
 ## 事件映射
 
@@ -39,7 +41,11 @@
 7. 快捷键条 `setGroup` 只判 `=== 1`，任何非 AIM 状态值都显示 STAND 组（L5960）；mac 平台把 `Alt` 键帽替换为 `cmd`（L5926-5929）。
 8. 力度条 `autoAlpha === 0` 即整体不可见，alpha 未变时不重写（L1508-1510）。
 
+9. 回放入口在SHOTTING_START即隐藏，不等球运动；原作片段必须>0.5秒才显示入口（L6275、L7776-7790）。本模块只消费装配根同步的available/active状态，不自行判断核心状态。
+
 ## 登记差异
+
+- 回放使用独立ReplayControls状态与ReplayControlsDom，不导入controller；按钮使用原生button、进度使用range，具备中文可访问名称。Space/Esc/V由独立输入及面板转发，进度条获焦也能退出；慢放按钮切换¼速，暂不移植原作按住S与C自动袋口镜头。
 
 - 用户批准的观察扩展：ViewNotice/ViewNoticeDom显示装配根传入的中文模式名称，2.2秒自动隐藏，使用role=status；不订阅新增核心事件，不导入controller。
 
@@ -49,6 +55,8 @@
 - 消息框的拖拽/钉住/关闭按钮、练习与单局结算面板（L6460-6480、L7700-7730）、侧栏菜单未移植。
 
 ## 测试
+
+观察扩展单元3：全量305项、typecheck、build通过；Chrome replay覆盖入口时序、按钮、慢放、进度与焦点下Esc退出。
 
 观察扩展单元2新增提示计时测试；全量299项、typecheck、build及Chrome camera专项（文案、隐藏、偏好恢复）通过。
 
