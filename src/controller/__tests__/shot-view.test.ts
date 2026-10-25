@@ -87,6 +87,68 @@ describe("Shot observation", () => {
     expect(Math.abs(after - before)).toBeLessThanOrEqual(3.4 / 60);
     expect(after).toBeLessThan(before);
   });
+
+  it("子球首碰从近焦点接入远球时不突抬视线，反向运动同时约束俯仰和水平转动", () => {
+    for (const fps of [30, 60, 144]) {
+      const data = source(), view = new ShotView(), eye = { x: -.38, y: 1.04, z: 0 };
+      view.mode = "object"; view.begin({ x: 0, y: .93625, z: 0 }); view.struck = true;
+      view.track(data); view.update(1 / fps, 1, eye);
+      data.result.firstKissIndex = 1;
+      const angles = () => [Math.atan2(view.target.z, view.target.x - eye.x),
+        Math.atan2(view.target.y - eye.y, Math.hypot(view.target.x - eye.x, view.target.z))];
+      let previous = angles(), speed = [0, 0];
+      for (let frame = 0; frame < fps * 3; ++frame) {
+        const x = frame < fps ? 1.8 : .1, z = frame < fps ? 0 : -.4;
+        data.balls[1].position.set(x, .90625, z);
+        data.balls[1].renderPosition = { x, y: .90625, z };
+        view.track(data); view.update(1 / fps, 1, eye);
+        const current = angles(), nextSpeed = current.map((value, axis) => (value - previous[axis]) * fps);
+        for (let axis = 0; axis < 2; ++axis) {
+          expect(Number.isFinite(current[axis])).toBe(true);
+          expect(Math.abs(nextSpeed[axis])).toBeLessThanOrEqual(3.4 + 1e-8);
+          expect(Math.abs(nextSpeed[axis] - speed[axis]) * fps).toBeLessThan(12.001);
+        }
+        if (frame === 0) expect(Math.abs(nextSpeed[1])).toBeLessThan(.5);
+        previous = current; speed = nextSpeed;
+      }
+      expect(previous[0]).toBeCloseTo(Math.atan2(-.4, .48), 2);
+      expect(previous[1]).toBeCloseTo(Math.atan2(.93625 - eye.y, Math.hypot(.48, .4)), 2);
+    }
+  });
+
+  it("自然焦点与站直同时到位，之后不再拖尾且不改变起身时长", () => {
+    for (const fps of [30, 60, 144]) {
+      const rig = ready(), reference = ready();
+      rig.beginShotView(); rig.setState(0); reference.setState(0);
+      let frames = 0;
+      do {
+        tick(rig, 1 / fps); tick(reference, 1 / fps); ++frames;
+        expect(rig.stateRatio).toBe(reference.stateRatio);
+        expect(rig.position.asArray()).toEqual(reference.position.asArray());
+      } while (rig.stateRatio > 0 && frames < fps * 2);
+      expect(rig.stateRatio).toBe(0);
+      expect(Math.hypot(rig.target.x, rig.target.z)).toBe(0);
+      expect(rig.target.y).toBe(.93625);
+      const target = rig.target.clone();
+      for (let frame = 0; frame < fps; ++frame) tick(rig, 1 / fps);
+      expect(rig.target.asArray()).toEqual(target.asArray());
+    }
+  });
+
+  it("首碰缓动中接管观察不会因焦点离开台面高度而再次抖动", () => {
+    const data = source(), rig = ready();
+    rig.shotView.mode = "object"; rig.beginShotView(); rig.shotView.struck = true;
+    data.result.firstKissIndex = 1;
+    data.balls[1].position.set(1.8, .90625, 0);
+    data.balls[1].renderPosition = { x: 1.8, y: .90625, z: 0 };
+    for (let i = 0; i < 3; ++i) { rig.shotView.track(data); tick(rig); }
+    const before = rig.target.subtract(rig.position).normalize();
+    rig.moveLookAt(.001, 0); tick(rig, 0);
+    const after = rig.target.subtract(rig.position).normalize();
+    expect(rig.shotView.manual).toBe(true);
+    expect(Math.acos(Math.min(1, before.x * after.x + before.y * after.y + before.z * after.z))).toBeLessThan(.01);
+  });
+
   it("自然起身保持原位置轨迹，焦点稳定移向台面中央", () => {
     const original = ready(), natural = ready();
     natural.beginShotView();

@@ -13,6 +13,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 
 ## 施工单元状态
 
+- [x] 2026-10-25镜头体验修正：自然焦点与起身曲线同步到位；母球/子球统一限制yaw和pitch转速及加速度，首碰不再因焦点距离变化突抬视线。新增3项回归，覆盖30/60/144 FPS与首碰中手动接管；全量308项、typecheck、build及Chrome camera/replay/controller通过。详见docs/camera-replay-design.md §9。
+
 - [x] 观察扩展单元3：ShotReplay/ReplayFrame只读录制、插值、播放状态，装配根隔离真实对局；5项回放单测与Chrome replay专项通过。集成补测切回自然模式的转向限速；全量305项、typecheck、build与五项Chrome回归通过，实际击球三模式位置逐帧一致，跟随各275帧有效样本，详见docs/camera-replay-design.md。
 
 - [x] 观察扩展单元2：三模式、V动态切换、首碰子球锁定、落袋冻结、按视场加强的限速平滑；299项测试、typecheck、build、Chrome camera专项通过。偏好与短提示由装配根接入。
@@ -49,6 +51,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 16. 原作回放播放到尾暂停；再次播放从0开始，球杆yaw按最短转角插值；录制球间隔>0.1秒时停止（L6330、L7225-7228、L7330-7349、L7489-7525）。
 
 ## 登记差异
+
+- 2026-10-25防抖修正属于用户批准扩展：FocusSmoothing以yaw/pitch计算观察方向，每轴角速度随视场误差限制为1.4–3.4rad/s，角加速度上限12rad/s²；取消追上目标即清零转速的急停。方向与台面观察平面相交时保留目标高度，以兼容手动接管；近水平或不可相交时用有限距离过渡。自然焦点直接采用原起身renderedRatio，不再叠加3/s指数追赶；主动V切换仍经过平滑器。原作没有子球跟随，不能将该算法标为原作转写。
 
 - 回放采用统一显示快照而非原作分轨压缩，额外记录球旋转；7202帧/120秒上限，异常长帧或容量超限丢弃整段。默认全台固定机位（PCOL L7160-7188，由装配根提供），V切换观察对象；第一版不含原作自动袋口特写和C镜头轮换。BrowserReplay暂停真实调度并提供独立输入，不调用Simulator.restore。详见docs/camera-replay-design.md §8。
 

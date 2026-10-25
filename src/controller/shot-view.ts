@@ -65,9 +65,7 @@ export class ShotView {
         y: .93625 + (this.anchor.y - .93625) * aimRatio, z: this.anchor.z * aimRatio }, eye, dt);
       return;
     }
-    const blend = 1 - Math.exp(-3 * dt);
-    this.target.x += (this.anchor.x * aimRatio - this.target.x) * blend;
-    this.target.y += (.93625 + (this.anchor.y - .93625) * aimRatio - this.target.y) * blend;
-    this.target.z += (this.anchor.z * aimRatio - this.target.z) * blend;
+    this.target.copyFromFloats(this.anchor.x * aimRatio,
+      .93625 + (this.anchor.y - .93625) * aimRatio, this.anchor.z * aimRatio);
   }
 }

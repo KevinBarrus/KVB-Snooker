@@ -70,11 +70,11 @@ try {
   assert.equal(await page.locator(".view-notice").isVisible(), false);
   const traces = await page.evaluate(() => {
     const { game, simulator, scene } = window.cameraTestRuntime;
-    return ["natural", "cue", "object"].map(mode => {
+    return [.1, .07, 0].flatMap(direction => ["natural", "cue", "object"].map(mode => {
       for (let i = 0; i < 3600 && game.shots.busy; ++i) game.update(1 / 60);
       if (!game.setMode("practice")) throw new Error("Camera trace could not reset the game");
       game.human.camera.shotView.mode = mode;
-      game.human.camera.resetWithKissDir(1, .1);
+      game.human.camera.resetWithKissDir(1, direction);
       game.human.gotoState1(true);
       for (let i = 0; i < 120; ++i) game.update(1 / 60);
       game.human.strokePower = .8;
@@ -82,10 +82,26 @@ try {
       if (!game.shots.launch(game.human)) throw new Error("Camera trace could not launch the shot");
       const positions = [];
       let firstKiss = 0, samples = 0, central = 0, maxOffset = 0, minRatio = 1, movingFrames = 0;
+      let contactPitch = null, contactAcceleration = null, maxAimPitch = 0, standingFrames = 0, standingDrift = 0;
+      const pitch = () => {
+        const { target, position: eye } = game.human.camera;
+        return Math.atan2(target.y - eye.y, Math.hypot(target.x - eye.x, target.z - eye.z));
+      };
+      let previousPitch = pitch(), previousRatio = 1, previousPitchSpeed = 0;
       for (let i = 0; i < 360; ++i) {
         game.update(1 / 60);
         const rig = game.human.camera;
         positions.push(rig.position.asArray());
+        const currentPitch = pitch(), deltaPitch = Math.abs(currentPitch - previousPitch) * 180 / Math.PI;
+        const pitchSpeed = (currentPitch - previousPitch) * 60;
+        if (!firstKiss && simulator.getResult().firstKissIndex) {
+          contactPitch = deltaPitch; contactAcceleration = Math.abs(pitchSpeed - previousPitchSpeed) * 60;
+        }
+        if (previousRatio === 1 && rig.stateRatio === 1) maxAimPitch = Math.max(maxAimPitch, deltaPitch);
+        previousPitch = currentPitch; previousRatio = rig.stateRatio; previousPitchSpeed = pitchSpeed;
+        if (mode === "natural" && rig.shotView.active && rig.stateRatio === 0) {
+          ++standingFrames; standingDrift = Math.max(standingDrift, Math.hypot(rig.target.x, rig.target.z));
+        }
         firstKiss ||= simulator.getResult().firstKissIndex;
         const ball = simulator.getBallView(mode === "object" && firstKiss ? firstKiss : 0);
         minRatio = Math.min(minRatio, rig.stateRatio);
@@ -105,19 +121,29 @@ try {
         maxOffset = Math.max(maxOffset, offset); ++samples;
         if (offset < .8) ++central;
       }
-      return { mode, stroke, positions, firstKiss, samples, central, maxOffset, minRatio, movingFrames };
-    });
+      return { mode, direction, stroke, positions, firstKiss, samples, central, maxOffset, minRatio, movingFrames,
+        contactPitch, contactAcceleration, maxAimPitch, standingFrames, standingDrift };
+    }));
   });
   for (const trace of traces) {
     assert(trace.firstKiss > 0, "High-power thin shot must hit an object ball");
-    assert.deepEqual(trace.stroke, traces[0].stroke);
-    assert.deepEqual(trace.positions, traces[0].positions, "All modes must share the rising camera path");
+    const reference = traces.find(value => value.direction === trace.direction && value.mode === "natural");
+    assert.deepEqual(trace.stroke, reference.stroke);
+    assert.deepEqual(trace.positions, reference.positions, "All modes must share the rising camera path");
+    assert(trace.contactAcceleration !== null && trace.contactAcceleration < 12.001, `First-contact acceleration spike: ${JSON.stringify({ ...trace, positions: undefined })}`);
+    if (trace.mode === "object") assert(trace.contactPitch !== null && trace.contactPitch < .4, "New object focus must not snap upward");
+    assert(trace.maxAimPitch < .9, "Tracking must not snap upward before standing");
+    if (trace.mode === "natural") {
+      assert(trace.standingFrames > 5);
+      assert(trace.standingDrift < 1e-10, "Natural focus must arrive with the standing camera");
+    }
     if (trace.mode !== "natural") {
       assert(trace.samples > 5, JSON.stringify({ ...trace, positions: undefined }));
       assert(trace.central / trace.samples > .95, JSON.stringify({ ...trace, positions: undefined }));
     }
   }
-  console.log("High-power tracking:", traces.map(({ mode, samples, central, maxOffset }) => ({ mode, samples, central, maxOffset })));
+  console.log("High-power tracking:", traces.map(({ mode, direction, samples, central, maxOffset, contactPitch, contactAcceleration, maxAimPitch, standingDrift }) =>
+    ({ mode, direction, samples, central, maxOffset, contactPitch, contactAcceleration, maxAimPitch, standingDrift })));
   await page.evaluate(() => localStorage.setItem("snk.shot-view", "invalid"));
   await page.reload(); await ready(); assert.equal(await mode(), "natural");
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new Error("Blocked storage"); }; });
