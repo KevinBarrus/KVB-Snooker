@@ -164,8 +164,9 @@ export class Simulator {
   serialize(): SerialData { return this.world.serialize({ balls: [], mbid: "", evolution: 0 }); }
 
   restore(data: SerialData): void {
-    this.contacts.clear();
     this.world.restore(data);
+    this.contacts.clear();
+    this.clearResult();
     for (const ball of this.balls) ball.syncStates(0);
     this.awakened = this.world.nAwakened;
   }

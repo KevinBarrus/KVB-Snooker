@@ -34,7 +34,7 @@ describe("普通犯规选择与最后黑球", () => {
   it.each([0, 1])("普通犯规只计一次罚分，可选择玩家%d从当前位置打", next => {
     const game = create();
     shoot(game);
-    expect(game.decision).toEqual({ kind: "foul", playerIndex: 1 });
+    expect(game.decision).toEqual({ kind: "foul", playerIndex: 1, canReplace: false });
     expect(game.getScore(1)).toBe(4);
     expect(game.state).toBe(GAME_STATE.DECIDING);
     const before = game.simulator.serialize();

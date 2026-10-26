@@ -3,6 +3,7 @@ import type { Simulator } from "./simulator/simulator.js";
 import type { SerialData, StrokeVars } from "./simulator/shot-result.js";
 import { Player } from "./player.js";
 import { copyFrameSetup, type FrameSetup, type GameOptions } from "./frame-setup.js";
+import { availablePoints, isMiss } from "./rules/miss.js";
 import { coreRandom } from "./rng.js";
 import { inferColour, type NominationView } from "./rules/nomination.js";
 import { snookerView } from "./rules/snookered.js";
@@ -12,7 +13,17 @@ import { hasOpenInHand } from "./rules/in-hand-visibility.js";
 export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16, DECIDING: 32 } as const;
 export type GameState = typeof GAME_STATE[keyof typeof GAME_STATE];
 export type GameMode = "practice" | "single-play";
-export interface TurnDecision { readonly kind: "foul" | "black"; readonly playerIndex: number }
+export type TurnDecision = { readonly kind: "foul"; readonly playerIndex: number; readonly canReplace: boolean }
+  | { readonly kind: "black"; readonly playerIndex: number };
+
+interface ShotPosition {
+  readonly world: SerialData;
+  readonly ballOn: number;
+  readonly inHand: 0 | 1 | 2;
+  readonly playerIndex: number;
+  readonly scoreGap: number;
+  readonly points: number;
+}
 
 export interface GameContext extends RulesContext {
   playerIndex: number;
@@ -32,6 +43,7 @@ export class GameSession {
   private nominatedIndex: number | null = null;
   private prepared = false;
   private freeBall = false;
+  private previousShot: ShotPosition | null = null;
 
   constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play", options: GameOptions = {}) {
     const types = options.players ?? (mode === "practice" ? ["USER"] : ["USER", "AI"]);
@@ -66,6 +78,7 @@ export class GameSession {
   reset(): void {
     this.currentState = GAME_STATE.JUDGING;
     this.pendingDecision = null;
+    this.previousShot = null;
     this.nominatedIndex = null;
     this.prepared = false;
     this.freeBall = false;
@@ -140,6 +153,9 @@ export class GameSession {
       if (this.freeBall) this.context.freeBallIndex = nomination.ballIndex;
       else this.context.nominatedBallIndex = nomination.ballIndex;
     }
+    this.previousShot = { world: this.simulator.serialize(), ballOn: this.context.ballOn,
+      inHand: this.context.inHand, playerIndex, scoreGap: this.mode === "practice" ? 0 : this.getScore(0) - this.getScore(1),
+      points: availablePoints(this.simulator, this.context.ballOn) };
     this.prepared = true;
     return true;
   }
@@ -151,6 +167,27 @@ export class GameSession {
     this.context.playerIndex = nextIndex;
     this.pendingDecision = null;
     this.currentState = GAME_STATE.READY;
+    return true;
+  }
+
+  restorePreviousShot(playerIndex: number): boolean {
+    const shot = this.previousShot;
+    if (!shot || this.prepared) return false;
+    if (this.mode === "practice") {
+      if (this.state !== GAME_STATE.READY || playerIndex !== this.context.playerIndex) return false;
+    } else if (this.state !== GAME_STATE.DECIDING || this.pendingDecision?.kind !== "foul" ||
+        !this.pendingDecision.canReplace || this.pendingDecision.playerIndex !== playerIndex) return false;
+    this.simulator.restore(shot.world);
+    this.context.ballOn = shot.ballOn;
+    this.context.inHand = shot.inHand;
+    this.context.playerIndex = shot.playerIndex;
+    delete this.context.nominatedBallIndex;
+    delete this.context.freeBallIndex;
+    this.nominatedIndex = null;
+    this.freeBall = false;
+    this.pendingDecision = null;
+    this.result.score = this.result.foulCode = 0;
+    this.response();
     return true;
   }
 
@@ -188,7 +225,10 @@ export class GameSession {
       this.players.forEach(player => { player.brk = 0; });
       this.pendingDecision = { kind: "black", playerIndex: this.context.playerIndex };
     } else if (this.mode !== "practice" && !this.finished && this.result.foulCode !== 0) {
-      this.pendingDecision = { kind: "foul", playerIndex: this.context.playerIndex };
+      const shot = this.previousShot;
+      const canReplace = shot !== null && isMiss(this.result.foulCode, shot.scoreGap, shot.points,
+        this.getScore(0) - this.getScore(1), availablePoints(this.simulator, this.context.ballOn));
+      this.pendingDecision = { kind: "foul", playerIndex: this.context.playerIndex, canReplace };
     }
     this.response();
     if (this.pendingDecision?.kind === "foul") {

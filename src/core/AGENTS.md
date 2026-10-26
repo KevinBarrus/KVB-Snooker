@@ -64,3 +64,7 @@ npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice �
 ## 自由球资格与流程
 
 犯规后先完成复位和静止，再判断目标两侧可达性；有手中球时检查整个D区。接手保留freeBallAvailable，要求犯规方继续则撤销。nominate显式选择非目标作为自由球，null为放弃；prepareStroke冻结freeBallIndex，结束/reset清空。AI目前直接解原目标，不增加策略搜索。
+
+## 第二轮：Miss与共用原位恢复
+
+杆前快照在prepareStroke成功时捕获，含世界、阶段、球权、手中球及Miss所需分差/剩余分。restorePreviousShot在比赛只接受持权者的Miss复位，在练习允许READY时重试上一杆（本轮无按钮）；保留罚分/杆数/最高单杆，不恢复被中断的brk；reset清空快照。自由球资格与提名清空，彩球阶段可以重新提名。

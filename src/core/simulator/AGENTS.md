@@ -58,3 +58,5 @@ npm run test 与 npx tsc --noEmit 全绿；同步章程；Conventional Commits �
 - contact-evidence.ts继承既有Solver，仅在原solveContact前后记录速度差；不改计算公式、不增加求解次数。记录杆前贴球、第一组实际冲量接触和未分离贴球被母球直接推动。
 - World的新接触回调不含全部持续静止接触，不能用原firstKissIndex单独裁判贴球。保持ShotResult原样，额外getContactEvidence返回数组副本；reset/restore清空，predict不记录且结束恢复观察求解器。
 - 接触容差1e-5m、有效水平速度差1e-7m/s；已分离或被其他子球撞动的贴球不再计直接推杆。首次同evolution/母球位置≤1e-5m的接触组成一组，保留双红/自由球同时首碰信息。
+
+第二轮复位契约：显式restore成功后清空ShotResult和接触证据，再同步显示。复用既有SerialData，不引入rules依赖；predict内部World.restore仍无损保留当前杆结果。GameSession控制比赛复位权限，模拟器只恢复世界。
