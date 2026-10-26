@@ -9,6 +9,10 @@ body:not([data-state="ready"]) .game-options { display: none; }
 .rule-choice[hidden] { display: none; }
 .rule-choice p { margin: 0 0 10px; }
 .rule-choice button + button { margin-left: 8px; }
+.nomination { position: absolute; left: 20px; bottom: 115px; padding: 8px 12px; background: #171713ed; }
+.nomination[hidden] { display: none; }
+.nomination span { margin-right: 12px; }
+body:has(.nomination:not([hidden])) .replay-controls { bottom: 165px; }
 select, button, summary { font: inherit; color: inherit; background: #20221e; border: 1px solid #676b5e; padding: 7px 10px; border-radius: 2px; }
 select, button, summary { cursor: pointer; }
 button:disabled { opacity: .45; cursor: default; }

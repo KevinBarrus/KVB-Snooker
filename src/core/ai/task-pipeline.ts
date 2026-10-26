@@ -47,7 +47,7 @@ export class AIController {
       if (++this.taskIndex >= 3) {
         this.taskIndex = -1;
         const direction = new Vec3(coreRandom(), 0, coreRandom()).normalize();
-        this.cache.next(direction.x, direction.y, direction.z, 0, 0.6 * coreRandom(), 0.05 * coreRandom());
+        this.cache.next(direction.x, direction.y, direction.z, 0, 0.6 * coreRandom(), 0.05 * coreRandom()).ballBIndex = this.ballOnIndices[0] ?? -1;
         return this.cache.getAtIndex(0);
       }
       this.ballCheckIndex = this.pocketIndex = 0;
@@ -126,7 +126,7 @@ export class AIController {
       if (isSegmentSafe(cue.position, direction, length + extension,
         cue.radius + Vec3.EPSILON, sim.getBalls(), cue, target)) {
         this.cache.next(direction.x, direction.y, direction.z, 0,
-          0.1 * coreRandom() + length / view.playArea.diagonal * distancePower, 0.1 * coreRandom());
+          0.1 * coreRandom() + length / view.playArea.diagonal * distancePower, 0.1 * coreRandom()).ballBIndex = target.index;
         return this.cache.length >= total;
       }
     }

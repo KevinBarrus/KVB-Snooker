@@ -19,6 +19,9 @@ import { BrowserReplay } from "./app-replay.js";
 import type { ReplayCapture } from "./controller/replay-frame.js";
 import type { GameOptions } from "./core/frame-setup.js";
 import { RuleChoiceDom } from "./ui/rule-choice.js";
+import { NominationDom } from "./ui/nomination.js";
+
+const BALL_NAMES = ["母球", "红球", "黄球", "绿球", "棕球", "蓝球", "粉球", "黑球"];
 
 // PCOL L3662-3772, L7594-7627, L7990-8031
 export class BrowserGame {
@@ -33,6 +36,7 @@ export class BrowserGame {
   readonly viewNoticeDom = new ViewNoticeDom();
   readonly replay: BrowserReplay;
   readonly ruleChoice: RuleChoiceDom;
+  readonly nomination: NominationDom;
   session: GameSession;
   private readonly ref = new SnookerRef();
   private brain = new AIController(AI_PROFILES.NORMAL);
@@ -54,6 +58,11 @@ export class BrowserGame {
     this.shots = new ShotController(this.bus, {
       begin: index => {
         if (!this.canShoot(index)) return false;
+        const person = this.human.active ? this.human : this.opponent;
+        if (!this.session.prepareStroke(index, person.getStrokeVars())) {
+          this.viewNotice.show("目标不明确，请先提名彩球");
+          return false;
+        }
         this.pendingShot = true; this.outSeen = simulator.getResult().outOfBoundsIndices.length;
         return true;
       },
@@ -75,7 +84,11 @@ export class BrowserGame {
     const gameView = createGameView(simulator);
     this.ai = new AIRunner(this.opponent, this.shots, this.bus, {
       restart: () => this.brain.checkRestart(simulator, this.session.context),
-      next: () => this.brain.step(gameView, simulator),
+      next: () => {
+        const route = this.brain.step(gameView, simulator);
+        if (route && this.session.context.ballOn === 252) this.session.nominate(this.opponent.playerIndex, route.ballBIndex ?? null);
+        return route;
+      },
       random: coreRandom
     });
     this.controls = new GamingInput(canvas, this.human, this.shots, {
@@ -115,7 +128,11 @@ export class BrowserGame {
       this.hud.foulNotice.close();
       this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.canvas.focus();
     });
-    document.body.append(this.hudDom.element, this.viewNoticeDom.element, this.ruleChoice.element);
+    this.nomination = new NominationDom(index => {
+      if (!this.canShoot(this.human.playerIndex) || !this.human.active) return;
+      if (this.session.nominate(this.human.playerIndex, index)) this.canvas.focus();
+    });
+    document.body.append(this.hudDom.element, this.viewNoticeDom.element, this.ruleChoice.element, this.nomination.element);
     this.activateTurn(); this.syncHud();
   }
 
@@ -158,6 +175,20 @@ export class BrowserGame {
         : `犯规罚 ${-this.session.result.score} 分，已入账。玩家 ${decision.playerIndex + 1} 选择下一杆。`,
       ownLabel: decision.kind === "black" ? "自己先打" : "自己接手",
       otherLabel: decision.kind === "black" ? "让对方先打" : "让对手继续（当前位置）"
+    } : null);
+    if (this.session.context.ballOn !== 252 || !this.human.active || this.replay.active) {
+      this.nomination.sync(null);
+      return;
+    }
+    const vars = this.human.getStrokeVars();
+    const nomination = this.session.getNomination(vars[3], vars[5]);
+    const options = Array.from({ length: this.simulator.getBallCount() }, (_, index) => this.simulator.getBallView(index))
+      .filter(ball => ball.active && ball.number > 1).map(ball => ({ index: ball.index, label: BALL_NAMES[ball.number] }));
+    const label = options.find(option => option.index === nomination.ballIndex)?.label;
+    this.nomination.sync(nomination.required && this.human.active && !this.replay.active ? {
+      text: label ? `本杆目标：${label}${nomination.manual ? "（已提名）" : "（自动）"}` : "目标不明确，请选择彩球",
+      selected: nomination.manual ? nomination.ballIndex : null,
+      enabled: this.canShoot(this.human.playerIndex), options
     } : null);
   }
 
@@ -252,5 +283,6 @@ export class BrowserGame {
     this.viewNoticeDom.element.remove();
     this.replay.dispose();
     this.ruleChoice.dispose();
+    this.nomination.dispose();
   }
 }

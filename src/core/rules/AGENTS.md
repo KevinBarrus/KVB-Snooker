@@ -32,7 +32,7 @@ PCOL 斯诺克规则引擎：犯规枚举、有效区域几何、ballOn/ball-in-
 2. **首触判定序**：先 jackpot COLOR_ALL 分支（`a ≤ 1`：触母球=MISS_TARGET、触红=ILLEGAL_FIRST_HIT、罚分固定 −7）；再具体球分支 `2^a !== ballOn` → foul、罚分 `min(−a, −log2(ballOn), −4)`
 3. **罚分 = 罚上限为 max 语义实现取 min 负数**：`worst = min(o, d, _)` 三候选；`score = worst === 0 ? potScore : worst`
 4. **哨兵 65535 分支最先判**（在球号校验前）→ `_liveRespot` 全重置 + `inHand=1`（特殊流程态）+ score 保持 0
-5. 黑球终局：`ballOn === BLACK && score > 0 → ballOn = 0`
+5. 黑球终局：源码实际为`ballOn === BLACK && score !== 0 → ballOn = 0`，进袋或犯规均触发；spec原概述>0遗漏犯规路径，流程层扩展处理平分
 6. `inHand=2`（手中球）当**只有**母球不活跃（`getBallAtIndex(0).active === false`）且分数为合法分支才投（score≤0 或 RED/COLOR_ALL 阶段路径）
 7. **touchBalls 距离参数语义**：第三个参数 = **间隙裕量**（有用性的嵌套 = `gap = clearance + ballRadius`），默认 `1.02·ballRadius`（合并 = 2.02r）
 8. `_liveRespotColorBalls` 的 `occupiedSpots[ball.number] = 1` **无论是否成功归位都登记**（有时序性副作用）
@@ -47,7 +47,7 @@ PCOL 斯诺克规则引擎：犯规枚举、有效区域几何、ballOn/ball-in-
 
 ## 登记差异
 
-- 原作已知缺口与作者 README 一致：free ball 未实现、指定彩球未实现、play again 未实现——本实现同缺
+- 原作已知缺口与作者 README 一致：free ball 未实现、指定彩球未实现、play again 未实现——用户批准的扩展现已补齐指定彩球与普通犯规play again，自由球下一单元实施
 - `ballOn = 0`（终局态）时 `checkResult` 的 `log2(0) = −∞` 罚分问题为**原作潜在缺陷**，1:1 复刻保留（不应触发于终局后再击的场景，架构依赖 flow 层拦截）
 
 ## 测试模型说明
@@ -57,3 +57,9 @@ PCOL 斯诺克规则引擎：犯规枚举、有效区域几何、ballOn/ball-in-
 ## 完成定义（DoD）
 
 `npm run test`（157 项）与 `npm run typecheck` 全绿；AGENTS.md 单元状态同步；Conventional Commits。
+
+## 规则扩展：彩球提名
+
+- GameSession传入本杆冻结的nominatedBallIndex时，COLOR_ALL按指定球而非实际首碰判定和罚分；缺省保留原作Ref直接调用的行为，正式对局必经提名校验。
+- nomination.ts以水平球心射线和2r碰撞包络判断最近目标；前方红球遮挡、同时接触歧义、任意贴彩球时不猜测。接触/歧义容差1e-5m，不等于原作touchBalls的摆球间隙。全台计算无辅助线长度限制。
+- 新发现的原作缺口：PCOL以实际首触决定COLOR_ALL，此扩展明确替代；原有其余复位与阶段推进不变。规则参照WPBSA §2.12、§3.8/11。

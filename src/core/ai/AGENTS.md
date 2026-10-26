@@ -48,3 +48,8 @@ PCOL 几何选杆机：候选流水线、路线缓存、优先级评分、拟人
 ## 完成定义（DoD）
 
 npm run test 与 npx tsc --noEmit 全绿；同步章程；Conventional Commits 提交并推送。
+
+## 提名扩展
+
+- AIRoute暴露已有ballBIndex元数据；安全球和翻库也填入候选目标，随机解围以当前合法目标集合首项为声明意图。原方向/随机消耗/评分不变，只有进球路线仍执行applyChaos。
+- 目的：AI打偏时不能把误碰到的彩球倒推为目标，浏览器/Node在出杆前使用同一GameSession.nominate。

@@ -44,6 +44,6 @@ export function checkBanks(cue: Ball, target: Ball, sim: Simulator, cache: Route
     const power = 0.2 + 0.02 * (fromCue + fromTarget);
     let spinFactor = outgoing.dot(incoming) + 1;
     spinFactor *= spinFactor;
-    cache.next(incoming.x, incoming.y, incoming.z, -power * spinFactor, power, 1 - fromTarget / 10);
+    cache.next(incoming.x, incoming.y, incoming.z, -power * spinFactor, power, 1 - fromTarget / 10).ballBIndex = target.index;
   }
 }

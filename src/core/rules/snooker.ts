@@ -48,6 +48,7 @@ export interface RefSimulator {
 export interface RulesContext {
   inHand: 0 | 1 | 2;
   ballOn: number;
+  nominatedBallIndex?: number;
 }
 
 // PCOL L12611-12659（原模 53）：Ref 基类。
@@ -145,7 +146,13 @@ export class SnookerRef extends Ref {
     let foulCandidate = 0;
     let legalNumber = 0;
     if (t.ballOn === BALL_ON.COLOR_ALL) {
-      if (firstKiss <= 1) {
+      if (t.nominatedBallIndex !== undefined) {
+        legalNumber = e.getBallAtIndex(t.nominatedBallIndex).number;
+        if (firstKiss !== legalNumber) {
+          i.foulCode |= firstKiss === 0 ? FOUL.MISS_TARGET : FOUL.ILLEGAL_FIRST_HIT;
+          foulCandidate = Math.min(-firstKiss, -legalNumber, -4);
+        }
+      } else if (firstKiss <= 1) {
         i.foulCode |= firstKiss === 0 ? FOUL.MISS_TARGET : FOUL.ILLEGAL_FIRST_HIT;
         foulCandidate = -7;
       } else {

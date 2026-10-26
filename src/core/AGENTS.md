@@ -53,3 +53,8 @@
 ## 完成定义（DoD）
 
 npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice 演示可运行；提交并推送。
+
+## 提名接入
+
+- nominate手选或恢复自动；prepareStroke在动画开始前冻结意图，stroke为Node调用补做同一校验；目标不明确拒绝出杆，不罚分、不计杆数。完成本杆或reset清除提名，冻结后禁止摆球和改提名。
+- Node demo按AI路线目标提名，不利用实际首触结果。

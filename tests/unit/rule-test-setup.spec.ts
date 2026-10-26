@@ -73,7 +73,9 @@ describe("开发预设消费正式双人规则", () => {
   it("完整重置恢复球位姿态、比分、统计、球权和本杆结果", () => {
     const game = makeGame("last-red"), sim = game.simulator;
     const initial = Array.from({ length: sim.getBallCount() }, (_, index) => sim.getBallView(index));
-    shoot(game); shoot(game, 0);
+    shoot(game);
+    expect(game.nominate(0, 16)).toBe(true);
+    shoot(game, 0);
     expect(game.players[0].maxbrk).toBeGreaterThan(0);
     game.reset();
     expect(game.context).toEqual({ ballOn: 2, inHand: 0, playerIndex: 0, nRounds: 0 });

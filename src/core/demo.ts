@@ -70,6 +70,7 @@ async function main(): Promise<void> {
       let route = null;
       for (let count = 0; count < 10000 && !route; ++count) route = brain.step(view, sim);
       if (!route) throw new Error("AI pipeline did not finish");
+      if (game.context.ballOn === 252) game.nominate(index, route.ballBIndex ?? null);
       if (!game.stroke(index, makeStrokeVars(sim, route))) throw new Error("Turn ownership rejected stroke");
       for (let frame = 0; game.state === GAME_STATE.SIMULATING && frame < 2000; ++frame) game.step(0.1);
       const decision = game.decision;

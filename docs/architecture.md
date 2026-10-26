@@ -244,6 +244,8 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 终局与普通犯规扩展：`GAME_STATE.DECIDING=32`；`GameSession.decision: Readonly<{kind:"foul"|"black";playerIndex:number}>|null`提供选择权快照，`chooseNextPlayer(playerIndex:number,nextIndex:number):boolean`仅允许持权者在待选择阶段决定下一位。普通犯规仅从当前位置继续，不恢复台面；黑球平分抽签后选择下一位并获得D区手中球。`getScore(index:number):number`按现有负penalty计算总分；`winnerIndex:number|null`仅在已结束且非平分时有值。reset清空待选择状态。UI只消费文案/按钮回调，装配根负责命令；AI选择自己接手，Node演示同样显式处理选择。
 
+提名扩展：`RulesContext.nominatedBallIndex?:number`为本杆冻结的彩球索引，不改变阶段ballOn。`GameSession.nominate(playerIndex:number,ballIndex:number|null):boolean`手选/恢复自动；`getNomination(dx:number,dz:number):{required:boolean;ballIndex:number|null;manual:boolean}`返回意图快照；`prepareStroke(playerIndex:number,vars:StrokeVars):boolean`在动画开始前冻结意图，stroke也调用此校验以覆盖Node。不明确时拒绝开始而不罚分。`AIRoute.ballBIndex?:number`暴露已有路线目标元数据，安全球/翻库/随机解围也记录意图，拟人误差不能改变提名。UI仅接受选项/文案和回调。
+
 ## 5. 目录结构（骨架）
 
 ```

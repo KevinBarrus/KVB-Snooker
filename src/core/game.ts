@@ -4,6 +4,7 @@ import type { SerialData, StrokeVars } from "./simulator/shot-result.js";
 import { Player } from "./player.js";
 import { copyFrameSetup, type FrameSetup, type GameOptions } from "./frame-setup.js";
 import { coreRandom } from "./rng.js";
+import { inferColour, type NominationView } from "./rules/nomination.js";
 
 // PCOL L8922-8931
 export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16, DECIDING: 32 } as const;
@@ -26,6 +27,8 @@ export class GameSession {
   private serialData: SerialData | null = null;
   private readonly initialSetup?: FrameSetup;
   private pendingDecision: TurnDecision | null = null;
+  private nominatedIndex: number | null = null;
+  private prepared = false;
 
   constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play", options: GameOptions = {}) {
     const types = options.players ?? (mode === "practice" ? ["USER"] : ["USER", "AI"]);
@@ -54,6 +57,9 @@ export class GameSession {
   reset(): void {
     this.currentState = GAME_STATE.JUDGING;
     this.pendingDecision = null;
+    this.nominatedIndex = null;
+    this.prepared = false;
+    delete this.context.nominatedBallIndex;
     for (const player of this.players) player.clearScores();
     this.context.playerIndex = this.context.nRounds = 0;
     this.ref.resetGContext(this.context);
@@ -81,7 +87,7 @@ export class GameSession {
   }
 
   placeCueBall(x: number, y: number, z: number): boolean {
-    if (this.state !== GAME_STATE.READY || this.finished || this.context.inHand === 0) return false;
+    if (this.state !== GAME_STATE.READY || this.finished || this.prepared || this.context.inHand === 0) return false;
     if (!this.ref.placeCueBallCheck(x, y, z, this.simulator)) return false;
     this.currentState = GAME_STATE.JUDGING;
     this.simulator.respotIndexXYZ(0, x, this.simulator.spotY, z);
@@ -92,9 +98,35 @@ export class GameSession {
 
   stroke(playerIndex: number, vars: StrokeVars): boolean {
     if (this.state !== GAME_STATE.READY || this.finished || playerIndex !== this.context.playerIndex) return false;
+    if (!this.prepared && !this.prepareStroke(playerIndex, vars)) return false;
     this.players[playerIndex].shootingCount++;
     this.currentState = GAME_STATE.SIMULATING;
     this.simulator.stroke(vars);
+    return true;
+  }
+
+  nominate(playerIndex: number, ballIndex: number | null): boolean {
+    if (this.state !== GAME_STATE.READY || this.prepared || this.context.ballOn !== 252 || playerIndex !== this.context.playerIndex) return false;
+    if (ballIndex !== null && !this.simulator.getBalls().some(ball => ball.index === ballIndex && ball.active && ball.number > 1)) return false;
+    this.nominatedIndex = ballIndex;
+    return true;
+  }
+
+  getNomination(dx: number, dz: number): NominationView {
+    const required = this.context.ballOn === 252;
+    return { required, ballIndex: required ? this.context.nominatedBallIndex ?? this.nominatedIndex ?? inferColour(this.simulator, dx, dz) : null,
+      manual: this.nominatedIndex !== null };
+  }
+
+  prepareStroke(playerIndex: number, vars: StrokeVars): boolean {
+    if (this.state !== GAME_STATE.READY || this.finished || playerIndex !== this.context.playerIndex) return false;
+    if (this.prepared) return true;
+    const nomination = this.getNomination(vars[3], vars[5]);
+    if (nomination.required) {
+      if (nomination.ballIndex === null) return false;
+      this.context.nominatedBallIndex = nomination.ballIndex;
+    }
+    this.prepared = true;
     return true;
   }
 
@@ -113,6 +145,9 @@ export class GameSession {
     if (this.simulator.nAwakened !== 0) return;
     this.currentState = GAME_STATE.JUDGING;
     this.ref.checkResult(this.context, this.simulator, this.result);
+    this.prepared = false;
+    this.nominatedIndex = null;
+    delete this.context.nominatedBallIndex;
     const index = this.context.playerIndex;
     const player = this.players[index];
     this.context.nRounds++;

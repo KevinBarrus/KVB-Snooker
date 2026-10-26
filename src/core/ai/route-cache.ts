@@ -1,4 +1,5 @@
 export interface AIRoute {
+  ballBIndex?: number;
   dx: number;
   dy: number;
   dz: number;

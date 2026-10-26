@@ -61,6 +61,26 @@ try {
       cue: scored.balls[0].position, red: scored.balls[1].position, players: scored.players }));
     assert.equal(scored.context.ballOn, 252);
     assert.equal(await page.locator(".score-container .left .pts").textContent(), "1");
+    await advance(0);
+    assert.equal(await page.getByRole("combobox", { name: "提名目标球" }).isVisible(), true);
+    await page.evaluate(() => {
+      const { game } = window.rulesRuntime;
+      for (let i = 0; i < 32; ++i) {
+        const angle = i * Math.PI / 16;
+        if (game.session.getNomination(Math.sin(angle), Math.cos(angle)).ballIndex === null) {
+          game.human.camera.resetWithKissDir(Math.sin(angle), Math.cos(angle)); break;
+        }
+      }
+      game.human.gotoState1(true);
+    });
+    await advance(150); await page.locator("canvas").focus(); await page.keyboard.press("Space"); await advance(0);
+    assert.equal(await page.evaluate(() => window.rulesRuntime.game.shots.busy), false);
+    await page.getByRole("combobox", { name: "提名目标球" }).selectOption("21");
+    await page.keyboard.press("Space"); await advance(1);
+    assert.equal(await page.evaluate(() => window.rulesRuntime.game.session.context.nominatedBallIndex), 21);
+    assert.equal(await page.getByRole("combobox", { name: "提名目标球" }).isEnabled(), false);
+    state = await advance(60);
+    for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
     await page.selectOption('select[name="test-position"]', "colours");
     await page.getByRole("button", { name: "重置当前球局" }).click(); await advance(0);
     assert.equal(await page.locator('select[name="test-position"]').inputValue(), "last-red");
