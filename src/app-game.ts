@@ -148,6 +148,12 @@ export class BrowserGame {
     return `贴球：${names} · 请打离且不要推动贴球；贴合法目标可免再次首碰，贴非目标仍需打到目标`;
   }
 
+  get aimBallOn(): number {
+    const vars = this.human.getStrokeVars();
+    const index = this.session.getNomination(vars[3], vars[5]).ballIndex;
+    return index === null ? this.session.context.ballOn : 2 ** this.simulator.getBallView(index).number;
+  }
+
   cycleView(): void {
     if (!this.replay.active && !this.human.active) return;
     const view = this.human.camera.shotView;
@@ -180,21 +186,25 @@ export class BrowserGame {
     const decision = this.session.decision;
     this.ruleChoice.sync(decision && !this.replay.active ? {
       text: decision.kind === "black" ? `比分相同，重新摆黑。玩家 ${decision.playerIndex + 1} 抽中选择权。下一位获得 D 区手中球。`
-        : `犯规罚 ${-this.session.result.score} 分，已入账。玩家 ${decision.playerIndex + 1} 选择下一杆。`,
+        : `犯规罚 ${-this.session.result.score} 分，已入账。玩家 ${decision.playerIndex + 1} 选择下一杆。${this.session.freeBallAvailable ? "接手可选择自由球。" : ""}`,
       ownLabel: decision.kind === "black" ? "自己先打" : "自己接手",
       otherLabel: decision.kind === "black" ? "让对方先打" : "让对手继续（当前位置）"
     } : null);
-    if (this.session.context.ballOn !== 252 || !this.human.active || this.replay.active) {
+    const free = this.session.freeBallAvailable;
+    if ((!free && this.session.context.ballOn !== 252) || !this.human.active || this.replay.active) {
       this.nomination.sync(null);
       return;
     }
     const vars = this.human.getStrokeVars();
     const nomination = this.session.getNomination(vars[3], vars[5]);
     const options = Array.from({ length: this.simulator.getBallCount() }, (_, index) => this.simulator.getBallView(index))
-      .filter(ball => ball.active && ball.number > 1).map(ball => ({ index: ball.index, label: BALL_NAMES[ball.number] }));
+      .filter(ball => ball.active && ball.number > 0 && (free ? (2 ** ball.number & this.session.context.ballOn) === 0 : ball.number > 1))
+      .map(ball => ({ index: ball.index, label: BALL_NAMES[ball.number] }));
     const label = options.find(option => option.index === nomination.ballIndex)?.label;
-    this.nomination.sync(nomination.required && this.human.active && !this.replay.active ? {
-      text: label ? `本杆目标：${label}${nomination.manual ? "（已提名）" : "（自动）"}` : "目标不明确，请选择彩球",
+    this.nomination.sync((nomination.required || free) && this.human.active && !this.replay.active ? {
+      text: free ? (label ? `自由球：${label}，按 ${Math.log2(this.session.context.ballOn)} 分计` : "可选自由球；不使用则击打原目标")
+        : label ? `本杆目标：${label}${nomination.manual ? "（已提名）" : "（自动）"}` : "目标不明确，请选择彩球",
+      defaultLabel: free ? "不使用自由球" : "自动识别",
       selected: nomination.manual ? nomination.ballIndex : null,
       enabled: this.canShoot(this.human.playerIndex), options
     } : null);

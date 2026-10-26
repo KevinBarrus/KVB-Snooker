@@ -135,6 +135,31 @@ try {
     await page.getByRole("button", { name: "让对方先打", exact: true }).click(); await advance(0);
     assert.equal((await snapshot()).context.playerIndex, 1 - black.decision.playerIndex);
     assert.equal(await page.locator(".rule-choice").isVisible(), false);
+    await page.evaluate(() => {
+      const { game, simulator } = window.rulesRuntime;
+      const locations = { 0: [0, .2], 1: [.6, .2], 21: [.15, .2], 16: [-.9, .5] };
+      game.setMode("single-play", "NORMAL", { players: ["USER", "USER"], setup: {
+        balls: Array.from({ length: simulator.getBallCount() }, (_, index) => ({ index,
+          x: locations[index]?.[0] ?? 1, z: locations[index]?.[1] ?? 0, active: index in locations })),
+        ballOn: 2, inHand: 0, playerIndex: 0, scores: [0, 0]
+      } });
+      game.human.camera.resetWithKissDir(0, 1); game.human.gotoState1(true); game.human.strokePower = 0;
+    });
+    await advance(150); await page.locator("canvas").focus(); await page.keyboard.press("Space");
+    state = await advance(60);
+    for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
+    assert.equal(await page.evaluate(() => window.rulesRuntime.game.session.freeBallAvailable), true);
+    assert.match(await page.locator(".rule-choice").textContent(), /自由球/);
+    await page.getByRole("button", { name: "自己接手", exact: true }).click(); await advance(0);
+    const nominationSelect = page.getByRole("combobox", { name: "提名目标球" });
+    assert.equal(await nominationSelect.locator('option[value="1"]').count(), 0);
+    await nominationSelect.selectOption("21"); await advance(0);
+    assert.match(await page.locator(".nomination").textContent(), /自由球：黑球，按 1 分计/);
+    await page.keyboard.press("w"); await advance(150); await page.keyboard.press("Space"); await advance(1);
+    assert.equal(await page.evaluate(() => window.rulesRuntime.game.session.context.freeBallIndex), 21);
+    assert.equal(await nominationSelect.isEnabled(), false);
+    state = await advance(60);
+    for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
     await page.selectOption('select[name="mode"]', "practice");
     await page.getByRole("button", { name: "开始新局" }).click(); await advance(0);
     assert.equal((await snapshot()).context.ballOn, 65535);
@@ -144,7 +169,7 @@ try {
       const source = await readFile(`dist/assets/${file}`, "utf8");
       assert(!source.includes("双人规则测试") && !source.includes("last-red"), "Production bundle must exclude dev presets and UI");
     }
-    console.log("Rules test passed: local seats, scoring, presets, full reset, foul choice, respotted black, input lock, production exclusion");
+    console.log("Rules test passed: local seats, scoring, presets, full reset, foul choice, nomination, free ball, respotted black, input lock, production exclusion");
   }
   assert.deepEqual(errors, []);
 } finally { clearTimeout(timeout); await browser.close(); }

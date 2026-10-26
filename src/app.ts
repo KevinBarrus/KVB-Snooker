@@ -86,7 +86,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       cue.computeWorldMatrix(true);
       placement.sync(simulator.getCueBallPosition(), game.controls.inHand);
       const prediction = game.human.prediction;
-      const ballOn = game.session.context.ballOn;
+      const ballOn = game.aimBallOn;
       if (prediction && (prediction !== lastPrediction || ballOn !== lastBallOn)) {
         gunsight.syncPrediction(prediction, ballOn);
         lastPrediction = prediction; lastBallOn = ballOn;

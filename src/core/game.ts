@@ -5,6 +5,8 @@ import { Player } from "./player.js";
 import { copyFrameSetup, type FrameSetup, type GameOptions } from "./frame-setup.js";
 import { coreRandom } from "./rng.js";
 import { inferColour, type NominationView } from "./rules/nomination.js";
+import { snookerView } from "./rules/snookered.js";
+import { hasOpenInHand } from "./rules/in-hand-visibility.js";
 
 // PCOL L8922-8931
 export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16, DECIDING: 32 } as const;
@@ -29,6 +31,7 @@ export class GameSession {
   private pendingDecision: TurnDecision | null = null;
   private nominatedIndex: number | null = null;
   private prepared = false;
+  private freeBall = false;
 
   constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play", options: GameOptions = {}) {
     const types = options.players ?? (mode === "practice" ? ["USER"] : ["USER", "AI"]);
@@ -44,6 +47,7 @@ export class GameSession {
   get state(): GameState { return this.currentState; }
   get finished(): boolean { return this.mode === "single-play" && this.context.ballOn === 0; }
   get decision(): TurnDecision | null { return this.pendingDecision && { ...this.pendingDecision }; }
+  get freeBallAvailable(): boolean { return this.freeBall; }
   get touchingBallIndices(): readonly number[] {
     const cue = this.simulator.getBallAtIndex(0);
     return this.simulator.getBalls().filter(ball => ball.active && ball.index !== 0 &&
@@ -64,7 +68,9 @@ export class GameSession {
     this.pendingDecision = null;
     this.nominatedIndex = null;
     this.prepared = false;
+    this.freeBall = false;
     delete this.context.nominatedBallIndex;
+    delete this.context.freeBallIndex;
     for (const player of this.players) player.clearScores();
     this.context.playerIndex = this.context.nRounds = 0;
     this.ref.resetGContext(this.context);
@@ -111,13 +117,15 @@ export class GameSession {
   }
 
   nominate(playerIndex: number, ballIndex: number | null): boolean {
-    if (this.state !== GAME_STATE.READY || this.prepared || this.context.ballOn !== 252 || playerIndex !== this.context.playerIndex) return false;
-    if (ballIndex !== null && !this.simulator.getBalls().some(ball => ball.index === ballIndex && ball.active && ball.number > 1)) return false;
+    if (this.state !== GAME_STATE.READY || this.prepared || (!this.freeBall && this.context.ballOn !== 252) || playerIndex !== this.context.playerIndex) return false;
+    if (ballIndex !== null && !this.simulator.getBalls().some(ball => ball.index === ballIndex && ball.active && ball.number > 0 &&
+      (this.freeBall ? (2 ** ball.number & this.context.ballOn) === 0 : ball.number > 1))) return false;
     this.nominatedIndex = ballIndex;
     return true;
   }
 
   getNomination(dx: number, dz: number): NominationView {
+    if (this.freeBall) return { required: this.nominatedIndex !== null, ballIndex: this.nominatedIndex, manual: this.nominatedIndex !== null };
     const required = this.context.ballOn === 252;
     return { required, ballIndex: required ? this.context.nominatedBallIndex ?? this.nominatedIndex ?? inferColour(this.simulator, dx, dz) : null,
       manual: this.nominatedIndex !== null };
@@ -129,7 +137,8 @@ export class GameSession {
     const nomination = this.getNomination(vars[3], vars[5]);
     if (nomination.required) {
       if (nomination.ballIndex === null) return false;
-      this.context.nominatedBallIndex = nomination.ballIndex;
+      if (this.freeBall) this.context.freeBallIndex = nomination.ballIndex;
+      else this.context.nominatedBallIndex = nomination.ballIndex;
     }
     this.prepared = true;
     return true;
@@ -138,6 +147,7 @@ export class GameSession {
   chooseNextPlayer(playerIndex: number, nextIndex: number): boolean {
     if (this.state !== GAME_STATE.DECIDING || this.pendingDecision?.playerIndex !== playerIndex ||
         !Number.isInteger(nextIndex) || nextIndex < 0 || nextIndex >= this.players.length) return false;
+    if (nextIndex !== playerIndex) this.freeBall = false;
     this.context.playerIndex = nextIndex;
     this.pendingDecision = null;
     this.currentState = GAME_STATE.READY;
@@ -151,8 +161,10 @@ export class GameSession {
     this.currentState = GAME_STATE.JUDGING;
     this.ref.checkResult(this.context, this.simulator, this.result);
     this.prepared = false;
+    this.freeBall = false;
     this.nominatedIndex = null;
     delete this.context.nominatedBallIndex;
+    delete this.context.freeBallIndex;
     const index = this.context.playerIndex;
     const player = this.players[index];
     this.context.nRounds++;
@@ -179,6 +191,10 @@ export class GameSession {
       this.pendingDecision = { kind: "foul", playerIndex: this.context.playerIndex };
     }
     this.response();
+    if (this.pendingDecision?.kind === "foul") {
+      this.freeBall = this.context.inHand > 0 ? !hasOpenInHand(this.simulator, this.context.ballOn, this.ref.dArea)
+        : snookerView(this.simulator, this.context.ballOn).snookered;
+    }
   }
 
   private response(): void {

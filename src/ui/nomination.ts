@@ -2,6 +2,7 @@ export interface NominationPanelView {
   readonly text: string;
   readonly selected: number | null;
   readonly enabled: boolean;
+  readonly defaultLabel?: string;
   readonly options: readonly { readonly index: number; readonly label: string }[];
 }
 
@@ -23,11 +24,11 @@ export class NominationDom {
   sync(view: NominationPanelView | null): void {
     this.element.hidden = view === null;
     if (!view) return;
-    const key = JSON.stringify(view.options);
+    const key = JSON.stringify([view.defaultLabel, view.options]);
     if (key !== this.optionsKey) {
       this.optionsKey = key;
       this.select.replaceChildren();
-      const options = [{ index: null, label: "自动识别" }, ...view.options];
+      const options = [{ index: null, label: view.defaultLabel ?? "自动识别" }, ...view.options];
       for (const option of options) {
         const item = this.doc.createElement("option");
         item.value = option.index === null ? "" : String(option.index); item.textContent = option.label;

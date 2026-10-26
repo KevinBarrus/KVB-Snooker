@@ -60,3 +60,7 @@ npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice �
 - Node demo按AI路线目标提名，不利用实际首触结果。
 
 贴球扩展：GameSession.touchingBallIndices只读计算杆前贴球，浏览器显示打离提示；实际裁判消费Simulator接触证据，不借用显示帧或终点距离。
+
+## 自由球资格与流程
+
+犯规后先完成复位和静止，再判断目标两侧可达性；有手中球时检查整个D区。接手保留freeBallAvailable，要求犯规方继续则撤销。nominate显式选择非目标作为自由球，null为放弃；prepareStroke冻结freeBallIndex，结束/reset清空。AI目前直接解原目标，不增加策略搜索。

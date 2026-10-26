@@ -15,6 +15,8 @@
 
 - rules-test-smoke.mjs（npm run test:rules）验证开发模式三个预设、真实进红计分、两个本地席位出杆、输入锁、加载/完整重置、忙碌拒绝以及dist不含测试菜单/预设。EXPECT_RULES_TEST=0时验证关闭开发入口（需连接VITE_RULES_TEST=0的服务）。
 
+- 规则扩展验收追加普通犯规等待/接手、提名不明确拒绝出杆、手动提名冻结、末黑平分抽签选择与D区手中球、真实犯规后的自由球提示/手选/替代分值。测试局面通过GameOptions.setup公开注入，不篡改裁判输出；ai-camera在AI犯规后通过真实选择按钮接手再验证下一杆观察。
+
 - controller 浏览器验收追加球杆材质/世界矩阵、力度条、鼠标摆球成功与 D 区外拒绝、页面模式入口；截图在 .cache/controller/stand.png、aim.png、placement.png。脚本先发送鼠标移动并步进，再单独 down/up，保留原作 dirty 预览拒绝机制。
 
 - gunsight-smoke.mjs（npm run test:gunsight）覆盖真实球台辅助线五部分、目标合法性、输入刷新、贴球/撞库、出杆渐隐和AI回合隐藏；100组方向/力度/塞/角度变化后逐项比较物理存档、显示视图、本杆结果和回合状态。截图 .cache/controller/gunsight-*.png 不提交。

@@ -248,6 +248,8 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 接触证据扩展：`Simulator.getContactEvidence():ContactEvidence|null`返回复制的`{touchingIndices:readonly number[];firstContactIndices:readonly number[];pushedIndices:readonly number[]}`；RefSimulator可选消费同结构方法，旧ShotResult不改。模拟器内观察Solver.solveContact前后速度及接触时位置，不改冲量/积分/休眠/CCD；predict隔离，reset/restore清空。接触容差1e-5m，水平方向速度变化阈值1e-7m/s；firstContactIndices记录同evolution、同母球位置的第一组实际接触。`FOUL.PUSH_STROKE=32`。`GameSession.touchingBallIndices`为杆前贴球索引只读快照，UI提示打离要求；合法贴球满足首触义务，非目标贴球不免除首触义务。
 
+自由球扩展：`GameSession.freeBallAvailable:boolean`只读资格，犯规结算/归位完成后按目标两侧可达性判断；手中球检查整个D区。持权者接手保留资格，让对方继续则取消；nominate在此阶段选择非目标球，null表示不用自由球。prepareStroke写入`RulesContext.freeBallIndex?:number`，不改阶段ballOn；结算清空。本杆首触、替代分值、复位及`FOUL.FREE_BALL_SNOOKER=64`由规则层处理。UI复用提名面板，辅助线按当前提名标色，AI当前选择不用自由球、正常解原目标。
+
 ## 5. 目录结构（骨架）
 
 ```

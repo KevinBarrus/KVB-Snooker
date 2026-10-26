@@ -1,5 +1,5 @@
 import { Vec3 } from "../math/vec3.js";
-import { FOUL } from "./foul.js";
+import { adjudicate } from "./adjudicate.js";
 import { DiscRegion, PointSetPolygon, sections, type CollisionPolygonLike, Plane } from "./region.js";
 
 // PCOL L9932-9948（原模 29）：场景 D 区参数。
@@ -50,6 +50,7 @@ export interface RulesContext {
   inHand: 0 | 1 | 2;
   ballOn: number;
   nominatedBallIndex?: number;
+  freeBallIndex?: number;
 }
 
 // PCOL L12611-12659（原模 53）：Ref 基类。
@@ -137,72 +138,21 @@ export class SnookerRef extends Ref {
     const result = e.result;
     i.score = 0;
     i.foulCode = 0;
-    let potScore = 0;
-    const evidence = e.getContactEvidence?.();
-    const legal = (index: number): boolean => t.ballOn === BALL_ON.COLOR_ALL ? index === t.nominatedBallIndex
-      : Math.pow(2, e.getBallAtIndex(index).number) === t.ballOn;
-    const touchingOn = evidence?.touchingIndices.find(legal);
-    const contacts = evidence?.firstContactIndices ?? (result.firstKissIndex ? [result.firstKissIndex] : []);
-    const firstKiss = e.getBallAtIndex(touchingOn ?? contacts[0] ?? 0).number;
     if (t.ballOn === this.sysReservedBallOn) {
       this._liveRespot(result.pottedIndices, result.outOfBoundsIndices, e);
       t.inHand = 1;
       return;
     }
-    let foulCandidate = 0;
-    let legalNumber = 0;
-    if (t.ballOn === BALL_ON.COLOR_ALL) {
-      if (t.nominatedBallIndex !== undefined) {
-        legalNumber = e.getBallAtIndex(t.nominatedBallIndex).number;
-        if (firstKiss !== legalNumber) {
-          i.foulCode |= firstKiss === 0 ? FOUL.MISS_TARGET : FOUL.ILLEGAL_FIRST_HIT;
-          foulCandidate = Math.min(-firstKiss, -legalNumber, -4);
-        }
-      } else if (firstKiss <= 1) {
-        i.foulCode |= firstKiss === 0 ? FOUL.MISS_TARGET : FOUL.ILLEGAL_FIRST_HIT;
-        foulCandidate = -7;
-      } else {
-        legalNumber = firstKiss;
-      }
-    } else if (Math.pow(2, firstKiss) !== t.ballOn) {
-      i.foulCode |= firstKiss === 0 ? FOUL.MISS_TARGET : FOUL.ILLEGAL_FIRST_HIT;
-      foulCandidate = Math.min(-firstKiss, -Math.log2(t.ballOn), -4);
-    } else {
-      legalNumber = firstKiss;
-    }
-    const outOfBounds = result.outOfBoundsIndices;
-    let obCandidate = 0;
-    for (let k = 0, n = outOfBounds.length; k !== n; ++k) {
-      const number = e.getBallAtIndex(outOfBounds[k]).number;
-      obCandidate = Math.min(obCandidate, -number, -legalNumber, -4);
-      i.foulCode |= FOUL.OFF_TABLE;
-    }
-    const potted = result.pottedIndices;
-    let potCandidate = 0;
-    for (let k = 0, n = potted.length; k !== n; ++k) {
-      const number = e.getBallAtIndex(potted[k]).number;
-      if (number !== 0 && number === legalNumber) potScore += number;
-      else {
-        potCandidate = Math.min(potCandidate, -number, -legalNumber, -4);
-        i.foulCode |= number === 0 ? FOUL.POTTING_CUE_BALL : FOUL.ILLEGAL_POTTING;
-      }
-    }
-    const worst = Math.min(foulCandidate, obCandidate, potCandidate);
-    i.score = worst === 0 ? potScore : worst;
-    if (touchingOn === undefined && contacts.some(index => !legal(index)) && t.ballOn !== BALL_ON.COLOR_ALL) {
-      i.foulCode |= FOUL.ILLEGAL_FIRST_HIT;
-      i.score = Math.min(i.score, -4, -Math.log2(t.ballOn), ...contacts.map(index => -e.getBallAtIndex(index).number));
-    }
-    if (t.ballOn === BALL_ON.COLOR_ALL && t.nominatedBallIndex !== undefined && touchingOn === undefined && contacts.some(index => !legal(index))) {
-      i.foulCode |= FOUL.ILLEGAL_FIRST_HIT;
-      i.score = Math.min(i.score, -4, -e.getBallAtIndex(t.nominatedBallIndex).number, ...contacts.map(index => -e.getBallAtIndex(index).number));
-    }
-    if (evidence?.pushedIndices.length) {
-      i.foulCode |= FOUL.PUSH_STROKE;
-      i.score = Math.min(i.score, -4, -legalNumber, ...evidence.pushedIndices.map(index => -e.getBallAtIndex(index).number));
+    Object.assign(i, adjudicate(t, e));
+    const freeOnlyPot = t.freeBallIndex !== undefined && i.score > 0 && t.ballOn !== BALL_ON.RED &&
+      !result.pottedIndices.some(index => index !== t.freeBallIndex && Math.pow(2, e.getBallAtIndex(index).number) === t.ballOn);
+    const onlyBlack = e.getBalls().every(ball => ball.number === 0 || ball.number === 7 ||
+      (!ball.active && !result.pottedIndices.includes(ball.index) && !result.outOfBoundsIndices.includes(ball.index)));
+    if (i.score > 0 && t.freeBallIndex !== undefined && t.ballOn !== BALL_ON.RED && result.pottedIndices.includes(t.freeBallIndex)) {
+      this._liveRespot([t.freeBallIndex], [], e);
     }
     t.inHand = 0;
-    if (t.ballOn === BALL_ON.BLACK && i.score !== 0) {
+    if (t.ballOn === BALL_ON.BLACK && !freeOnlyPot && (i.score > 0 || (i.score < 0 && onlyBlack))) {
       t.ballOn = 0;
     } else {
       if (i.score <= 0 || t.ballOn === BALL_ON.RED || t.ballOn === BALL_ON.COLOR_ALL) {
@@ -213,7 +163,7 @@ export class SnookerRef extends Ref {
         if (t.ballOn === BALL_ON.RED) t.ballOn = BALL_ON.COLOR_ALL;
         else if (t.ballOn === BALL_ON.COLOR_ALL) {
           t.ballOn = this._nActiveReds(e) === 0 ? BALL_ON.YELLOW : BALL_ON.RED;
-        } else t.ballOn = t.ballOn << 1;
+        } else if (!freeOnlyPot) t.ballOn = t.ballOn << 1;
       } else if (t.ballOn === BALL_ON.RED || t.ballOn === BALL_ON.COLOR_ALL) {
         t.ballOn = this._nActiveReds(e) === 0 ? BALL_ON.YELLOW : BALL_ON.RED;
       }
