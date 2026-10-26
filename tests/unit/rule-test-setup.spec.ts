@@ -101,3 +101,20 @@ describe("开发预设消费正式双人规则", () => {
     expect(sim.getCueBallPosition().x).toBe(0);
   });
 });
+
+it("黑球平分预设真实直线底袋进球后争黑，完整重置恢复0:7", () => {
+  const game = makeGame("black-tie"), sim = game.simulator;
+  const initial = sim.getBalls().map((_, index) => sim.getBallView(index));
+  expect([game.getScore(0), game.getScore(1)]).toEqual([0, 7]);
+  expect(sim.getBalls().filter(ball => ball.active).map(ball => ball.number)).toEqual([0, 7]);
+  const vars = makeStrokeVars(sim, { dx: Math.SQRT1_2, dy: 0, dz: Math.SQRT1_2,
+    fbSpin: -.99, powerFactor: .25, priority: 1 });
+  expect(game.stroke(0, vars)).toBe(true); finish(game);
+  expect([game.getScore(0), game.getScore(1)]).toEqual([7, 7]);
+  expect(game.context.ballOn).toBe(128); expect(game.context.inHand).toBe(2);
+  expect(game.context.playerIndex).toBe(1); expect(game.decision).toBeNull();
+  game.reset();
+  expect(sim.getBalls().map((_, index) => sim.getBallView(index))).toEqual(initial);
+  expect([game.getScore(0), game.getScore(1)]).toEqual([0, 7]);
+  expect(game.context.playerIndex).toBe(0);
+});

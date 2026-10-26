@@ -4,7 +4,8 @@ import { DEFAULT_SCENE } from "../core/simulator/scene.js";
 export const RULE_TEST_PRESETS = [
   { id: "standard", name: "标准开局" },
   { id: "last-red", name: "最后一红" },
-  { id: "colours", name: "清彩" }
+  { id: "colours", name: "清彩" },
+  { id: "black-tie", name: "黑球平分" }
 ] as const;
 export type RuleTestPreset = typeof RULE_TEST_PRESETS[number]["id"];
 
@@ -17,9 +18,14 @@ export function makeRuleTestSetup(id: RuleTestPreset): FrameSetup {
   if (id === "last-red") {
     balls[0].x = 0; balls[0].z = -.25;
     balls[1].x = 0; balls[1].z = -.55;
+  } else if (id === "black-tie") {
+    for (const ball of balls) ball.active = ball.index === 0 || set[ball.index * 3] === 7;
+    balls[0].x = .9; balls[0].z = 0;
+    const black = balls.find(ball => set[ball.index * 3] === 7)!;
+    black.x = 1.35; black.z = .45;
   } else if (id === "colours") {
     balls[0].x = -1.04; balls[0].z = -.65;
   }
-  return { balls, ballOn: id === "colours" ? 4 : 2, inHand: id === "standard" ? 2 : 0,
-    playerIndex: 0, scores: [0, 0] };
+  return { balls, ballOn: id === "black-tie" ? 128 : id === "colours" ? 4 : 2, inHand: id === "standard" ? 2 : 0,
+    playerIndex: 0, scores: [0, id === "black-tie" ? 7 : 0] };
 }

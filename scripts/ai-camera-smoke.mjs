@@ -28,7 +28,7 @@ try {
       const app = window.aiCameraRuntime = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
       app.engine.stopRenderLoop();
       const { game } = app;
-      if (!game.setMode("single-play", "EASY")) throw new Error("Could not start single play");
+      if (!game.setMode("single-play", "EASY", { openingPlayerIndex: 0 })) throw new Error("Could not start single play");
       while (game.human.camera.shotView.mode !== mode) game.cycleView();
       game.human.camera.resetWithKissDir(0, 1);
       game.human.gotoState1(true);

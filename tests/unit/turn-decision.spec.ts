@@ -1,8 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { GAME_STATE, GameSession } from "../../src/core/game.js";
 import { Simulator } from "../../src/core/simulator/simulator.js";
 import { DEFAULT_SCENE } from "../../src/core/simulator/scene.js";
-import { setCoreRandom } from "../../src/core/rng.js";
 import { makeStrokeVars } from "../../src/core/ai/stroke.js";
 import { makePocketTable } from "../fixtures/table.js";
 
@@ -28,7 +27,6 @@ function shoot(game: GameSession, pot = false): void {
   expect(game.simulator.nAwakened).toBe(0);
 }
 
-afterEach(() => setCoreRandom(null));
 
 describe("普通犯规选择与最后黑球", () => {
   it.each([0, 1])("普通犯规只计一次罚分，可选择玩家%d从当前位置打", next => {
@@ -64,8 +62,7 @@ describe("普通犯规选择与最后黑球", () => {
     expect(game.stroke(0, new Float32Array(8))).toBe(false);
   });
 
-  it.each([false, true])("黑球%s后平分：重新摆黑、抽签选先手、D区手中球、下一次得失分决胜", pot => {
-    setCoreRandom({ next: () => .75 });
+  it.each([false, true])("黑球%s后平分：重新摆黑、非开球方先手、D区手中球、下一次得失分决胜", pot => {
     const game = create(true);
     game.players[pot ? 1 : 0].pts = 7;
     shoot(game, pot);
@@ -73,7 +70,9 @@ describe("普通犯规选择与最后黑球", () => {
     expect(game.getScore(1)).toBe(7);
     expect(game.finished).toBe(false);
     expect(game.winnerIndex).toBeNull();
-    expect(game.decision).toEqual({ kind: "black", playerIndex: 1 });
+    expect(game.decision).toBeNull();
+    expect(game.context.playerIndex).toBe(1);
+    expect(game.state).toBe(GAME_STATE.READY);
     expect(game.context.inHand).toBe(2);
     expect(game.context.ballOn).toBe(128);
     expect(game.players.every(player => player.brk === 0)).toBe(true);
@@ -81,12 +80,12 @@ describe("普通犯规选择与最后黑球", () => {
       expect(ball.active).toBe(true);
       expect(ball.position).toEqual(ball.spot);
     }
-    expect(game.chooseNextPlayer(1, 0)).toBe(true);
+    expect(game.chooseNextPlayer(1, 0)).toBe(false);
     expect(game.placeCueBall(-1.2, game.simulator.spotY, .1)).toBe(true);
     shoot(game);
     expect(game.finished).toBe(true);
-    expect(game.getScore(1)).toBe(14);
-    expect(game.winnerIndex).toBe(1);
+    expect(game.getScore(0)).toBe(14);
+    expect(game.winnerIndex).toBe(0);
     expect(game.decision).toBeNull();
   });
 

@@ -68,3 +68,5 @@ npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice �
 ## 第二轮：Miss与共用原位恢复
 
 杆前快照在prepareStroke成功时捕获，含世界、阶段、球权、手中球及Miss所需分差/剩余分。restorePreviousShot在比赛只接受持权者的Miss复位，在练习允许READY时重试上一杆（本轮无按钮）；保留罚分/杆数/最高单杆，不恢复被中断的brk；reset清空快照。自由球资格与提名清空，彩球阶段可以重新提名。
+
+第二轮开球：GameOptions.openingPlayerIndex指定本局开球方；普通reset交替，setup完整重置不交替。争黑直接由非本局开球方D区先打，不产生black选择，不推进新局序列；这是用户批准的固定先手政策。

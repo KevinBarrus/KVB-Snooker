@@ -43,6 +43,7 @@ export class BrowserGame {
   private readonly ai: AIRunner;
   private pendingShot = false;
   private outSeen = 0;
+  private nextOpeningIndex = 0;
   private readonly disposeBus: () => void;
 
   constructor(readonly simulator: Simulator, private readonly scene: B.Scene,
@@ -185,10 +186,9 @@ export class BrowserGame {
   private syncRuleChoice(): void {
     const decision = this.session.decision;
     this.ruleChoice.sync(decision && !this.replay.active ? {
-      text: decision.kind === "black" ? `比分相同，重新摆黑。玩家 ${decision.playerIndex + 1} 抽中选择权。下一位获得 D 区手中球。`
-        : `犯规罚 ${-this.session.result.score} 分，已入账。玩家 ${decision.playerIndex + 1} 选择下一杆。${this.session.freeBallAvailable ? "接手可选择自由球。" : ""}`,
-      ownLabel: decision.kind === "black" ? "自己先打" : "自己接手",
-      otherLabel: decision.kind === "black" ? "让对方先打" : "让对手继续（当前位置）"
+      text: `犯规罚 ${-this.session.result.score} 分，已入账。玩家 ${decision.playerIndex + 1} 选择下一杆。${this.session.freeBallAvailable ? "接手可选择自由球。" : ""}`,
+      ownLabel: "自己接手",
+      otherLabel: "让对手继续（当前位置）"
     } : null);
     const free = this.session.freeBallAvailable;
     if ((!free && this.session.context.ballOn !== 252) || !this.human.active || this.replay.active) {
@@ -216,7 +216,10 @@ export class BrowserGame {
     this.shots.finish();
     this.human.camera.endShotView();
     this.replay.clear();
-    this.session = new GameSession(this.simulator, mode, options);
+    const formal = mode === "single-play" && !options.setup;
+    this.session = new GameSession(this.simulator, mode, formal
+      ? { ...options, openingPlayerIndex: options.openingPlayerIndex ?? this.nextOpeningIndex } : options);
+    if (formal) this.nextOpeningIndex = 1 - this.session.openingPlayerIndex;
     this.brain = new AIController(AI_PROFILES[difficulty]);
     this.human.gotoState0(true); this.opponent.gotoState0(true);
     this.hud.foulNotice.close();

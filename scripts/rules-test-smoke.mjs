@@ -127,13 +127,12 @@ try {
     for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
     const black = await page.evaluate(() => {
       const { game } = window.rulesRuntime;
-      return { decision: game.session.decision, inHand: game.session.context.inHand,
+      return { decision: game.session.decision, player: game.session.context.playerIndex, inHand: game.session.context.inHand,
         scores: [game.session.getScore(0), game.session.getScore(1)], finished: game.session.finished };
     });
-    assert.equal(black.decision.kind, "black"); assert.equal(black.inHand, 2);
+    assert.equal(black.decision, null); assert.equal(black.inHand, 2);
     assert.deepEqual(black.scores, [7, 7]); assert.equal(black.finished, false);
-    await page.getByRole("button", { name: "让对方先打", exact: true }).click(); await advance(0);
-    assert.equal((await snapshot()).context.playerIndex, 1 - black.decision.playerIndex);
+    assert.equal(black.player, 1);
     assert.equal(await page.locator(".rule-choice").isVisible(), false);
     await page.evaluate(() => {
       const { game, simulator } = window.rulesRuntime;

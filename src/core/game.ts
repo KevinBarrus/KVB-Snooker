@@ -4,7 +4,6 @@ import type { SerialData, StrokeVars } from "./simulator/shot-result.js";
 import { Player } from "./player.js";
 import { copyFrameSetup, type FrameSetup, type GameOptions } from "./frame-setup.js";
 import { availablePoints, isMiss } from "./rules/miss.js";
-import { coreRandom } from "./rng.js";
 import { inferColour, type NominationView } from "./rules/nomination.js";
 import { snookerView } from "./rules/snookered.js";
 import { hasOpenInHand } from "./rules/in-hand-visibility.js";
@@ -13,8 +12,7 @@ import { hasOpenInHand } from "./rules/in-hand-visibility.js";
 export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16, DECIDING: 32 } as const;
 export type GameState = typeof GAME_STATE[keyof typeof GAME_STATE];
 export type GameMode = "practice" | "single-play";
-export type TurnDecision = { readonly kind: "foul"; readonly playerIndex: number; readonly canReplace: boolean }
-  | { readonly kind: "black"; readonly playerIndex: number };
+export interface TurnDecision { readonly kind: "foul"; readonly playerIndex: number; readonly canReplace: boolean }
 
 interface ShotPosition {
   readonly world: SerialData;
@@ -44,11 +42,15 @@ export class GameSession {
   private prepared = false;
   private freeBall = false;
   private previousShot: ShotPosition | null = null;
+  private openingIndex: number;
 
   constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play", options: GameOptions = {}) {
     const types = options.players ?? (mode === "practice" ? ["USER"] : ["USER", "AI"]);
     if (types.length !== (mode === "practice" ? 1 : 2) || types.some(type => type !== "USER" && type !== "AI") ||
         (mode === "practice" && options.setup)) throw new Error("Invalid game options");
+    const opening = options.openingPlayerIndex ?? 0;
+    if (!Number.isInteger(opening) || opening < 0 || opening >= types.length) throw new Error("Invalid opening player");
+    this.openingIndex = opening;
     this.players = types.map(type => new Player(type));
     this.initialSetup = options.setup && copyFrameSetup(options.setup, simulator.getBallCount(), this.players.length);
     this.currentState = GAME_STATE.PENDING;
@@ -56,6 +58,7 @@ export class GameSession {
     this.reset();
   }
 
+  get openingPlayerIndex(): number { return this.openingIndex; }
   get state(): GameState { return this.currentState; }
   get finished(): boolean { return this.mode === "single-play" && this.context.ballOn === 0; }
   get decision(): TurnDecision | null { return this.pendingDecision && { ...this.pendingDecision }; }
@@ -76,6 +79,10 @@ export class GameSession {
   }
 
   reset(): void {
+    // PCOL L3700-3714
+    if (this.currentState !== GAME_STATE.PENDING && this.mode !== "practice" && !this.initialSetup) {
+      this.openingIndex = (this.openingIndex + 1) % this.players.length;
+    }
     this.currentState = GAME_STATE.JUDGING;
     this.pendingDecision = null;
     this.previousShot = null;
@@ -85,7 +92,8 @@ export class GameSession {
     delete this.context.nominatedBallIndex;
     delete this.context.freeBallIndex;
     for (const player of this.players) player.clearScores();
-    this.context.playerIndex = this.context.nRounds = 0;
+    this.context.playerIndex = this.openingIndex;
+    this.context.nRounds = 0;
     this.ref.resetGContext(this.context);
     if (this.mode === "practice") {
       this.context.inHand = 1;
@@ -221,9 +229,8 @@ export class GameSession {
       this.simulator.respotIndexDefault(0);
       this.context.ballOn = 128;
       this.context.inHand = 2;
-      this.context.playerIndex = coreRandom() < .5 ? 0 : 1;
+      this.context.playerIndex = 1 - this.openingIndex;
       this.players.forEach(player => { player.brk = 0; });
-      this.pendingDecision = { kind: "black", playerIndex: this.context.playerIndex };
     } else if (this.mode !== "practice" && !this.finished && this.result.foulCode !== 0) {
       const shot = this.previousShot;
       const canReplace = shot !== null && isMiss(this.result.foulCode, shot.scoreGap, shot.points,

@@ -7,6 +7,7 @@ export interface FrameSetup {
 }
 
 export interface GameOptions {
+  readonly openingPlayerIndex?: number;
   readonly players?: readonly ("USER" | "AI")[];
   readonly setup?: FrameSetup;
 }
