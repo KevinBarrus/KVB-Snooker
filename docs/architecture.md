@@ -236,7 +236,7 @@ controller可新增观察/回放状态类及装配回调；ui只接受普通状�
 
 ### 4.5 规则完善与开发测试装配（2026-10-26用户批准）
 
-分步契约见`docs/rules-v2-design.md`。规则完善为用户批准的原作扩展；Miss判定另行定稿。正式规则与开发测试共用核心，核心不得导入测试工具。
+分步契约见`docs/rules-v2-design.md`。规则完善为用户批准的原作扩展；Miss第二轮简化标准及边界见设计文档。正式规则与开发测试共用核心，核心不得导入测试工具。
 
 首单元新增`GameOptions { players?: readonly ("USER" | "AI")[]; setup?: FrameSetup }`，用于`GameSession(simulator, mode?, options?)`与`BrowserGame.setMode(mode, difficulty?, options?)`。`FrameSetup { balls: readonly { index: number; x: number; z: number; active: boolean }[]; ballOn: number; inHand: 0 | 1 | 2; playerIndex: number; scores: readonly number[] }`。GameSession.reset完整恢复初始配置，不增加正式GameMode值；Simulator/ShotResult不变。
 
@@ -249,6 +249,14 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 接触证据扩展：`Simulator.getContactEvidence():ContactEvidence|null`返回复制的`{touchingIndices:readonly number[];firstContactIndices:readonly number[];pushedIndices:readonly number[]}`；RefSimulator可选消费同结构方法，旧ShotResult不改。模拟器内观察Solver.solveContact前后速度及接触时位置，不改冲量/积分/休眠/CCD；predict隔离，reset/restore清空。接触容差1e-5m，水平方向速度变化阈值1e-7m/s；firstContactIndices记录同evolution、同母球位置的第一组实际接触。`FOUL.PUSH_STROKE=32`。`GameSession.touchingBallIndices`为杆前贴球索引只读快照，UI提示打离要求；合法贴球满足首触义务，非目标贴球不免除首触义务。
 
 自由球扩展：`GameSession.freeBallAvailable:boolean`只读资格，犯规结算/归位完成后按目标两侧可达性判断；手中球检查整个D区。持权者接手保留资格，让对方继续则取消；nominate在此阶段选择非目标球，null表示不用自由球。prepareStroke写入`RulesContext.freeBallIndex?:number`，不改阶段ballOn；结算清空。本杆首触、替代分值、复位及`FOUL.FREE_BALL_SNOOKER=64`由规则层处理。UI复用提名面板，辅助线按当前提名标色，AI当前选择不用自由球、正常解原目标。
+
+### 4.6 Miss复位与开球轮换（用户批准第二轮）
+
+- `GameSession.restorePreviousShot(playerIndex:number):boolean`：正式比赛仅DECIDING且持权者有Miss复位权时可调用；练习仅READY、当前玩家、未准备出杆且有上一杆时可调用。共用同一个杆前存档，不新增存档格式；练习不接UI。恢复清空当前杆结果/接触证据/提名/自由球；比赛保留已记罚分和累计统计，球权回犯规方。原位快照在prepareStroke第一次成功时捕获，reset清除。
+- `TurnDecision`收敛为`{readonly kind:"foul";readonly playerIndex:number;readonly canReplace:boolean}`。canReplace按本杆合法首碰、杆前及判罚后分差/台面分值确定；不复用FOUL.MISS_TARGET作Miss裁判码，不改EventBus载荷。黑球平分改为直接READY，无抽签选择面板。
+- `GameOptions.openingPlayerIndex?:number`指定本局开球方（默认0，必须为有效席位）；`GameSession.openingPlayerIndex`只读记录本局开球方。无setup的正式GameSession.reset交替开球；setup重置始终恢复其初始配置，不交替。BrowserGame在重新创建正式session时传入连续轮换的开球方，练习及setup不消费轮换；争黑直接给非本局开球方。
+- `Simulator.restore`复用既有签名，显式恢复成功后清除ShotResult及ContactEvidence并同步显示，predict内部的World恢复不改此语义。禁止从表现层直接改核心；复位命令成功后浏览器装配清理回放/摆球/动画、重新激活当前玩家并同步HUD。
+- UI RuleChoiceView增加可选restoreLabel；RuleChoiceDom增加可选复位回调。贴球提示接受普通文案，复用中心消息视图，不订阅新事件或在UI判定规则。
 
 ## 5. 目录结构（骨架）
 
