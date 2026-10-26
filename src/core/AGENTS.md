@@ -13,7 +13,7 @@
 
 ## 施工单元状态
 
-- [x] 普通犯规选择与黑球平分：DECIDING阻止出杆；持权者选择接手/对手从当前位置继续，罚分不回滚；平分重新摆黑、coreRandom抽签选择先手、D区手中球。reset清空待选择状态，Node demo显式接手。
+- [x] 普通犯规选择与黑球平分：DECIDING阻止出杆；持权者选择接手/对手从当前位置继续，罚分不回滚；平分重新摆黑、非本局开球方直接D区先打（第二轮覆盖首轮抽签）。reset清空待选择状态，Node demo显式接手。
 
 - [x] 规则扩展第一步：GameOptions注入席位与FrameSetup，GameMode不新增测试值；初始化先验证并复制局面，reset恢复球位、姿态、双方统计与规则上下文。测试工具不进入核心依赖。
 
@@ -30,13 +30,13 @@
 
 ## 登记差异
 
-- WPBSA §3.4/10/13扩展：普通犯规后等待对方选择；只保留当前位置，没有Miss原位恢复。末黑进袋或犯规后按含罚分总分检查平局，平局不结束。平分决胜清空当前单杆但保留历史最高单杆和累计分数。
+- WPBSA §3.4/10/13扩展：普通犯规后等待对方选择；普通犯规保留当前位置；第二轮Miss允许原位恢复。末黑进袋或犯规后按含罚分总分检查平局，平局不结束。平分决胜清空当前单杆但保留历史最高单杆和累计分数。
 - placeCueBall补充核心inHand权限检查，不再允许非手中球时直接改位。
 
-- 用户批准双人规则测试装配，single-play可注入两个USER；规则仍走同一SnookerRef。FrameSetup重置将姿态恢复单位四元数；物理evolution仍按reset增长，不能拿缓存版本号当作比赛状态。未实现Miss复位重打。
+- 用户批准双人规则测试装配，single-play可注入两个USER；规则仍走同一SnookerRef。FrameSetup重置将姿态恢复单位四元数；物理evolution仍按reset增长，不能拿缓存版本号当作比赛状态。第二轮已加入Miss复位重打，详见下文。
 
 - 终局 ballOn=0 后拒绝继续击球，遵循 rules 章程对流程层的约束，避免原作 log2(0) 缺陷。
-- Node 装配首局固定玩家 0 开球；原作跨局 Ae++ 轮换先手未移植。
+- Node 装配默认首局玩家0；第二轮恢复PCOL L3700-3714每次reset交替，包括中途重开。
 - 自动装置用 AI 驱动 USER/AI 玩家列表，仅为 M1 验收；practice 与 single-play 仍是两种原作模式。
 - demo 默认读取本地 analysis/tiger-club-sno-rgb.json，可用 --table 指定合法 MeshBody JSON；未增加资产下载和视觉控制器。
 - AI 保留 0.02ms 时间切片，安全球任务每次续跑重新取随机参数；因此即使 seed 相同，机器调度也可能改变整局的随机消耗与结果。
@@ -70,3 +70,5 @@ npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice �
 杆前快照在prepareStroke成功时捕获，含世界、阶段、球权、手中球及Miss所需分差/剩余分。restorePreviousShot在比赛只接受持权者的Miss复位，在练习允许READY时重试上一杆（本轮无按钮）；保留罚分/杆数/最高单杆，不恢复被中断的brk；reset清空快照。自由球资格与提名清空，彩球阶段可以重新提名。
 
 第二轮开球：GameOptions.openingPlayerIndex指定本局开球方；普通reset交替，setup完整重置不交替。争黑直接由非本局开球方D区先打，不产生black选择，不推进新局序列；这是用户批准的固定先手政策。
+
+补充回归：Miss与自由球同时成立时，复位撤销本次自由球资格并保留罚分；浏览器复位重新创建当前难度AI，避免恢复相同evolution后旧搜索任务不重启。

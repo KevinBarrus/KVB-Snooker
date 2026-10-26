@@ -8,7 +8,7 @@ body:not([data-state="ready"]) .game-options { display: none; }
 .rule-choice { position: absolute; left: 20px; bottom: 160px; max-width: 380px; padding: 14px; background: #171713ed; }
 .rule-choice[hidden] { display: none; }
 .rule-choice p { margin: 0 0 10px; }
-.rule-choice button + button { margin-left: 8px; }
+.rule-choice button { margin: 4px 4px 0 0; }
 .nomination { position: absolute; left: 20px; bottom: 115px; padding: 8px 12px; background: #171713ed; }
 .nomination[hidden] { display: none; }
 .nomination span { margin-right: 12px; }
@@ -50,3 +50,6 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .message-box { position: absolute; top: 25%; left: 50%; transform: translateX(-50%); padding: 12px 24px; background: #191a16e6; text-align: center; }
 .box-head { margin: 0 0 8px; color: #ff804f; font-size: 20px; } .box-body-copy { margin: 0; }
 @media (max-width: 900px) { .game-options { max-width: 55%; } .shortcuts-bar { max-width: calc(100vw - 48px); overflow: hidden; } .shortcut-group { gap: 8px; } }
+
+.touching-notice { max-width: min(520px, 75vw); pointer-events: none; }
+.touching-notice .box-head { color: #e5d69d; }

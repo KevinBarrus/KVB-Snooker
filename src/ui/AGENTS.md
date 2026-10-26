@@ -7,7 +7,7 @@
 - DOM 类型只在本目录可见：`src/ui/tsconfig.json` 加 `DOM` lib，根 tsconfig 排除 `src/ui`，core 仍无 DOM 类型面；`npm run typecheck` 两个工程都检查。
 - 力度条 `PowerBar.percent / autoAlpha` 由 controller 直接写入（原作亦为控制器直写 powerUI，事件表无对应事件）。
 
-规则扩展：rule-choice.ts只接收文案与回调，展示普通犯规接手/让对手继续和黑球抽签先手选择；不读取或修改核心对象。装配根控制显示和命令验证。
+规则扩展：rule-choice.ts只接收文案与回调，展示普通犯规接手/让对手继续及Miss复位（第二轮取消黑球抽签选择）；不读取或修改核心对象。装配根控制显示和命令验证。
 
 ## 文件
 
@@ -73,3 +73,5 @@
 nomination.ts接受只读目标文案、可选项、选择值、可操作状态与回调；自动识别不弹窗，手选覆盖自动，出杆后禁用。UI不自行判断目标或读核心对象。
 
 自由球沿用nomination面板，默认项为“不使用自由球”，候选只含非目标球，提示其替代分值；普通犯规选择面板告知接手可选自由球。显示与按钮仍由装配根喂入，不新增UI规则副本。
+
+第二轮：RuleChoiceView.restoreLabel与独立复位回调由装配根提供，无权限时隐藏；UI不推断Miss。中心贴球提示复用FoulNoticeDom，由装配根注入文案与可见性，和犯规消息互斥，不复用犯规事件或计时器。

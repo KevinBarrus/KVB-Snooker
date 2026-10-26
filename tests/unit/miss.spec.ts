@@ -140,6 +140,23 @@ describe("共用杆前台面恢复与比赛权限", () => {
     expect(sim.getContactEvidence()).toBeNull();
   });
 
+  it("Miss与自由球同时成立时，原位重打撤销自由球资格且不撤销罚分", () => {
+    const game = create([0, 0], "last-red"), sim = game.simulator;
+    sim.respotIndexXYZ(0, 0, sim.spotY, .2);
+    sim.respotIndexXYZ(1, .6, sim.spotY, .2);
+    sim.respotIndexXYZ(21, .15, sim.spotY, .2);
+    sim.reset(false, true);
+    while (sim.nAwakened) sim.step(.1);
+    miss(game);
+    expect(game.freeBallAvailable).toBe(true);
+    expect(game.decision?.canReplace).toBe(true);
+    expect(game.restorePreviousShot(1)).toBe(true);
+    expect(game.freeBallAvailable).toBe(false);
+    expect(game.context.freeBallIndex).toBeUndefined();
+    expect(game.nominate(0, 21)).toBe(false);
+    expect(game.getScore(1)).toBe(4);
+  });
+
   it("D区摆球后保存，复位恢复摆后的原位；reset使旧快照失效", () => {
     const game = new GameSession(new Simulator(makePocketTable()));
     expect(game.placeCueBall(-1.2, game.simulator.spotY, -.1)).toBe(true);

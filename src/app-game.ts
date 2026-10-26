@@ -19,6 +19,7 @@ import { BrowserReplay } from "./app-replay.js";
 import type { ReplayCapture } from "./controller/replay-frame.js";
 import type { GameOptions } from "./core/frame-setup.js";
 import { RuleChoiceDom } from "./ui/rule-choice.js";
+import { FoulNotice, FoulNoticeDom } from "./ui/foul-notice.js";
 import { NominationDom } from "./ui/nomination.js";
 
 const BALL_NAMES = ["母球", "红球", "黄球", "绿球", "棕球", "蓝球", "粉球", "黑球"];
@@ -37,8 +38,11 @@ export class BrowserGame {
   readonly replay: BrowserReplay;
   readonly ruleChoice: RuleChoiceDom;
   readonly nomination: NominationDom;
+  private readonly touchingMessage = new FoulNotice();
+  readonly touchingNoticeDom = new FoulNoticeDom();
   session: GameSession;
   private readonly ref = new SnookerRef();
+  private difficulty: keyof typeof AI_PROFILES = "NORMAL";
   private brain = new AIController(AI_PROFILES.NORMAL);
   private readonly ai: AIRunner;
   private pendingShot = false;
@@ -128,12 +132,26 @@ export class BrowserGame {
       if (!this.session.chooseNextPlayer(decision.playerIndex, self ? decision.playerIndex : 1 - decision.playerIndex)) return;
       this.hud.foulNotice.close();
       this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.canvas.focus();
+    }, () => {
+      const decision = this.session.decision;
+      if (!decision || !this.canReset || this.session.players[decision.playerIndex].type !== "USER" ||
+          !this.session.restorePreviousShot(decision.playerIndex)) return;
+      this.controls.inHand.exit(); this.shots.finish(); this.replay.clear();
+      this.human.camera.endShotView();
+      this.human.gotoState0(true); this.opponent.gotoState0(true);
+      this.brain = new AIController(AI_PROFILES[this.difficulty]);
+      this.outSeen = 0;
+      this.hud.foulNotice.close();
+      this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.controls.update(); this.canvas.focus();
     });
     this.nomination = new NominationDom(index => {
       if (!this.canShoot(this.human.playerIndex) || !this.human.active) return;
       if (this.session.nominate(this.human.playerIndex, index)) this.canvas.focus();
     });
-    document.body.append(this.hudDom.element, this.viewNoticeDom.element, this.ruleChoice.element, this.nomination.element);
+    this.touchingNoticeDom.element.classList.add("touching-notice");
+    this.touchingNoticeDom.element.setAttribute("role", "status");
+    this.touchingMessage.head = "贴球 / TOUCHING BALL";
+    document.body.append(this.touchingNoticeDom.element, this.hudDom.element, this.viewNoticeDom.element, this.ruleChoice.element, this.nomination.element);
     this.activateTurn(); this.syncHud();
   }
 
@@ -142,7 +160,7 @@ export class BrowserGame {
   get canReset(): boolean { return !this.shots.busy && !this.pendingShot && !this.replay.active; }
 
   get touchingNotice(): string {
-    if (!this.human.active || this.shots.busy || this.session.mode === "practice") return "";
+    if (this.session.state !== GAME_STATE.READY || this.session.finished || this.shots.busy || this.replay.active || this.session.mode === "practice") return "";
     const indices = this.session.touchingBallIndices;
     if (!indices.length) return "";
     const names = [...new Set(indices.map(index => BALL_NAMES[this.simulator.getBallView(index).number]))].join("、");
@@ -186,9 +204,10 @@ export class BrowserGame {
   private syncRuleChoice(): void {
     const decision = this.session.decision;
     this.ruleChoice.sync(decision && !this.replay.active ? {
-      text: `犯规罚 ${-this.session.result.score} 分，已入账。玩家 ${decision.playerIndex + 1} 选择下一杆。${this.session.freeBallAvailable ? "接手可选择自由球。" : ""}`,
+      text: `${decision.canReplace ? "犯规与 Miss（FOUL AND A MISS）" : "犯规"}罚 ${-this.session.result.score} 分，已入账。玩家 ${decision.playerIndex + 1} 选择下一杆。${this.session.context.inHand > 0 ? "从当前位置继续的一方获得 D 区手中球。" : ""}${this.session.freeBallAvailable ? "接手可选择自由球。" : ""}`,
       ownLabel: "自己接手",
-      otherLabel: "让对手继续（当前位置）"
+      otherLabel: this.session.context.inHand > 0 ? "让对手继续（D 区手中球）" : "让对手继续（当前位置）",
+      restoreLabel: decision.canReplace ? "复位，让对手重打" : undefined
     } : null);
     const free = this.session.freeBallAvailable;
     if ((!free && this.session.context.ballOn !== 252) || !this.human.active || this.replay.active) {
@@ -220,6 +239,7 @@ export class BrowserGame {
     this.session = new GameSession(this.simulator, mode, formal
       ? { ...options, openingPlayerIndex: options.openingPlayerIndex ?? this.nextOpeningIndex } : options);
     if (formal) this.nextOpeningIndex = 1 - this.session.openingPlayerIndex;
+    this.difficulty = difficulty;
     this.brain = new AIController(AI_PROFILES[difficulty]);
     this.human.gotoState0(true); this.opponent.gotoState0(true);
     this.hud.foulNotice.close();
@@ -243,6 +263,7 @@ export class BrowserGame {
     const before = Array.from({ length: this.simulator.getBallCount() }, (_, i) => this.simulator.getBallView(i));
     this.replay.finish();
     this.session.step(0);
+    const missed = this.session.decision?.canReplace ?? false;
     if (this.session.state !== GAME_STATE.READY && this.session.state !== GAME_STATE.DECIDING) return;
     this.shots.finish();
     this.human.camera.endShotView();
@@ -259,6 +280,7 @@ export class BrowserGame {
     this.bus.emit("game/frame-events", { potted: result.pottedIndices, respotted });
     const { foulCode, score } = this.session.result;
     if (foulCode) this.bus.emit("game/foul", { foulCode, score, description: getFoulDescription(foulCode) });
+    if (missed) this.hud.foulNotice.head = "FOUL AND A MISS";
   }
 
   update(dt: number): void {
@@ -266,6 +288,9 @@ export class BrowserGame {
     this.human.camera.shotView.smoothing.verticalFov = this.camera.fov;
     this.viewNotice.update(dt); this.viewNoticeDom.sync(this.viewNotice);
     this.syncRuleChoice();
+    this.touchingMessage.body = this.touchingNotice;
+    this.touchingMessage.active = !!this.touchingMessage.body && !this.hud.foulNotice.active;
+    this.touchingNoticeDom.sync(this.touchingMessage);
     if (this.replay.active) { this.replay.update(dt); return; }
     this.controls.update();
     this.ai.update(dt);
@@ -305,5 +330,6 @@ export class BrowserGame {
     this.replay.dispose();
     this.ruleChoice.dispose();
     this.nomination.dispose();
+    this.touchingNoticeDom.element.remove();
   }
 }
