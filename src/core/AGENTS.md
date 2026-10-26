@@ -13,6 +13,8 @@
 
 ## 施工单元状态
 
+- [x] 规则扩展第一步：GameOptions注入席位与FrameSetup，GameMode不新增测试值；初始化先验证并复制局面，reset恢复球位、姿态、双方统计与规则上下文。测试工具不进入核心依赖。
+
 - [x] player.ts / game.ts / demo.ts；npm run demo 接入；5 项真实物理/规则回合测试。
 - [x] event-bus.ts：docs/architecture.md §3 事件目录 + ContactEvent/FoulEvent/BallOnChangedEvent/FrameEvents 载荷契约；on/off/emit（类型化，≤100 行），on 返回取消函数，emit 快照遍历。测试 tests/unit/event-bus.spec.ts。
 - 验收：189 项全量测试与 tsc 通过；原作 22 球台面单局 52 杆结束，ballOn=0，总分 61:65，最高 break 14:39；practice 完成 3 杆。
@@ -25,6 +27,8 @@
 4. Player.maxbrk 由 brk setter 取历史最大值；scoreCount 仅正分杆增长。
 
 ## 登记差异
+
+- 用户批准双人规则测试装配，single-play可注入两个USER；规则仍走同一SnookerRef。FrameSetup重置将姿态恢复单位四元数；物理evolution仍按reset增长，不能拿缓存版本号当作比赛状态。未实现Miss复位重打。
 
 - 终局 ballOn=0 后拒绝继续击球，遵循 rules 章程对流程层的约束，避免原作 log2(0) 缺陷。
 - Node 装配首局固定玩家 0 开球；原作跨局 Ae++ 轮换先手未移植。

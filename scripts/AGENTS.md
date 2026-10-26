@@ -13,6 +13,8 @@
 
 - ai-camera-smoke.mjs（npm run test:camera:ai）用真实人机回合验证三种观察偏好：AI思考/后拉/触球时V不改模式、提示或存储，AI出杆及碰撞不接管旁观视线，鼠标拖动有效，回合结束保留观察点，玩家下一杆恢复自动观察与V。旧接线已在AI启动用户ShotView断言处复现失败；脚本不改核心状态或替换AI，120秒超时关闭浏览器。
 
+- rules-test-smoke.mjs（npm run test:rules）验证开发模式三个预设、真实进红计分、两个本地席位出杆、输入锁、加载/完整重置、忙碌拒绝以及dist不含测试菜单/预设。EXPECT_RULES_TEST=0时验证关闭开发入口（需连接VITE_RULES_TEST=0的服务）。
+
 - controller 浏览器验收追加球杆材质/世界矩阵、力度条、鼠标摆球成功与 D 区外拒绝、页面模式入口；截图在 .cache/controller/stand.png、aim.png、placement.png。脚本先发送鼠标移动并步进，再单独 down/up，保留原作 dirty 预览拒绝机制。
 
 - gunsight-smoke.mjs（npm run test:gunsight）覆盖真实球台辅助线五部分、目标合法性、输入刷新、贴球/撞库、出杆渐隐和AI回合隐藏；100组方向/力度/塞/角度变化后逐项比较物理存档、显示视图、本杆结果和回合状态。截图 .cache/controller/gunsight-*.png 不提交。

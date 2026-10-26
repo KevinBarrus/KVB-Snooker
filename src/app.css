@@ -3,6 +3,8 @@ canvas { width: 100%; height: 100%; display: block; outline: none; touch-action:
 output { position: absolute; left: 20px; bottom: 64px; max-width: 45vw; padding: 8px 12px; background: #171713cc; pointer-events: none; }
 body:not([data-state="ready"]) .game-options { display: none; }
 .game-options { position: absolute; top: 16px; left: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rule-test { display: inline-flex; gap: 8px; align-items: center; }
+.rule-test[hidden] { display: none; }
 select, button, summary { font: inherit; color: inherit; background: #20221e; border: 1px solid #676b5e; padding: 7px 10px; border-radius: 2px; }
 select, button, summary { cursor: pointer; }
 button:disabled { opacity: .45; cursor: default; }

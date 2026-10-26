@@ -2,6 +2,7 @@ import { SnookerRef, type RulesContext } from "./rules/snooker.js";
 import type { Simulator } from "./simulator/simulator.js";
 import type { SerialData, StrokeVars } from "./simulator/shot-result.js";
 import { Player } from "./player.js";
+import { copyFrameSetup, type FrameSetup, type GameOptions } from "./frame-setup.js";
 
 // PCOL L8922-8931
 export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16 } as const;
@@ -21,9 +22,14 @@ export class GameSession {
   private readonly ref = new SnookerRef();
   private currentState: GameState = GAME_STATE.NO_GAME;
   private serialData: SerialData | null = null;
+  private readonly initialSetup?: FrameSetup;
 
-  constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play") {
-    this.players = mode === "practice" ? [new Player("USER")] : [new Player("USER"), new Player("AI")];
+  constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play", options: GameOptions = {}) {
+    const types = options.players ?? (mode === "practice" ? ["USER"] : ["USER", "AI"]);
+    if (types.length !== (mode === "practice" ? 1 : 2) || types.some(type => type !== "USER" && type !== "AI") ||
+        (mode === "practice" && options.setup)) throw new Error("Invalid game options");
+    this.players = types.map(type => new Player(type));
+    this.initialSetup = options.setup && copyFrameSetup(options.setup, simulator.getBallCount(), this.players.length);
     this.currentState = GAME_STATE.PENDING;
     this.ref.syncAreaWithSimulator(simulator);
     this.reset();
@@ -46,6 +52,20 @@ export class GameSession {
     }
     this.result.score = this.result.foulCode = 0;
     this.simulator.reset(true, true);
+    if (this.initialSetup) {
+      const setup = this.initialSetup;
+      for (const placement of setup.balls) {
+        const ball = this.simulator.getBallAtIndex(placement.index);
+        ball.orientation.set(0, 0, 0, 1);
+        this.simulator.resetBallXYZ(ball, placement.x, this.simulator.spotY, placement.z);
+        if (!placement.active) this.simulator.resetBallPosition(ball, null);
+      }
+      this.context.ballOn = setup.ballOn;
+      this.context.inHand = setup.inHand;
+      this.context.playerIndex = setup.playerIndex;
+      setup.scores.forEach((score, index) => { this.players[index].pts = score; });
+      this.simulator.reset(false, true);
+    }
     this.response();
   }
 

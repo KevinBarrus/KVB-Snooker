@@ -18,7 +18,7 @@ export class ShotController {
   constructor(private readonly bus: EventBus, private readonly commands: ShotCommands) {}
 
   get launchingController(): PersonController | null { return this.actor; }
-  get inputLocked(): boolean { return this.actor?.playerIndex === 0 && this.strokeDelay >= 0; }
+  get inputLocked(): boolean { return this.actor?.locallyControlled === true && this.strokeDelay >= 0; }
   get canJudge(): boolean { return this.actor !== null && !this.motion.needsUpdate && this.actor.camera.stateRatio === 0; }
   get busy(): boolean { return this.actor !== null; }
 
@@ -26,7 +26,7 @@ export class ShotController {
     if (this.busy || !person.isReadyToStroke() || !this.motion.isReady() || !this.commands.begin(person.playerIndex)) return false;
     this.actor = person;
     this.bus.emit("sim/shooting-start", { playerIndex: person.playerIndex });
-    if (person.playerIndex === 0) person.camera.beginShotView();
+    if (person.locallyControlled) person.camera.beginShotView();
     this.standDelay = 0.5;
     this.strokeDelay = this.motion.launch(person.stick, person.strokePower);
     return true;

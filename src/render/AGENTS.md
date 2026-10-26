@@ -16,6 +16,8 @@
 
 ## 施工单元状态
 
+- 开发测试装配的DOM类型由render工程检查，加入vite/client类型；DEV动态入口与生产排除见docs/rules-v2-design.md，不改变render实现。
+
 - [x] 第一步：Babylon 3.2 ES Module、Vite、本地资源校验；单球/台呢 shader、HDR/PNG 立方图集与探针插值。新增 9 项测试；全量 244 项、typecheck、build 与 Chrome 出图验证通过。
 - [x] 第二步：原始模型、房间、灯光隔离、台呢/袋口/木框材质、八种球色与批量阴影。244 项测试、typecheck、build 和 Chrome 场景参数/出图检查通过。
 - [x] 第三步：BallRenderer 消费 Simulator 显示快照；22 球同步、两档共享几何、同色共享材质及资源释放。新增 5 项测试，全量 249 项、typecheck、build 与真实球台浏览器运动/旋转/落袋/重摆验证通过。

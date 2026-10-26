@@ -13,6 +13,8 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 
 ## 施工单元状态
 
+- [x] 本地席位与玩家编号解耦：PersonController.locallyControlled决定出杆观察和输入锁，playerIndex仅用于球权。BrowserGame按玩家类型绑定本地席位，不以编号1启动AI；未调整镜头算法。
+
 - [x] AI自由旁观接线修复：app-game.ts移除AI出杆启动用户ShotView及跨玩家写struck；实时V以human.active限制，回放独立放行。未改相机算法、起身、防抖与物理规则；313项单测、typecheck、build和Chrome camera:ai/camera/replay通过，详见docs/camera-replay-design.md §11。
 
 - [x] 子球视线连续交接：首碰前轻随母球，真实首碰后约0.3秒平滑交接，不重置转速；新增5项回归。全量313项、typecheck、build、Chrome camera/replay通过；自然/母球模式及起身位置不变。

@@ -52,9 +52,12 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     let lastBallOn = -1;
     const options = document.querySelector<HTMLFormElement>(".game-options");
     const newGame = options?.querySelector("button");
+    const testTools = options && import.meta.env.DEV && import.meta.env.VITE_RULES_TEST !== "0"
+      ? (await import("./devtools/rules-test.js")).mountRulesTest(options, game) : undefined;
     const startGame = (event: Event) => {
       event.preventDefault();
       if (!options) return;
+      if (testTools?.start()) return;
       const values = new FormData(options);
       const level = values.get("difficulty");
       game.setMode(values.get("mode") === "single-play" ? "single-play" : "practice",
@@ -62,6 +65,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     };
     options?.addEventListener("submit", startGame);
     const syncInteraction = () => {
+      testTools?.sync();
       if (game.replay.active) {
         const recorded = game.replay.clip.current?.cue;
         cue.isVisible = recorded?.visible ?? false;
@@ -91,7 +95,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       gunsight.alpha = prediction && !game.controls.inHand.active ? .6 * game.hud.powerBar.autoAlpha : 0;
       if (newGame) newGame.disabled = game.shots.busy;
       status.textContent = game.session.finished ? "本局结束 · 可开始新局" : game.controls.inHand.active
-        ? "点击 D 区放置母球 · Esc 退出" : game.session.context.playerIndex === 1
+        ? "点击 D 区放置母球 · Esc 退出" : !game.human.active
           ? "AI 回合" : game.shots.busy ? "击球进行中" : "你的回合 · W 瞄准 / P 摆球";
     };
     scene.onBeforeRenderObservable.add(syncInteraction);
@@ -109,6 +113,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     window.addEventListener("pagehide", () => {
       window.removeEventListener("resize", resize);
       options?.removeEventListener("submit", startGame);
+      testTools?.dispose();
       game.dispose();
       placement.dispose(); gunsight.dispose();
       cue.material?.dispose(); cue.dispose();

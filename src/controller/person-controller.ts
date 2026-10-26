@@ -14,7 +14,7 @@ export class PersonController {
   private predictionDirty = true;
 
   constructor(readonly simulator: Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "getResult" | "predict">,
-    bus: EventBus, readonly radius: number, readonly playerIndex = 0) {
+    bus: EventBus, readonly radius: number, public playerIndex = 0, readonly locallyControlled = playerIndex === 0) {
     this.camera = new CameraRig(bus, simulator.getCueBallPosition());
     this.stick = new StickController(simulator, radius);
     this.activate();

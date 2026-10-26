@@ -15,6 +15,7 @@
     "test:gunsight": "node scripts/gunsight-smoke.mjs",
     "test:camera": "node scripts/camera-smoke.mjs",
     "test:camera:ai": "node scripts/ai-camera-smoke.mjs",
+    "test:rules": "node scripts/rules-test-smoke.mjs",
     "test:replay": "node scripts/replay-smoke.mjs"
   },
   "devDependencies": {

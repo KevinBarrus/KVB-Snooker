@@ -17,6 +17,7 @@ import { ViewNotice, ViewNoticeDom } from "./ui/view-notice.js";
 import { isShotViewMode } from "./controller/shot-view.js";
 import { BrowserReplay } from "./app-replay.js";
 import type { ReplayCapture } from "./controller/replay-frame.js";
+import type { GameOptions } from "./core/frame-setup.js";
 
 // PCOL L3662-3772, L7594-7627, L7990-8031
 export class BrowserGame {
@@ -77,8 +78,8 @@ export class BrowserGame {
     });
     this.controls = new GamingInput(canvas, this.human, this.shots, {
       state: () => this.pendingShot ? GAME_STATE.SIMULATING : this.session.state,
-      canAim: () => this.canShoot(0),
-      canPlace: () => this.canShoot(0) && this.session.context.inHand > 0,
+      canAim: () => this.human.active && this.canShoot(this.human.playerIndex),
+      canPlace: () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0,
       cycleView: () => this.cycleView()
     }, {
       ray: (x, y) => {
@@ -87,7 +88,7 @@ export class BrowserGame {
       },
       valid: point => this.ref.placeCueBallCheck(point.x, simulator.spotY, point.z, simulator),
       place: point => {
-        if (!this.canShoot(0) || this.session.context.inHand <= 0) return false;
+        if (!this.human.active || !this.canShoot(this.human.playerIndex) || this.session.context.inHand <= 0) return false;
         const placed = this.session.placeCueBall(point.x, simulator.spotY, point.z);
         if (placed) { this.human.activate(); this.syncHud(); }
         return placed;
@@ -109,7 +110,9 @@ export class BrowserGame {
     this.activateTurn(); this.syncHud();
   }
 
-  get activePerson(): PersonController { return this.shots.launchingController ?? (this.session.context.playerIndex === 0 ? this.human : this.opponent); }
+  get activePerson(): PersonController { return this.shots.launchingController ?? (this.human.active ? this.human : this.opponent); }
+
+  get canReset(): boolean { return !this.shots.busy && !this.pendingShot && !this.replay.active; }
 
   cycleView(): void {
     if (!this.replay.active && !this.human.active) return;
@@ -127,21 +130,23 @@ export class BrowserGame {
   }
 
   private activateTurn(): void {
-    this.human.active = this.session.context.playerIndex === 0 && !this.session.finished;
-    this.opponent.active = this.session.context.playerIndex === 1 && !this.session.finished;
-    if (this.human.active) this.human.activate();
-    if (this.opponent.active) this.ai.activate();
+    const index = this.session.context.playerIndex;
+    this.human.active = this.session.players[index].type === "USER" && !this.session.finished;
+    this.opponent.active = this.session.players[index].type === "AI" && !this.session.finished;
+    if (this.human.active) { this.human.playerIndex = index; this.human.activate(); }
+    if (this.opponent.active) { this.opponent.playerIndex = index; this.ai.activate(); }
   }
 
-  setMode(mode: GameMode, difficulty: keyof typeof AI_PROFILES = "NORMAL"): boolean {
-    if (this.shots.busy || this.replay.active) return false;
+  setMode(mode: GameMode, difficulty: keyof typeof AI_PROFILES = "NORMAL", options: GameOptions = {}): boolean {
+    if (!this.canReset) return false;
     this.controls.inHand.exit();
     this.shots.finish();
     this.human.camera.endShotView();
     this.replay.clear();
-    this.session = new GameSession(this.simulator, mode);
+    this.session = new GameSession(this.simulator, mode, options);
     this.brain = new AIController(AI_PROFILES[difficulty]);
     this.human.gotoState0(true); this.opponent.gotoState0(true);
+    this.hud.foulNotice.close();
     this.activateTurn(); this.syncHud(); this.controls.update();
     this.canvas.focus();
     return true;
@@ -149,7 +154,8 @@ export class BrowserGame {
 
   private syncHud(): void {
     const { playerIndex, ballOn, inHand } = this.session.context;
-    this.hud.resetPlayers(this.session.players.map(player => player.type === "USER" ? "PLAYER" : "PCOL AI"));
+    const allLocal = this.session.players.length === 2 && this.session.players.every(player => player.type === "USER");
+    this.hud.resetPlayers(this.session.players.map((player, index) => allLocal ? `玩家 ${index + 1}` : player.type === "USER" ? "PLAYER" : "PCOL AI"));
     this.hud.playerIndex = playerIndex;
     this.hud.scorePanel.setPlayerIndex(playerIndex);
     this.bus.emit("game/ball-on-changed", { ballOn, inHand });
@@ -188,14 +194,14 @@ export class BrowserGame {
     this.ai.update(dt);
     this.shots.update(dt, step => { this.human.update(step); this.opponent.update(step); this.replay.record(step); });
     if (this.shots.canJudge && !Array.from({ length: this.simulator.getBallCount() }, (_, i) => this.simulator.getBallView(i)).some(ball => ball.async)) this.judge();
-    if (!this.shots.busy && this.canShoot(0)) this.human.updatePrediction();
+    if (!this.shots.busy && this.human.active && this.canShoot(this.human.playerIndex)) this.human.updatePrediction();
     this.camera.position.copyFrom(this.human.camera.position);
     this.camera.lockedTarget = this.human.camera.target;
     this.controls.update();
     this.hud.powerBar.percent = this.human.strokePower;
     const alpha = (1 - (this.shots.busy ? this.shots.motion.pullbackProgress : 0)) * this.human.camera.renderedRatio;
     this.hud.powerBar.autoAlpha = this.human.active && alpha > 0.8 ? (alpha - 0.8) / 0.2 : 0;
-    this.hud.shortcutsBar.active = !this.controls.inHand.active && this.canShoot(0) && !this.shots.busy &&
+    this.hud.shortcutsBar.active = !this.controls.inHand.active && this.human.active && this.canShoot(this.human.playerIndex) && !this.shots.busy &&
       (this.human.camera.stateRatio === 0 || this.human.camera.stateRatio === 1);
     this.hud.shortcutsBar.group = this.human.camera.state;
     this.hud.update(dt); this.hudDom.sync(this.hud);

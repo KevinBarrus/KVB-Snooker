@@ -25,6 +25,16 @@ function setup(playerIndex = 0) {
 }
 
 describe("Controller shot flow", () => {
+  it("本地控制席位1同样锁输入并启用观察，不能用编号判断AI", () => {
+    const { person, shots, aim } = setup();
+    person.playerIndex = 1;
+    aim();
+    expect(shots.launch(person)).toBe(true);
+    expect(shots.inputLocked).toBe(true);
+    expect(person.camera.shotView.active).toBe(true);
+    shots.finish();
+    expect(person.camera.shotView.active).toBe(false);
+  });
   it("未完成瞄准或回合权限拒绝时不能发射，也不占用动画", () => {
     const { person, shots, begin, aim } = setup();
     expect(shots.launch(person)).toBe(false);
