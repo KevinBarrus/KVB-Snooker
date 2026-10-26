@@ -13,6 +13,8 @@
 
 ## 施工单元状态
 
+- [x] 普通犯规选择与黑球平分：DECIDING阻止出杆；持权者选择接手/对手从当前位置继续，罚分不回滚；平分重新摆黑、coreRandom抽签选择先手、D区手中球。reset清空待选择状态，Node demo显式接手。
+
 - [x] 规则扩展第一步：GameOptions注入席位与FrameSetup，GameMode不新增测试值；初始化先验证并复制局面，reset恢复球位、姿态、双方统计与规则上下文。测试工具不进入核心依赖。
 
 - [x] player.ts / game.ts / demo.ts；npm run demo 接入；5 项真实物理/规则回合测试。
@@ -23,10 +25,13 @@
 
 1. 罚分累积在犯规玩家的负 penalty，显示总分为本人 pts−对方 penalty；不会直接给对手 pts 加分。
 2. 一杆得分 >0 保留玩家并累计 brk；≤0 清零 brk 后按玩家数取模换人，practice 因此仍为同一人。
-3. 结算后快进上限 200 次，每次 step(0.1)，存档后再进入 READY；终局仍以 READY + ballOn=0 表示。
+3. 原作结算后快进上限 200 次，每次 step(0.1)，存档后再进入 READY；终局仍以 READY + ballOn=0 表示；扩展选择阶段以DECIDING表示。
 4. Player.maxbrk 由 brk setter 取历史最大值；scoreCount 仅正分杆增长。
 
 ## 登记差异
+
+- WPBSA §3.4/10/13扩展：普通犯规后等待对方选择；只保留当前位置，没有Miss原位恢复。末黑进袋或犯规后按含罚分总分检查平局，平局不结束。平分决胜清空当前单杆但保留历史最高单杆和累计分数。
+- placeCueBall补充核心inHand权限检查，不再允许非手中球时直接改位。
 
 - 用户批准双人规则测试装配，single-play可注入两个USER；规则仍走同一SnookerRef。FrameSetup重置将姿态恢复单位四元数；物理evolution仍按reset增长，不能拿缓存版本号当作比赛状态。未实现Miss复位重打。
 

@@ -18,6 +18,7 @@ import { isShotViewMode } from "./controller/shot-view.js";
 import { BrowserReplay } from "./app-replay.js";
 import type { ReplayCapture } from "./controller/replay-frame.js";
 import type { GameOptions } from "./core/frame-setup.js";
+import { RuleChoiceDom } from "./ui/rule-choice.js";
 
 // PCOL L3662-3772, L7594-7627, L7990-8031
 export class BrowserGame {
@@ -31,6 +32,7 @@ export class BrowserGame {
   readonly viewNotice = new ViewNotice();
   readonly viewNoticeDom = new ViewNoticeDom();
   readonly replay: BrowserReplay;
+  readonly ruleChoice: RuleChoiceDom;
   session: GameSession;
   private readonly ref = new SnookerRef();
   private brain = new AIController(AI_PROFILES.NORMAL);
@@ -106,7 +108,14 @@ export class BrowserGame {
       this.replay.begin();
       this.controls.update();
     });
-    document.body.append(this.hudDom.element, this.viewNoticeDom.element);
+    this.ruleChoice = new RuleChoiceDom(self => {
+      const decision = this.session.decision;
+      if (!decision || this.session.players[decision.playerIndex].type !== "USER") return;
+      if (!this.session.chooseNextPlayer(decision.playerIndex, self ? decision.playerIndex : 1 - decision.playerIndex)) return;
+      this.hud.foulNotice.close();
+      this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.canvas.focus();
+    });
+    document.body.append(this.hudDom.element, this.viewNoticeDom.element, this.ruleChoice.element);
     this.activateTurn(); this.syncHud();
   }
 
@@ -130,11 +139,26 @@ export class BrowserGame {
   }
 
   private activateTurn(): void {
+    const decision = this.session.decision;
+    if (decision && this.session.players[decision.playerIndex].type === "AI") {
+      this.session.chooseNextPlayer(decision.playerIndex, decision.playerIndex);
+    }
     const index = this.session.context.playerIndex;
-    this.human.active = this.session.players[index].type === "USER" && !this.session.finished;
-    this.opponent.active = this.session.players[index].type === "AI" && !this.session.finished;
+    const ready = this.session.state === GAME_STATE.READY && !this.session.finished;
+    this.human.active = this.session.players[index].type === "USER" && ready;
+    this.opponent.active = this.session.players[index].type === "AI" && ready;
     if (this.human.active) { this.human.playerIndex = index; this.human.activate(); }
     if (this.opponent.active) { this.opponent.playerIndex = index; this.ai.activate(); }
+  }
+
+  private syncRuleChoice(): void {
+    const decision = this.session.decision;
+    this.ruleChoice.sync(decision && !this.replay.active ? {
+      text: decision.kind === "black" ? `比分相同，重新摆黑。玩家 ${decision.playerIndex + 1} 抽中选择权。下一位获得 D 区手中球。`
+        : `犯规罚 ${-this.session.result.score} 分，已入账。玩家 ${decision.playerIndex + 1} 选择下一杆。`,
+      ownLabel: decision.kind === "black" ? "自己先打" : "自己接手",
+      otherLabel: decision.kind === "black" ? "让对方先打" : "让对手继续（当前位置）"
+    } : null);
   }
 
   setMode(mode: GameMode, difficulty: keyof typeof AI_PROFILES = "NORMAL", options: GameOptions = {}): boolean {
@@ -147,7 +171,7 @@ export class BrowserGame {
     this.brain = new AIController(AI_PROFILES[difficulty]);
     this.human.gotoState0(true); this.opponent.gotoState0(true);
     this.hud.foulNotice.close();
-    this.activateTurn(); this.syncHud(); this.controls.update();
+    this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.controls.update();
     this.canvas.focus();
     return true;
   }
@@ -167,7 +191,7 @@ export class BrowserGame {
     const before = Array.from({ length: this.simulator.getBallCount() }, (_, i) => this.simulator.getBallView(i));
     this.replay.finish();
     this.session.step(0);
-    if (this.session.state !== GAME_STATE.READY) return;
+    if (this.session.state !== GAME_STATE.READY && this.session.state !== GAME_STATE.DECIDING) return;
     this.shots.finish();
     this.human.camera.endShotView();
     this.human.camera.unfollow();
@@ -189,6 +213,7 @@ export class BrowserGame {
     this.human.camera.shotView.smoothing.aspect = this.scene.getEngine().getAspectRatio(this.camera);
     this.human.camera.shotView.smoothing.verticalFov = this.camera.fov;
     this.viewNotice.update(dt); this.viewNoticeDom.sync(this.viewNotice);
+    this.syncRuleChoice();
     if (this.replay.active) { this.replay.update(dt); return; }
     this.controls.update();
     this.ai.update(dt);
@@ -226,5 +251,6 @@ export class BrowserGame {
     this.hud.detach(); this.hudDom.element.remove(); this.shots.finish();
     this.viewNoticeDom.element.remove();
     this.replay.dispose();
+    this.ruleChoice.dispose();
   }
 }

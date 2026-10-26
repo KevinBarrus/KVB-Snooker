@@ -14,6 +14,7 @@ function makeGame(mode: "practice" | "single-play" = "single-play"): GameSession
 
 function settle(game: GameSession): void {
   for (let frame = 0; game.state === GAME_STATE.SIMULATING && frame < 2000; ++frame) game.step(0.1);
+  if (game.decision) game.chooseNextPlayer(game.decision.playerIndex, game.decision.playerIndex);
   expect(game.state).toBe(GAME_STATE.READY);
   expect(game.simulator.nAwakened).toBe(0);
 }

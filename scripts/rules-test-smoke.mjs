@@ -75,6 +75,11 @@ try {
     for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
     assert.equal(state.player, 1);
     assert.equal(await page.evaluate(() => window.rulesRuntime.game.opponent.active), false);
+    assert.equal(await page.locator(".rule-choice").isVisible(), true);
+    await page.locator("canvas").focus(); await page.keyboard.press("w"); await page.keyboard.press("Space");
+    assert.equal(await page.evaluate(() => window.rulesRuntime.game.shots.busy), false);
+    await page.getByRole("button", { name: "自己接手", exact: true }).click(); await advance(0);
+    assert.equal(await page.locator(".rule-choice").isVisible(), false);
     await page.keyboard.press("w"); await advance(150); await page.keyboard.press("Space"); await advance(1);
     assert.deepEqual(await page.evaluate(() => {
       const { game } = window.rulesRuntime;
@@ -88,6 +93,28 @@ try {
     await page.getByRole("button", { name: "加载球局", exact: true }).click(); await advance(0);
     assert.equal((await snapshot()).balls.filter(ball => ball.active).length, 7);
     assert.equal((await snapshot()).context.ballOn, 4);
+    await page.evaluate(() => {
+      const { game, simulator } = window.rulesRuntime;
+      game.setMode("single-play", "NORMAL", { players: ["USER", "USER"], setup: {
+        balls: Array.from({ length: simulator.getBallCount() }, (_, index) => ({ index,
+          x: index === 0 ? -1.2 : 1.42, z: 0, active: index === 0 || index === 21 })),
+        ballOn: 128, inHand: 0, playerIndex: 0, scores: [7, 0]
+      } });
+      game.human.camera.resetWithKissDir(0, 1); game.human.gotoState1(true); game.human.strokePower = .1;
+    });
+    await advance(150); await page.locator("canvas").focus(); await page.keyboard.press("Space");
+    state = await advance(60);
+    for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
+    const black = await page.evaluate(() => {
+      const { game } = window.rulesRuntime;
+      return { decision: game.session.decision, inHand: game.session.context.inHand,
+        scores: [game.session.getScore(0), game.session.getScore(1)], finished: game.session.finished };
+    });
+    assert.equal(black.decision.kind, "black"); assert.equal(black.inHand, 2);
+    assert.deepEqual(black.scores, [7, 7]); assert.equal(black.finished, false);
+    await page.getByRole("button", { name: "让对方先打", exact: true }).click(); await advance(0);
+    assert.equal((await snapshot()).context.playerIndex, 1 - black.decision.playerIndex);
+    assert.equal(await page.locator(".rule-choice").isVisible(), false);
     await page.selectOption('select[name="mode"]', "practice");
     await page.getByRole("button", { name: "开始新局" }).click(); await advance(0);
     assert.equal((await snapshot()).context.ballOn, 65535);
@@ -97,7 +124,7 @@ try {
       const source = await readFile(`dist/assets/${file}`, "utf8");
       assert(!source.includes("双人规则测试") && !source.includes("last-red"), "Production bundle must exclude dev presets and UI");
     }
-    console.log("Rules test passed: local seats, scoring, presets, full reset, input lock, production exclusion");
+    console.log("Rules test passed: local seats, scoring, presets, full reset, foul choice, respotted black, input lock, production exclusion");
   }
   assert.deepEqual(errors, []);
 } finally { clearTimeout(timeout); await browser.close(); }

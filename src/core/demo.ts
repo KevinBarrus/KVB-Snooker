@@ -72,6 +72,8 @@ async function main(): Promise<void> {
       if (!route) throw new Error("AI pipeline did not finish");
       if (!game.stroke(index, makeStrokeVars(sim, route))) throw new Error("Turn ownership rejected stroke");
       for (let frame = 0; game.state === GAME_STATE.SIMULATING && frame < 2000; ++frame) game.step(0.1);
+      const decision = game.decision;
+      if (decision) game.chooseNextPlayer(decision.playerIndex, decision.playerIndex);
       if (game.state !== GAME_STATE.READY) throw new Error("Shot did not settle");
       if (game.result.score !== 0 || game.context.nRounds % 10 === 0) {
         console.log(`round=${game.context.nRounds} player=${index} score=${game.result.score} foul=${game.result.foulCode} break=${game.players[index].brk} next=${game.context.playerIndex} ballOn=${game.context.ballOn}`);

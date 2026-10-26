@@ -3,11 +3,13 @@ import type { Simulator } from "./simulator/simulator.js";
 import type { SerialData, StrokeVars } from "./simulator/shot-result.js";
 import { Player } from "./player.js";
 import { copyFrameSetup, type FrameSetup, type GameOptions } from "./frame-setup.js";
+import { coreRandom } from "./rng.js";
 
 // PCOL L8922-8931
-export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16 } as const;
+export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16, DECIDING: 32 } as const;
 export type GameState = typeof GAME_STATE[keyof typeof GAME_STATE];
 export type GameMode = "practice" | "single-play";
+export interface TurnDecision { readonly kind: "foul" | "black"; readonly playerIndex: number }
 
 export interface GameContext extends RulesContext {
   playerIndex: number;
@@ -23,6 +25,7 @@ export class GameSession {
   private currentState: GameState = GAME_STATE.NO_GAME;
   private serialData: SerialData | null = null;
   private readonly initialSetup?: FrameSetup;
+  private pendingDecision: TurnDecision | null = null;
 
   constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play", options: GameOptions = {}) {
     const types = options.players ?? (mode === "practice" ? ["USER"] : ["USER", "AI"]);
@@ -37,12 +40,20 @@ export class GameSession {
 
   get state(): GameState { return this.currentState; }
   get finished(): boolean { return this.mode === "single-play" && this.context.ballOn === 0; }
+  get decision(): TurnDecision | null { return this.pendingDecision && { ...this.pendingDecision }; }
+  get winnerIndex(): number | null {
+    return this.finished ? (this.getScore(0) > this.getScore(1) ? 0 : this.getScore(1) > this.getScore(0) ? 1 : null) : null;
+  }
+  getScore(index: number): number {
+    return this.players[index].pts - (this.players[1 - index]?.penalty ?? 0);
+  }
   get snapshot(): SerialData | null {
     return this.serialData && { ...this.serialData, balls: [...this.serialData.balls] };
   }
 
   reset(): void {
     this.currentState = GAME_STATE.JUDGING;
+    this.pendingDecision = null;
     for (const player of this.players) player.clearScores();
     this.context.playerIndex = this.context.nRounds = 0;
     this.ref.resetGContext(this.context);
@@ -70,7 +81,7 @@ export class GameSession {
   }
 
   placeCueBall(x: number, y: number, z: number): boolean {
-    if (this.state !== GAME_STATE.READY || this.finished) return false;
+    if (this.state !== GAME_STATE.READY || this.finished || this.context.inHand === 0) return false;
     if (!this.ref.placeCueBallCheck(x, y, z, this.simulator)) return false;
     this.currentState = GAME_STATE.JUDGING;
     this.simulator.respotIndexXYZ(0, x, this.simulator.spotY, z);
@@ -84,6 +95,15 @@ export class GameSession {
     this.players[playerIndex].shootingCount++;
     this.currentState = GAME_STATE.SIMULATING;
     this.simulator.stroke(vars);
+    return true;
+  }
+
+  chooseNextPlayer(playerIndex: number, nextIndex: number): boolean {
+    if (this.state !== GAME_STATE.DECIDING || this.pendingDecision?.playerIndex !== playerIndex ||
+        !Number.isInteger(nextIndex) || nextIndex < 0 || nextIndex >= this.players.length) return false;
+    this.context.playerIndex = nextIndex;
+    this.pendingDecision = null;
+    this.currentState = GAME_STATE.READY;
     return true;
   }
 
@@ -105,6 +125,19 @@ export class GameSession {
       player.brk = 0;
       this.context.playerIndex = (index + 1) % this.players.length;
     }
+    if (this.finished && this.getScore(0) === this.getScore(1)) {
+      const black = this.simulator.getBalls().find(ball => ball.number === 7);
+      if (!black) throw new Error("Missing black for tie-break");
+      this.simulator.respotIndexDefault(black.index);
+      this.simulator.respotIndexDefault(0);
+      this.context.ballOn = 128;
+      this.context.inHand = 2;
+      this.context.playerIndex = coreRandom() < .5 ? 0 : 1;
+      this.players.forEach(player => { player.brk = 0; });
+      this.pendingDecision = { kind: "black", playerIndex: this.context.playerIndex };
+    } else if (this.mode !== "practice" && !this.finished && this.result.foulCode !== 0) {
+      this.pendingDecision = { kind: "foul", playerIndex: this.context.playerIndex };
+    }
     this.response();
   }
 
@@ -118,6 +151,6 @@ export class GameSession {
       this.simulator.step(0.1);
     }
     this.serialData = this.simulator.serialize();
-    this.currentState = GAME_STATE.READY;
+    this.currentState = this.pendingDecision ? GAME_STATE.DECIDING : GAME_STATE.READY;
   }
 }

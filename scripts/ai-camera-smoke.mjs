@@ -101,6 +101,9 @@ try {
     assert(settled.contacts > 0, "AI stroke must exercise actual ball collisions");
     assert.equal(settled.player, 0); assert.equal(settled.busy, false);
     assert.equal(settled.mode, mode); assert.equal(settled.active, false);
+    if (await page.locator(".rule-choice").isVisible()) {
+      await page.getByRole("button", { name: "自己接手", exact: true }).click();
+    }
     await page.keyboard.press("w");
     await page.evaluate(() => { for (let i = 0; i < 150; ++i) window.aiCameraRuntime.game.update(1 / 60); });
     await page.keyboard.press("Space");

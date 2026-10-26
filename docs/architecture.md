@@ -242,6 +242,8 @@ controller可新增观察/回放状态类及装配回调；ui只接受普通状�
 
 PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyControlled构造参数区分本地玩家与AI。ShotController依据此标志管理本地观察与输入锁；不改变CameraRig/ShotView算法。开发装配`src/devtools/`通过DEV条件动态加载，VITE_RULES_TEST=0可关闭；浏览器类型仅由render工程检查。
 
+终局与普通犯规扩展：`GAME_STATE.DECIDING=32`；`GameSession.decision: Readonly<{kind:"foul"|"black";playerIndex:number}>|null`提供选择权快照，`chooseNextPlayer(playerIndex:number,nextIndex:number):boolean`仅允许持权者在待选择阶段决定下一位。普通犯规仅从当前位置继续，不恢复台面；黑球平分抽签后选择下一位并获得D区手中球。`getScore(index:number):number`按现有负penalty计算总分；`winnerIndex:number|null`仅在已结束且非平分时有值。reset清空待选择状态。UI只消费文案/按钮回调，装配根负责命令；AI选择自己接手，Node演示同样显式处理选择。
+
 ## 5. 目录结构（骨架）
 
 ```

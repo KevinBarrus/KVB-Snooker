@@ -7,6 +7,8 @@
 - DOM 类型只在本目录可见：`src/ui/tsconfig.json` 加 `DOM` lib，根 tsconfig 排除 `src/ui`，core 仍无 DOM 类型面；`npm run typecheck` 两个工程都检查。
 - 力度条 `PowerBar.percent / autoAlpha` 由 controller 直接写入（原作亦为控制器直写 powerUI，事件表无对应事件）。
 
+规则扩展：rule-choice.ts只接收文案与回调，展示普通犯规接手/让对手继续和黑球抽签先手选择；不读取或修改核心对象。装配根控制显示和命令验证。
+
 ## 文件
 
 | 文件 | 内容 | 原作出处 |

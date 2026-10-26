@@ -12,6 +12,7 @@ function makeGame(preset: RuleTestPreset) {
 
 function finish(game: GameSession): void {
   for (let i = 0; i < 2000 && game.state === GAME_STATE.SIMULATING; ++i) game.step(.1);
+  if (game.decision) game.chooseNextPlayer(game.decision.playerIndex, game.decision.playerIndex);
   expect(game.state).toBe(GAME_STATE.READY);
 }
 

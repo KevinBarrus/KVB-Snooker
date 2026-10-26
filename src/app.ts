@@ -94,7 +94,8 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       // PCOL L7651-7655, L7670-7681
       gunsight.alpha = prediction && !game.controls.inHand.active ? .6 * game.hud.powerBar.autoAlpha : 0;
       if (newGame) newGame.disabled = game.shots.busy;
-      status.textContent = game.session.finished ? "本局结束 · 可开始新局" : game.controls.inHand.active
+      status.textContent = game.session.finished ? `本局结束 · 玩家 ${(game.session.winnerIndex ?? 0) + 1} 获胜 · 可开始新局` : game.session.decision
+        ? "请选择下一杆的击球方" : game.controls.inHand.active
         ? "点击 D 区放置母球 · Esc 退出" : !game.human.active
           ? "AI 回合" : game.shots.busy ? "击球进行中" : "你的回合 · W 瞄准 / P 摆球";
     };

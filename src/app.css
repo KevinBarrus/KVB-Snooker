@@ -5,6 +5,10 @@ body:not([data-state="ready"]) .game-options { display: none; }
 .game-options { position: absolute; top: 16px; left: 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .rule-test { display: inline-flex; gap: 8px; align-items: center; }
 .rule-test[hidden] { display: none; }
+.rule-choice { position: absolute; left: 20px; bottom: 160px; max-width: 380px; padding: 14px; background: #171713ed; }
+.rule-choice[hidden] { display: none; }
+.rule-choice p { margin: 0 0 10px; }
+.rule-choice button + button { margin-left: 8px; }
 select, button, summary { font: inherit; color: inherit; background: #20221e; border: 1px solid #676b5e; padding: 7px 10px; border-radius: 2px; }
 select, button, summary { cursor: pointer; }
 button:disabled { opacity: .45; cursor: default; }
