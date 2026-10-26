@@ -4,6 +4,7 @@ import type { MeshBody } from "../physics/mesh-body.js";
 import { WorldClient } from "../physics/world-client.js";
 import { Ball } from "./ball.js";
 import { DEFAULT_SCENE, type SceneParameters } from "./scene.js";
+import { ContactRecorder, type ContactEvidence } from "./contact-evidence.js";
 import {
   makeShotResult, type ShotResult, type StrokeVars, type SerialData,
   type BallView, type PredictionContext
@@ -12,6 +13,7 @@ import {
 // PCOL L12286-12510
 export class Simulator {
   private readonly world = new WorldClient();
+  private readonly contacts = new ContactRecorder(() => this.world.evolution);
   private readonly balls: Ball[] = [];
   private readonly shotResult = makeShotResult();
   private syncList: SceneParameters = { sceneId: "", ballSet: [], ballRadius: 0, ballMass: 0 };
@@ -22,6 +24,7 @@ export class Simulator {
   constructor(mesh: MeshBody, scene: SceneParameters = DEFAULT_SCENE) {
     if (!mesh.ground) throw new Error("Simulator requires a ground polygon");
     this.world.stepSize = 0.0167;
+    this.world.solver = this.contacts;
     this.world.setMeshBody(mesh);
     this.world.onTouchPresolve(contact => this.onTouch(contact));
     this.world.onOutOfBounds(ball => this.shotResult.outOfBoundsIndices.push((ball as Ball).index));
@@ -83,6 +86,7 @@ export class Simulator {
   }
 
   reset(hard: boolean, respot: boolean): void {
+    this.contacts.clear();
     if (hard) for (const ball of this.balls) this.resetBallPosition(ball, ball.spot);
     if (respot) this.clearResult();
     this.world.reset();
@@ -107,6 +111,8 @@ export class Simulator {
     return { ...this.shotResult, pottedIndices: [...this.shotResult.pottedIndices],
       outOfBoundsIndices: [...this.shotResult.outOfBoundsIndices] };
   }
+
+  getContactEvidence(): ContactEvidence | null { return this.contacts.snapshot(); }
 
   respotIndexDefault(index: number): void {
     const ball = this.balls[index];
@@ -137,12 +143,14 @@ export class Simulator {
 
   step(dt: number): number {
     const simulated = this.world.step(dt);
+    this.contacts.checkSeparation();
     this.awakened = this.world.nAwakened;
     return simulated;
   }
 
   stroke(vars: StrokeVars): void {
     this.clearResult();
+    this.contacts.begin(this.balls);
     this.world.shoot(this.balls[0], vars);
     this.awakened++;
   }
@@ -156,6 +164,7 @@ export class Simulator {
   serialize(): SerialData { return this.world.serialize({ balls: [], mbid: "", evolution: 0 }); }
 
   restore(data: SerialData): void {
+    this.contacts.clear();
     this.world.restore(data);
     for (const ball of this.balls) ball.syncStates(0);
     this.awakened = this.world.nAwakened;
@@ -164,6 +173,7 @@ export class Simulator {
   predict(vars: StrokeVars, maxDist = Infinity): PredictionContext {
     this.world.save();
     const context = this.world.predict(this.balls[0], vars, maxDist);
+    this.world.solver = this.contacts;
     // PCOL L14626-14681
     const point = (value: Readonly<Vec3>) => ({ x: value.x, y: value.y, z: value.z });
     return { impactV1: context.impactV1.clone(), impactOccured: context.impactOccured,

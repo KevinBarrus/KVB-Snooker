@@ -140,6 +140,14 @@ export class BrowserGame {
 
   get canReset(): boolean { return !this.shots.busy && !this.pendingShot && !this.replay.active; }
 
+  get touchingNotice(): string {
+    if (!this.human.active || this.shots.busy || this.session.mode === "practice") return "";
+    const indices = this.session.touchingBallIndices;
+    if (!indices.length) return "";
+    const names = [...new Set(indices.map(index => BALL_NAMES[this.simulator.getBallView(index).number]))].join("、");
+    return `贴球：${names} · 请打离且不要推动贴球；贴合法目标可免再次首碰，贴非目标仍需打到目标`;
+  }
+
   cycleView(): void {
     if (!this.replay.active && !this.human.active) return;
     const view = this.human.camera.shotView;

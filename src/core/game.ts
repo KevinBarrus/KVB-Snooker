@@ -44,6 +44,11 @@ export class GameSession {
   get state(): GameState { return this.currentState; }
   get finished(): boolean { return this.mode === "single-play" && this.context.ballOn === 0; }
   get decision(): TurnDecision | null { return this.pendingDecision && { ...this.pendingDecision }; }
+  get touchingBallIndices(): readonly number[] {
+    const cue = this.simulator.getBallAtIndex(0);
+    return this.simulator.getBalls().filter(ball => ball.active && ball.index !== 0 &&
+      ball.position.distanceTo(cue.position) <= 2 * this.simulator.ballRadius + 1e-5).map(ball => ball.index);
+  }
   get winnerIndex(): number | null {
     return this.finished ? (this.getScore(0) > this.getScore(1) ? 0 : this.getScore(1) > this.getScore(0) ? 1 : null) : null;
   }

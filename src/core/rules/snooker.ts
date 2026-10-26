@@ -43,6 +43,7 @@ export interface RefSimulator {
   respotIndexDefault(t: number): void;
   resetBallPosition(t: BallRefLike, spot: Vec3): void;
   resetBallXYZ(t: BallRefLike, x: number, y: number, z: number): void;
+  getContactEvidence?(): { readonly touchingIndices: readonly number[]; readonly firstContactIndices: readonly number[]; readonly pushedIndices: readonly number[] } | null;
 }
 
 export interface RulesContext {
@@ -137,7 +138,12 @@ export class SnookerRef extends Ref {
     i.score = 0;
     i.foulCode = 0;
     let potScore = 0;
-    const firstKiss = e.getBallAtIndex(result.firstKissIndex).number;
+    const evidence = e.getContactEvidence?.();
+    const legal = (index: number): boolean => t.ballOn === BALL_ON.COLOR_ALL ? index === t.nominatedBallIndex
+      : Math.pow(2, e.getBallAtIndex(index).number) === t.ballOn;
+    const touchingOn = evidence?.touchingIndices.find(legal);
+    const contacts = evidence?.firstContactIndices ?? (result.firstKissIndex ? [result.firstKissIndex] : []);
+    const firstKiss = e.getBallAtIndex(touchingOn ?? contacts[0] ?? 0).number;
     if (t.ballOn === this.sysReservedBallOn) {
       this._liveRespot(result.pottedIndices, result.outOfBoundsIndices, e);
       t.inHand = 1;
@@ -183,6 +189,18 @@ export class SnookerRef extends Ref {
     }
     const worst = Math.min(foulCandidate, obCandidate, potCandidate);
     i.score = worst === 0 ? potScore : worst;
+    if (touchingOn === undefined && contacts.some(index => !legal(index)) && t.ballOn !== BALL_ON.COLOR_ALL) {
+      i.foulCode |= FOUL.ILLEGAL_FIRST_HIT;
+      i.score = Math.min(i.score, -4, -Math.log2(t.ballOn), ...contacts.map(index => -e.getBallAtIndex(index).number));
+    }
+    if (t.ballOn === BALL_ON.COLOR_ALL && t.nominatedBallIndex !== undefined && touchingOn === undefined && contacts.some(index => !legal(index))) {
+      i.foulCode |= FOUL.ILLEGAL_FIRST_HIT;
+      i.score = Math.min(i.score, -4, -e.getBallAtIndex(t.nominatedBallIndex).number, ...contacts.map(index => -e.getBallAtIndex(index).number));
+    }
+    if (evidence?.pushedIndices.length) {
+      i.foulCode |= FOUL.PUSH_STROKE;
+      i.score = Math.min(i.score, -4, -legalNumber, ...evidence.pushedIndices.map(index => -e.getBallAtIndex(index).number));
+    }
     t.inHand = 0;
     if (t.ballOn === BALL_ON.BLACK && i.score !== 0) {
       t.ballOn = 0;
