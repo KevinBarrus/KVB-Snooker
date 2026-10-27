@@ -1,8 +1,10 @@
 import type { ContactEvent } from "../core/event-bus.js";
+import type { AudioSample } from "./sample-manifest.js";
 
 export interface SoundDecision {
-  readonly sound: "tip" | "ball-ball" | "ball-cushion" | "out-of-bounds" | "foul";
+  readonly sound: "tip" | "ball-ball" | "ball-cushion" | "out-of-bounds" | "foul" | "pocket-clean" | "pocket-jaw";
   readonly volume: number;
+  readonly sample?: AudioSample;
 }
 
 export interface SoundBackend {

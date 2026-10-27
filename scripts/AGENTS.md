@@ -33,3 +33,7 @@ AI复位专项在同一规则脚本中通过公开控制器发出一杆无首碰
 2026-10-27贴球提示验收：只显示英文，×点击立即关闭且焦点返回画布，连续空闲帧不重弹，自动超时无需出杆，新局面可再次提示；关闭不改变台面/分数/回合。
 
 统一消息关闭验收：规则脚本点击普通FOUL/Miss的×，校验比分/台面/待选项不变；相机脚本校验观察提示手动关闭、再次显示与自动过期，焦点回画布。
+
+声音第一版：audio-sources.json 保存79个本地WAV的来源分类、强度标签和SHA-256，不包含媒体。prepare-audio-assets.mjs（npm run audio:prepare）先验证全部输入，再复制到忽略目录 public/assets/audio，输出播放增益/起音偏移清单；不改原文件、不降噪。参数在来源清单 preparation 中集中维护，游戏动态曲线在 src/audio/calibration.ts。
+
+audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观察真实AudioBufferSourceNode及输出信号，验证触球时序、预测静默、球球/入袋声、静音持久化、回放隔离、销毁和缺资产降级。音效与物理的随机源隔离；运行前准备音频与球台资源。

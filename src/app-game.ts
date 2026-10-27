@@ -124,10 +124,12 @@ export class BrowserGame {
         this.controls.input.enabled = !active && !this.shots.inputLocked;
         this.hudDom.element.hidden = active;
       }, () => this.cycleView());
-    this.disposeBus = this.bus.on("sim/shooting-start", () => {
+    const offImpact = simulator.onImpact(event => this.bus.emit("sim/impact", event));
+    const offShooting = this.bus.on("sim/shooting-start", () => {
       this.replay.begin();
       this.controls.update();
     });
+    this.disposeBus = () => { offImpact(); offShooting(); };
     this.ruleChoice = new RuleChoiceDom(self => {
       const decision = this.session.decision;
       if (!decision || this.session.players[decision.playerIndex].type !== "USER") return;

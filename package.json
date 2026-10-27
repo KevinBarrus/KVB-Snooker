@@ -5,7 +5,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p src/ui && tsc --noEmit -p src/render && tsc --noEmit -p src/controller",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/ui && tsc --noEmit -p src/render && tsc --noEmit -p src/controller && tsc --noEmit -p src/audio",
     "demo": "tsc --noEmit false --outDir .cache/demo && node .cache/demo/src/core/demo.js",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
@@ -16,7 +16,9 @@
     "test:camera": "node scripts/camera-smoke.mjs",
     "test:camera:ai": "node scripts/ai-camera-smoke.mjs",
     "test:rules": "node scripts/rules-test-smoke.mjs",
-    "test:replay": "node scripts/replay-smoke.mjs"
+    "test:replay": "node scripts/replay-smoke.mjs",
+    "audio:prepare": "node scripts/prepare-audio-assets.mjs",
+    "test:audio": "node scripts/audio-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

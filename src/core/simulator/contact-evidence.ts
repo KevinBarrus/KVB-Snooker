@@ -16,7 +16,7 @@ export class ContactRecorder extends Solver {
   private pushed = new Set<number>();
   private firstPoint: { x: number; y: number; z: number; evolution: number } | null = null;
 
-  constructor(private readonly evolution: () => number) { super(); }
+  constructor(private readonly evolution: () => number, private readonly afterSolve?: (contact: ContactBase) => void) { super(); }
 
   begin(balls: readonly Ball[]): void {
     this.clear(); this.balls = balls;
@@ -61,5 +61,6 @@ export class ContactRecorder extends Solver {
       this.held.delete((contact.bi as Ball).index);
       this.held.delete((contact.bj as Ball).index);
     }
+    this.afterSolve?.(contact);
   }
 }

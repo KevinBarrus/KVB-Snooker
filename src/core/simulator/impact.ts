@@ -12,11 +12,11 @@ export type ImpactEvent = ImpactPosition & (
   | { readonly kind: "cue"; readonly speed: number; readonly tipHeight: number }
   | { readonly kind: "ball"; readonly speed: number }
   | { readonly kind: "surface"; readonly surface: "jaw" | "pocket" | "tunnel" | "end";
-      readonly speed: number; readonly horizontalSpeed: number }
+      readonly speed: number; readonly horizontalSpeed: number; readonly entrySpeed: number }
 );
 
 // PCOL L12085-12094, L12351-12365
-export function contactImpact(contact: ContactBase, time: number): ImpactEvent | null {
+export function contactImpact(contact: ContactBase, time: number, entrySpeed?: number): ImpactEvent | null {
   const ball = contact.bi as Ball;
   const position = { time, ballIndex: ball.index, x: ball.position.x, z: ball.position.z };
   const speed = Math.max(0, -contact.getCloseSpeed());
@@ -28,7 +28,7 @@ export function contactImpact(contact: ContactBase, time: number): ImpactEvent |
     : "pocket" in other && other.pocket ? "pocket"
     : "sidesoft" in other && other.sidesoft ? "jaw" : null;
   return surface ? { ...position, kind: "surface", surface, speed,
-    horizontalSpeed: Math.hypot(ball.v.x, ball.v.z) } : null;
+    horizontalSpeed: Math.hypot(ball.v.x, ball.v.z), entrySpeed: entrySpeed ?? Math.hypot(ball.v.x, ball.v.z) } : null;
 }
 
 // PCOL L5716-5727, L11862-11870, L13667-13673

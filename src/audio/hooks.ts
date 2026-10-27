@@ -1,13 +1,21 @@
 import type { EventBus } from "../core/event-bus.js";
 import { mixContact, noOpSoundBackend, type SoundBackend } from "./mixer.js";
+import type { SampleMixer } from "./sample-mixer.js";
 
 export class AudioHooks {
   private readonly disposers: Array<() => void> = [];
 
-  constructor(private readonly backend: SoundBackend = noOpSoundBackend) {}
+  constructor(private readonly backend: SoundBackend = noOpSoundBackend, private readonly samples?: SampleMixer) {}
 
   attach(bus: EventBus): void {
     this.detach();
+    if (this.samples) {
+      this.disposers.push(bus.on("sim/impact", event => {
+        const decision = this.samples!.mix(event);
+        if (decision) this.backend.play(decision);
+      }));
+      return;
+    }
     this.disposers.push(
       bus.on("sim/touch-presolve", contact => {
         const decision = mixContact(contact);

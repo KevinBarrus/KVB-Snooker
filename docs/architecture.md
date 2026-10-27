@@ -328,3 +328,5 @@ render → controller → ui → audio
 契约详见 docs/audio-v1-design.md。Simulator 增加 onImpact(listener:(event:ImpactEvent)=>void):()=>void，EventBus 增加 sim/impact:ImpactEvent；类型定义于 core/simulator/impact.ts，返回只读普通值。cue/ball/surface 联合事件记录实际击球与新接触，不改旧 ContactEvent、ShotResult、存档或物理算法。表现层继续经 Simulator/EventBus 接线，预测不发布事件。
 
 audio 保留纯决策与 SoundBackend 边界，允许独立 browser-backend.ts 消费原生 Web Audio（独立 DOM tsconfig）；app-audio.ts 为浏览器装配根拆分文件。采样分类与校准配置由清单维护，原始素材及准备输出不提交。首版范围与不做项以设计文档为准。
+
+声音校准补充：surface载荷包含entrySpeed（最近台面高度的水平速度，缺失时回退即时水平速度）；horizontalSpeed保留即时观测。Simulator在step前及真实球球冲量后更新只读采样，低于台面时使用离台前值，避免漏斗将竖直下落转换为水平运动后放大轻入袋声。ContactRecorder增加内部可选afterSolve观察回调，不改变公开规则证据或物理求解。

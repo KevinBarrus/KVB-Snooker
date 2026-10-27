@@ -14,7 +14,11 @@ import {
 // PCOL L12286-12510
 export class Simulator {
   private readonly world = new WorldClient();
-  private readonly contacts = new ContactRecorder(() => this.world.evolution);
+  private readonly contacts = new ContactRecorder(() => this.world.evolution, contact => {
+    if (this.impactListeners.size && contact.isSS) {
+      this.rememberTableSpeed(contact.bi as Ball); this.rememberTableSpeed(contact.bj as Ball);
+    }
+  });
   private readonly balls: Ball[] = [];
   private readonly shotResult = makeShotResult();
   private syncList: SceneParameters = { sceneId: "", ballSet: [], ballRadius: 0, ballMass: 0 };
@@ -22,6 +26,7 @@ export class Simulator {
   private scene = "";
   private spotHeight = NaN;
   private readonly impactListeners = new Set<(event: ImpactEvent) => void>();
+  private readonly tableSpeeds = new Map<number, number>();
 
   constructor(mesh: MeshBody, scene: SceneParameters = DEFAULT_SCENE) {
     if (!mesh.ground) throw new Error("Simulator requires a ground polygon");
@@ -45,7 +50,9 @@ export class Simulator {
 
   private onTouch(contact: ContactBase): void {
     if (this.impactListeners.size) {
-      const event = contactImpact(contact, this.world.evolution * this.world.stepSize);
+      const ball = contact.bi as Ball;
+      const entrySpeed = ball.position.y < this.spotHeight - Vec3.EPSILON ? this.tableSpeeds.get(ball.index) : undefined;
+      const event = contactImpact(contact, this.world.evolution * this.world.stepSize, entrySpeed);
       if (event) this.emitImpact(event);
     }
     const result = this.shotResult;
@@ -130,6 +137,12 @@ export class Simulator {
     for (const listener of [...this.impactListeners]) listener(event);
   }
 
+  private rememberTableSpeed(ball: Ball): void {
+    if (ball.active && Math.abs(ball.position.y - this.spotHeight) <= Vec3.EPSILON) {
+      this.tableSpeeds.set(ball.index, Math.hypot(ball.v.x, ball.v.z));
+    }
+  }
+
   respotIndexDefault(index: number): void {
     const ball = this.balls[index];
     this.resetBallPosition(ball, ball.spot);
@@ -145,6 +158,7 @@ export class Simulator {
   }
 
   resetBallXYZ(ball: Ball, x: number, y: number, z: number): void {
+    this.tableSpeeds.delete(ball.index);
     ball.reset(x, y, z);
     ball.syncStates(0);
     ball.active = true;
@@ -158,6 +172,7 @@ export class Simulator {
   }
 
   step(dt: number): number {
+    if (this.impactListeners.size) for (const ball of this.balls) this.rememberTableSpeed(ball);
     const simulated = this.world.step(dt);
     this.contacts.checkSeparation();
     this.awakened = this.world.nAwakened;
@@ -169,11 +184,13 @@ export class Simulator {
     this.contacts.begin(this.balls);
     const event = cueImpact(this.balls[0], vars, this.world.evolution * this.world.stepSize);
     this.world.shoot(this.balls[0], vars);
+    this.rememberTableSpeed(this.balls[0]);
     this.emitImpact(event);
     this.awakened++;
   }
 
   private clearResult(): void {
+    this.tableSpeeds.clear();
     const result = this.shotResult;
     result.nKissed = result.firstKissIndex = 0;
     result.pottedIndices.length = result.outOfBoundsIndices.length = 0;

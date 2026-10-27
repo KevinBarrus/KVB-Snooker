@@ -64,3 +64,5 @@ npm run test 与 npx tsc --noEmit 全绿；同步章程；Conventional Commits �
 ## 声音只读事件
 
 onImpact 在真实 stroke 后及新接触求解前提供冻结的纯数值快照；cue 击点沿最终杆方向的垂直平面归一化，ball 取非负相对闭速度，surface 区分 sidesoft/pocket/tunnel/end 并保留求解前水平速度。预测继续使用原 WorldClient 的静默回调，不生成声音事件。纯观察不改变求解、计分、存档。契约见 docs/audio-v1-design.md。
+
+声音校准补充：漏斗几何会改变水平速度（真实轻推测试0.115m/s离台→首次tunnel已0.376m/s），因此surface追加entrySpeed。每次step前记录仍在台面高度的球速；球球求解后通过既有ContactRecorder观察回调刷新，避免袋口旁子球同一帧受击仍读到静止缓存；出杆后也刷新。低于台面时保留最后台面水平速度，首次pocket记录后不被袋内下落覆盖；restore/reset/新杆清理。所有回调都在原solveContact之后，只读观察，不改冲量。

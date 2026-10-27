@@ -52,3 +52,23 @@
 ## 完成定义（DoD）
 
 `npm run test`、`npm run typecheck` 全绿；代码、测试和本章程同一模块提交并推送。
+
+## 第一版真实音效（2026-10-27 用户授权扩展）
+
+旧 mixer/hooks 的无素材调用保持兼容；传入 SampleMixer 后 AudioHooks 仅订阅 sim/impact，不播放犯规/出界占位音。sound 决策增加 pocket-clean/pocket-jaw 及可选 AudioSample；sound backend 仍只接受决策，不判定物理。
+
+sample-mixer.ts 按实际击点和力度选 cue 组、按相对闭速度选 ball 组；同组洗牌，跨轮不连续重复。相邻力度档概率连续过渡，音量连续变化。calibration.ts 集中维护曲线、击点分档、袋口历史时空窗口、主增益与混音参数，sample-manifest.ts 校验资产边界；不依赖 coreRandom 或表现层横向模块。
+
+browser-backend.ts 是本轮批准的浏览器薄后端，独立 audio/tsconfig 开 DOM，根 Node 编译仅排除此文件。预解码 AudioBuffer、用户手势恢复 AudioContext、有限并发声部、主音量及压缩器防连续碰撞叠加过响；dispose 释放源/连接/请求/context。app-audio.ts 装配加载、音量持久化、生命周期，不阻塞无音频时的对局。
+
+原 local-audio 与生成 public/assets/audio 不提交。npm run audio:prepare 使用 scripts/audio-sources.json 的分类和 SHA-256 校验复制，测量最响20ms窗口RMS，按配置生成最多±6dB的播放增益以及起音前3ms的播放偏移；原文件完全不变，不降噪、不补尾音。响度档标签来源于用户目录，不从已归一化文件峰值推断出杆力度。
+
+### 转写时新发现的怪癖
+
+- pocket 标志是袋喉内壁，不是磕袋角；sidesoft 才用于袋角历史，必须满足时间/距离邻近，不能见 pocket 就当磕袋角。
+- tunnel 会连续多次接触，end 更晚才负责进袋计分；声音首次 tunnel 播放一次，end 只兜底，保留首次近期 pocket 接触前水平速度。母球/子球均使用自身速度，不受竖直下落速度影响。
+- sim/shooting-start 是后拉开始，不能播放皮头声；实际 cue 事件由 Simulator.stroke 产生。
+
+首版回放静音；切新局、复位、回放和销毁不保留旧声音。未新增长短台/抬杆/起跳/普通碰库音，也没有修改物理或摄像机算法。自动化只能验证信号、时序和数值，听感由用户试听验收。
+
+验收完成：新增13项纯策略/清单测试，全量401项通过，typecheck/build通过；Chrome audio/controller/rules/replay通过。audio专项实测79段解码、实际输出非零且峰值<1、皮头触球时序、球球/空心/磕袋角/子球入袋、轻推进袋静音、音量持久化、预测/回放隔离和缺资产降级。校准后使用surface.entrySpeed，horizontalSpeed只保留即时证据。

@@ -11,6 +11,7 @@ import { loadCue } from "./render/cue.js";
 import { Gunsight } from "./render/gunsight.js";
 import { PlacementMarkers } from "./render/placement.js";
 import { BrowserGame } from "./app-game.js";
+import { BrowserAudio } from "./app-audio.js";
 
 async function loadSimulator(): Promise<Simulator> {
   const response = await fetch("/assets/physics/table.json");
@@ -26,7 +27,7 @@ async function loadSimulator(): Promise<Simulator> {
   return new Simulator(mesh);
 }
 
-async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer; game: BrowserGame }> {
+async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer; game: BrowserGame; audio: BrowserAudio }> {
   const canvas = document.querySelector("canvas");
   const status = document.querySelector("output");
   if (!canvas || !status) throw new Error("Missing render host");
@@ -34,6 +35,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
   engine.enableOfflineSupport = false;
   let scene: B.Scene | undefined;
   let disposeGame: (() => void) | undefined;
+  let audio: BrowserAudio | undefined;
   try {
     const simulator = await loadSimulator();
     scene = await loadTableScene(engine);
@@ -51,6 +53,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     let lastPrediction: typeof game.human.prediction = null;
     let lastBallOn = -1;
     const options = document.querySelector<HTMLFormElement>(".game-options");
+    audio = new BrowserAudio(game.bus, options ?? document.body);
     const newGame = options?.querySelector("button");
     const testTools = options && import.meta.env.DEV && import.meta.env.VITE_RULES_TEST !== "0"
       ? (await import("./devtools/rules-test.js")).mountRulesTest(options, game) : undefined;
@@ -65,6 +68,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     };
     options?.addEventListener("submit", startGame);
     const syncInteraction = () => {
+      audio?.sync(game.session, simulator.evolution, game.replay.active);
       testTools?.sync();
       if (game.replay.active) {
         const recorded = game.replay.clip.current?.cue;
@@ -115,14 +119,16 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       window.removeEventListener("resize", resize);
       options?.removeEventListener("submit", startGame);
       testTools?.dispose();
+      audio?.dispose();
       game.dispose();
       placement.dispose(); gunsight.dispose();
       cue.material?.dispose(); cue.dispose();
       balls.dispose();
       scene?.dispose(); engine.dispose();
     }, { once: true });
-    return { engine, scene, simulator, balls, game };
+    return { engine, scene, simulator, balls, game, audio };
   } catch (error) {
+    audio?.dispose();
     disposeGame?.();
     scene?.dispose(); engine.dispose();
     throw error;

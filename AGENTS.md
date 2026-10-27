@@ -85,3 +85,5 @@ Miss UI只在核心授予canReplace时提供“复位，让对手重打”；成
 ## 声音第一版
 
 用户授权的接入契约见 docs/audio-v1-design.md、architecture §9。只做杆头、球球、空心/磕袋角入袋；原始 local-audio 与生成 public/assets/audio 不提交，校准只调播放增益。Simulator 只读事件与 audio 纯策略/浏览器后端分离，不改物理公式或摄像机。
+
+声音运行：npm run audio:prepare 从 local-audio 校验并准备79个WAV；npm run dev 即可加载。app-audio.ts负责原生Web Audio解锁/音量/生命周期，浏览器代码在audio独立DOM工程检查。npm run test:audio检查真实音频输出和物理触发；素材缺失只提示声音不可用，不阻塞游戏。
