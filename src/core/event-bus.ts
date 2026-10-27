@@ -1,4 +1,4 @@
-// PCOL: 事件目录契约见 docs/architecture.md §3（L33-46）。
+import type { ImpactEvent } from "./simulator/impact.js";
 
 export interface ContactEvent {
   label: string;
@@ -29,6 +29,7 @@ export interface StateChangeEvent {
 }
 
 export interface EventPayloads {
+  'sim/impact': ImpactEvent;
   'sim/shooting-start': { playerIndex: number };
   'sim/touch-presolve': ContactEvent;
   'sim/out-of-bounds': { ballIndex: number; ballNumber: number };

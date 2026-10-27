@@ -34,3 +34,7 @@ npm-debug.log*
 # 临时文件
 tmp/
 .cache/
+
+# 本地音效素材与准备产物
+local-audio/
+public/assets/audio/

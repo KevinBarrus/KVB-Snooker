@@ -322,3 +322,9 @@ render → controller → ui → audio
 ```
 
 每层完成：`vitest run` 全绿 → `git commit` → push。M1 是最大风险关口（物理正确性在此一次验收）。
+
+## 9. 声音第一版扩展（2026-10-27 用户授权）
+
+契约详见 docs/audio-v1-design.md。Simulator 增加 onImpact(listener:(event:ImpactEvent)=>void):()=>void，EventBus 增加 sim/impact:ImpactEvent；类型定义于 core/simulator/impact.ts，返回只读普通值。cue/ball/surface 联合事件记录实际击球与新接触，不改旧 ContactEvent、ShotResult、存档或物理算法。表现层继续经 Simulator/EventBus 接线，预测不发布事件。
+
+audio 保留纯决策与 SoundBackend 边界，允许独立 browser-backend.ts 消费原生 Web Audio（独立 DOM tsconfig）；app-audio.ts 为浏览器装配根拆分文件。采样分类与校准配置由清单维护，原始素材及准备输出不提交。首版范围与不做项以设计文档为准。

@@ -5,6 +5,7 @@ import { WorldClient } from "../physics/world-client.js";
 import { Ball } from "./ball.js";
 import { DEFAULT_SCENE, type SceneParameters } from "./scene.js";
 import { ContactRecorder, type ContactEvidence } from "./contact-evidence.js";
+import { contactImpact, cueImpact, type ImpactEvent } from "./impact.js";
 import {
   makeShotResult, type ShotResult, type StrokeVars, type SerialData,
   type BallView, type PredictionContext
@@ -20,6 +21,7 @@ export class Simulator {
   private awakened = 0;
   private scene = "";
   private spotHeight = NaN;
+  private readonly impactListeners = new Set<(event: ImpactEvent) => void>();
 
   constructor(mesh: MeshBody, scene: SceneParameters = DEFAULT_SCENE) {
     if (!mesh.ground) throw new Error("Simulator requires a ground polygon");
@@ -42,6 +44,10 @@ export class Simulator {
   get result(): ShotResult { return this.shotResult; }
 
   private onTouch(contact: ContactBase): void {
+    if (this.impactListeners.size) {
+      const event = contactImpact(contact, this.world.evolution * this.world.stepSize);
+      if (event) this.emitImpact(event);
+    }
     const result = this.shotResult;
     if (contact.isSS) {
       const bi = contact.bi as Ball;
@@ -114,6 +120,16 @@ export class Simulator {
 
   getContactEvidence(): ContactEvidence | null { return this.contacts.snapshot(); }
 
+  onImpact(listener: (event: ImpactEvent) => void): () => void {
+    this.impactListeners.add(listener);
+    return () => { this.impactListeners.delete(listener); };
+  }
+
+  private emitImpact(event: ImpactEvent): void {
+    Object.freeze(event);
+    for (const listener of [...this.impactListeners]) listener(event);
+  }
+
   respotIndexDefault(index: number): void {
     const ball = this.balls[index];
     this.resetBallPosition(ball, ball.spot);
@@ -151,7 +167,9 @@ export class Simulator {
   stroke(vars: StrokeVars): void {
     this.clearResult();
     this.contacts.begin(this.balls);
+    const event = cueImpact(this.balls[0], vars, this.world.evolution * this.world.stepSize);
     this.world.shoot(this.balls[0], vars);
+    this.emitImpact(event);
     this.awakened++;
   }
 

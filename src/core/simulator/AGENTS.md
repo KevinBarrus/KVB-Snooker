@@ -60,3 +60,7 @@ npm run test 与 npx tsc --noEmit 全绿；同步章程；Conventional Commits �
 - 接触容差1e-5m、有效水平速度差1e-7m/s；已分离或被其他子球撞动的贴球不再计直接推杆。首次同evolution/母球位置≤1e-5m的接触组成一组，保留双红/自由球同时首碰信息。
 
 第二轮复位契约：显式restore成功后清空ShotResult和接触证据，再同步显示。复用既有SerialData，不引入rules依赖；predict内部World.restore仍无损保留当前杆结果。GameSession控制比赛复位权限，模拟器只恢复世界。
+
+## 声音只读事件
+
+onImpact 在真实 stroke 后及新接触求解前提供冻结的纯数值快照；cue 击点沿最终杆方向的垂直平面归一化，ball 取非负相对闭速度，surface 区分 sidesoft/pocket/tunnel/end 并保留求解前水平速度。预测继续使用原 WorldClient 的静默回调，不生成声音事件。纯观察不改变求解、计分、存档。契约见 docs/audio-v1-design.md。

@@ -81,3 +81,7 @@ AI回合为自由旁观：app-game.ts不启动用户ShotView，也不写其触�
 Miss UI只在核心授予canReplace时提供“复位，让对手重打”；成功后清回放/旧提示/摆球/动画并重建AI搜索（原位evolution可能与旧搜索相同）。贴球用独立英文中心消息，按犯规消息公式自动关闭且可点×关闭，同杆不重弹，出杆/回放/练习隐藏。
 
 所有临时消息（FOUL、FOUL AND A MISS、贴球、观察模式/提名提醒）均保留自动关闭并提供×；关闭只影响显示，焦点回画布，不撤销罚分或跳过规则选择。
+
+## 声音第一版
+
+用户授权的接入契约见 docs/audio-v1-design.md、architecture §9。只做杆头、球球、空心/磕袋角入袋；原始 local-audio 与生成 public/assets/audio 不提交，校准只调播放增益。Simulator 只读事件与 audio 纯策略/浏览器后端分离，不改物理公式或摄像机。

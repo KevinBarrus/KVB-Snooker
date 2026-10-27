@@ -72,3 +72,5 @@ npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice �
 第二轮开球：GameOptions.openingPlayerIndex指定本局开球方；普通reset交替，setup完整重置不交替。争黑直接由非本局开球方D区先打，不产生black选择，不推进新局序列；这是用户批准的固定先手政策。
 
 补充回归：Miss与自由球同时成立时，复位撤销本次自由球资格并保留罚分；浏览器复位重新创建当前难度AI，避免恢复相同evolution后旧搜索任务不重启。
+
+声音第一版：EventBus 新增 sim/impact，载荷为 simulator/impact.ts 的只读联合类型。旧 ContactEvent 不变，不向 core 引入 DOM 或音频依赖。
