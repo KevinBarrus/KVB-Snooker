@@ -8,8 +8,13 @@ export class FoulNotice {
 
   // PCOL L8016、L8266-8272
   showFoul(score: number, description: string): void {
-    this.head = "FOUL";
-    this.body = score + ": " + description;
+    this.show("FOUL", score + ": " + description);
+  }
+
+  // PCOL L8260-8274
+  show(head: string, body: string): void {
+    this.head = head;
+    this.body = body;
     this.active = true;
     this.autoCloseTimer = Math.min(1 + 0.08 * (this.head.length + this.body.length), 15);
   }
@@ -32,7 +37,7 @@ export class FoulNoticeDom {
   private readonly copyEl: HTMLElement;
   private renderedActive = false;
 
-  constructor(doc: Document = document) {
+  constructor(doc: Document = document, onClose?: () => void) {
     this.element = doc.createElement("div");
     this.element.className = "box message-box";
     this.element.style.display = "none";
@@ -45,6 +50,15 @@ export class FoulNoticeDom {
     body.appendChild(this.copyEl);
     this.element.appendChild(this.headEl);
     this.element.appendChild(body);
+    if (onClose) {
+      const close = doc.createElement("button");
+      close.type = "button";
+      close.className = "message-close";
+      close.textContent = "×";
+      close.setAttribute("aria-label", "Close touching ball notice");
+      close.addEventListener("click", onClose);
+      this.element.appendChild(close);
+    }
   }
 
   sync(notice: FoulNotice): void {

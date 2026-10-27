@@ -53,3 +53,6 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 
 .touching-notice { max-width: min(520px, 75vw); pointer-events: none; }
 .touching-notice .box-head { color: #e5d69d; }
+
+.touching-notice { padding-right: 48px; }
+.message-close { position: absolute; top: 4px; right: 4px; width: 36px; height: 36px; padding: 0; font-size: 24px; pointer-events: auto; }

@@ -210,12 +210,34 @@ try {
         ballOn: 2, inHand: 0, playerIndex: 0, scores: [0, 0]
       } });
     });
-    await advance(300);
+    await advance(0);
     const touching = page.locator(".touching-notice");
     assert.equal(await touching.isVisible(), true);
-    assert.match(await touching.textContent(), /TOUCHING BALL.*红球/);
+    assert.match(await touching.textContent(), /TOUCHING BALL.*red/);
+    assert.doesNotMatch(await touching.textContent(), /[\u3400-\u9fff]/);
     const box = await touching.boundingBox();
     assert(Math.abs(box.x + box.width / 2 - 720) < 2 && box.y > 150 && box.y < 450);
+    const beforeDismiss = await snapshot();
+    await touching.getByRole("button", { name: "Close touching ball notice" }).click();
+    assert.equal(await touching.isVisible(), false);
+    assert.equal(await page.locator("canvas").evaluate(canvas => document.activeElement === canvas), true);
+    await advance(900);
+    assert.equal(await touching.isVisible(), false, "A dismissed notice must not reappear on each frame");
+    assert.deepEqual(await snapshot(), beforeDismiss);
+    await page.evaluate(() => {
+      const { game, simulator } = window.rulesRuntime;
+      const setup = { balls: Array.from({ length: simulator.getBallCount() }, (_, index) => {
+        const ball = simulator.getBallView(index);
+        return { index, x: ball.position.x, z: ball.position.z, active: ball.active };
+      }), ballOn: 2, inHand: 0, playerIndex: 0, scores: [0, 0] };
+      if (!game.setMode("single-play", "NORMAL", { players: ["USER", "USER"], setup })) throw new Error("Could not reload touching setup");
+    });
+    await advance(0);
+    assert.equal(await touching.isVisible(), true, "Loading a new position re-arms its notice");
+    await advance(900);
+    assert.equal(await touching.isVisible(), false, "Notice must expire before the player shoots");
+    await advance(120);
+    assert.equal(await touching.isVisible(), false);
     await page.evaluate(() => {
       const { game } = window.rulesRuntime;
       game.human.camera.resetWithKissDir(0, -1); game.human.gotoState1(true); game.human.strokePower = .4;

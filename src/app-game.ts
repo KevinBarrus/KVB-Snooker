@@ -22,6 +22,7 @@ import { RuleChoiceDom } from "./ui/rule-choice.js";
 import { FoulNotice, FoulNoticeDom } from "./ui/foul-notice.js";
 import { NominationDom } from "./ui/nomination.js";
 
+const TOUCHING_BALL_NAMES = ["cue ball", "red", "yellow", "green", "brown", "blue", "pink", "black"];
 const BALL_NAMES = ["母球", "红球", "黄球", "绿球", "棕球", "蓝球", "粉球", "黑球"];
 
 // PCOL L3662-3772, L7594-7627, L7990-8031
@@ -39,7 +40,12 @@ export class BrowserGame {
   readonly ruleChoice: RuleChoiceDom;
   readonly nomination: NominationDom;
   private readonly touchingMessage = new FoulNotice();
-  readonly touchingNoticeDom = new FoulNoticeDom();
+  private touchingKey = "";
+  readonly touchingNoticeDom = new FoulNoticeDom(document, () => {
+    this.touchingMessage.close();
+    this.touchingNoticeDom.sync(this.touchingMessage);
+    this.canvas.focus();
+  });
   session: GameSession;
   private readonly ref = new SnookerRef();
   private difficulty: keyof typeof AI_PROFILES = "NORMAL";
@@ -141,6 +147,7 @@ export class BrowserGame {
       this.human.gotoState0(true); this.opponent.gotoState0(true);
       this.brain = new AIController(AI_PROFILES[this.difficulty]);
       this.outSeen = 0;
+      this.touchingKey = ""; this.touchingMessage.close();
       this.hud.foulNotice.close();
       this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.controls.update(); this.canvas.focus();
     });
@@ -150,7 +157,6 @@ export class BrowserGame {
     });
     this.touchingNoticeDom.element.classList.add("touching-notice");
     this.touchingNoticeDom.element.setAttribute("role", "status");
-    this.touchingMessage.head = "贴球 / TOUCHING BALL";
     document.body.append(this.touchingNoticeDom.element, this.hudDom.element, this.viewNoticeDom.element, this.ruleChoice.element, this.nomination.element);
     this.activateTurn(); this.syncHud();
   }
@@ -163,8 +169,8 @@ export class BrowserGame {
     if (this.session.state !== GAME_STATE.READY || this.session.finished || this.shots.busy || this.replay.active || this.session.mode === "practice") return "";
     const indices = this.session.touchingBallIndices;
     if (!indices.length) return "";
-    const names = [...new Set(indices.map(index => BALL_NAMES[this.simulator.getBallView(index).number]))].join("、");
-    return `贴球：${names} · 请打离且不要推动贴球；贴合法目标可免再次首碰，贴非目标仍需打到目标`;
+    const names = [...new Set(indices.map(index => TOUCHING_BALL_NAMES[this.simulator.getBallView(index).number]))].join(", ");
+    return `Play away without moving the ${names}.`;
   }
 
   get aimBallOn(): number {
@@ -239,6 +245,7 @@ export class BrowserGame {
     this.session = new GameSession(this.simulator, mode, formal
       ? { ...options, openingPlayerIndex: options.openingPlayerIndex ?? this.nextOpeningIndex } : options);
     if (formal) this.nextOpeningIndex = 1 - this.session.openingPlayerIndex;
+    this.touchingKey = ""; this.touchingMessage.close();
     this.difficulty = difficulty;
     this.brain = new AIController(AI_PROFILES[difficulty]);
     this.human.gotoState0(true); this.opponent.gotoState0(true);
@@ -288,8 +295,14 @@ export class BrowserGame {
     this.human.camera.shotView.smoothing.verticalFov = this.camera.fov;
     this.viewNotice.update(dt); this.viewNoticeDom.sync(this.viewNotice);
     this.syncRuleChoice();
-    this.touchingMessage.body = this.touchingNotice;
-    this.touchingMessage.active = !!this.touchingMessage.body && !this.hud.foulNotice.active;
+    const touching = this.touchingNotice;
+    const touchingKey = `${this.session.context.nRounds}:${touching}`;
+    if (!touching || this.hud.foulNotice.active) this.touchingMessage.close();
+    else if (touchingKey !== this.touchingKey) {
+      this.touchingKey = touchingKey;
+      this.touchingMessage.show("TOUCHING BALL", touching);
+    }
+    this.touchingMessage.update(dt);
     this.touchingNoticeDom.sync(this.touchingMessage);
     if (this.replay.active) { this.replay.update(dt); return; }
     this.controls.update();
