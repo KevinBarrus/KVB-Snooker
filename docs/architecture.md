@@ -260,6 +260,8 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 2026-10-27贴球提示验收修正：提示标题/正文/关闭按钮仅用英文，与当前犯规提示一致，不增加语言切换系统。`FoulNotice.show(head:string,body:string):void`复用原作自动关闭公式，showFoul委托它；`FoulNoticeDom(doc?:Document,onClose?:()=>void)`可选展示×按钮。装配根按回合/贴球文案去重，手动关闭或超时不在同杆反复弹出，新局/复位重置去重状态；出杆/回放隐藏提示。
 
+2026-10-27统一临时消息关闭：FoulNoticeDom默认提供×，绑定最近sync的消息状态并调用close，再通知可选onClose；HudDom(doc?,onNoticeClose?)转发关闭通知，由装配根恢复画布焦点。ViewNotice增加close():void，ViewNoticeDom(doc?,onClose?)同样提供×并保留2.2秒计时。关闭只隐藏提示，不修改犯规/待选择状态；规则选择、提名、回放控件不是临时消息，不自动消失。
+
 ## 5. 目录结构（骨架）
 
 ```

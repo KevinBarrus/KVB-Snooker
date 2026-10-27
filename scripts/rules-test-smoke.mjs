@@ -101,6 +101,13 @@ try {
     const restore = page.getByRole("button", { name: "复位，让对手重打", exact: true });
     assert.equal(await restore.isVisible(), true);
     assert.equal(await page.locator(".hud .message-box .box-head").textContent(), "FOUL AND A MISS");
+    const beforeNoticeClose = await snapshot();
+    await page.locator(".hud .message-box").getByRole("button", { name: "Close message" }).click();
+    assert.equal(await page.locator(".hud .message-box").isVisible(), false);
+    assert.equal(await page.locator("canvas").evaluate(canvas => document.activeElement === canvas), true);
+    await advance(0);
+    assert.deepEqual(await snapshot(), beforeNoticeClose);
+    assert.equal(await restore.isVisible(), true, "Closing the notice must preserve the pending Miss decision");
     const penalty = await page.evaluate(() => window.rulesRuntime.game.session.getScore(1));
     await restore.click(); await advance(0);
     const restored = await snapshot();
@@ -218,7 +225,7 @@ try {
     const box = await touching.boundingBox();
     assert(Math.abs(box.x + box.width / 2 - 720) < 2 && box.y > 150 && box.y < 450);
     const beforeDismiss = await snapshot();
-    await touching.getByRole("button", { name: "Close touching ball notice" }).click();
+    await touching.getByRole("button", { name: "Close message" }).click();
     assert.equal(await touching.isVisible(), false);
     assert.equal(await page.locator("canvas").evaluate(canvas => document.activeElement === canvas), true);
     await advance(900);
@@ -249,6 +256,13 @@ try {
     assert.equal(await page.evaluate(() => window.rulesRuntime.game.session.result.foulCode), 8);
     assert.equal(await restore.isVisible(), false, "Playing away from touching red then in-off is an ordinary foul");
     assert.match(await page.locator(".rule-choice").textContent(), /D 区手中球/);
+    assert.equal(await page.locator(".hud .message-box .box-head").textContent(), "FOUL");
+    const ordinaryFoul = await snapshot();
+    await page.locator(".hud .message-box").getByRole("button", { name: "Close message" }).click();
+    await advance(0);
+    assert.equal(await page.locator(".hud .message-box").isVisible(), false);
+    assert.deepEqual(await snapshot(), ordinaryFoul);
+    assert.equal(await page.locator(".rule-choice").isVisible(), true);
     await page.selectOption('select[name="mode"]', "practice");
     await page.getByRole("button", { name: "开始新局" }).click(); await advance(0);
     await page.evaluate(() => {

@@ -36,6 +36,7 @@ export class FoulNoticeDom {
   private readonly headEl: HTMLElement;
   private readonly copyEl: HTMLElement;
   private renderedActive = false;
+  private notice: FoulNotice | null = null;
 
   constructor(doc: Document = document, onClose?: () => void) {
     this.element = doc.createElement("div");
@@ -50,18 +51,21 @@ export class FoulNoticeDom {
     body.appendChild(this.copyEl);
     this.element.appendChild(this.headEl);
     this.element.appendChild(body);
-    if (onClose) {
-      const close = doc.createElement("button");
-      close.type = "button";
-      close.className = "message-close";
-      close.textContent = "×";
-      close.setAttribute("aria-label", "Close touching ball notice");
-      close.addEventListener("click", onClose);
-      this.element.appendChild(close);
-    }
+    const close = doc.createElement("button");
+    close.type = "button";
+    close.className = "message-close";
+    close.textContent = "×";
+    close.setAttribute("aria-label", "Close message");
+    close.addEventListener("click", () => {
+      this.notice?.close();
+      if (this.notice) this.sync(this.notice);
+      onClose?.();
+    });
+    this.element.appendChild(close);
   }
 
   sync(notice: FoulNotice): void {
+    this.notice = notice;
     if (notice.active !== this.renderedActive) {
       this.renderedActive = notice.active;
       this.element.style.display = notice.active ? "block" : "none";

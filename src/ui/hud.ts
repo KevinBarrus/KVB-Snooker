@@ -61,11 +61,11 @@ export class HudDom {
   private readonly powerBar: PowerBarDom;
   private readonly shortcutsBar: ShortcutsBarDom;
 
-  constructor(doc: Document = document) {
+  constructor(doc: Document = document, onNoticeClose?: () => void) {
     this.element = doc.createElement("div");
     this.element.className = "hud";
     this.scorePanel = new ScorePanelDom(doc);
-    this.foulNotice = new FoulNoticeDom(doc);
+    this.foulNotice = new FoulNoticeDom(doc, onNoticeClose);
     this.powerBar = new PowerBarDom(doc);
     this.shortcutsBar = new ShortcutsBarDom(doc);
     this.element.append(

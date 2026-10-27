@@ -87,7 +87,7 @@ try {
   state = await advance(0); assert.equal(state.paused, true); assert.ok(Math.abs(state.time - state.duration * .5) < 1e-6);
   assert.deepEqual(await cameraPose(), broadcast);
   await page.locator("canvas").focus(); await page.keyboard.press("v"); await advance(30);
-  assert.equal(await page.locator(".view-notice").textContent(), "视线跟随母球");
+  assert.equal(await page.locator(".view-notice-copy").textContent(), "视线跟随母球");
   assert.deepEqual((await cameraPose()).eye, broadcast.eye);
   await page.mouse.move(650, 400); await page.mouse.down(); await page.mouse.move(700, 420); await page.mouse.up();
   assert.equal(await page.evaluate(() => window.replayTestRuntime.game.replay.view.manual), true);

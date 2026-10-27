@@ -33,19 +33,15 @@ export class BrowserGame {
   readonly shots: ShotController;
   readonly controls: GamingInput;
   readonly hud: Hud;
-  readonly hudDom = new HudDom();
+  readonly hudDom = new HudDom(document, () => this.canvas.focus());
   readonly viewNotice = new ViewNotice();
-  readonly viewNoticeDom = new ViewNoticeDom();
+  readonly viewNoticeDom = new ViewNoticeDom(document, () => this.canvas.focus());
   readonly replay: BrowserReplay;
   readonly ruleChoice: RuleChoiceDom;
   readonly nomination: NominationDom;
   private readonly touchingMessage = new FoulNotice();
   private touchingKey = "";
-  readonly touchingNoticeDom = new FoulNoticeDom(document, () => {
-    this.touchingMessage.close();
-    this.touchingNoticeDom.sync(this.touchingMessage);
-    this.canvas.focus();
-  });
+  readonly touchingNoticeDom = new FoulNoticeDom(document, () => this.canvas.focus());
   session: GameSession;
   private readonly ref = new SnookerRef();
   private difficulty: keyof typeof AI_PROFILES = "NORMAL";

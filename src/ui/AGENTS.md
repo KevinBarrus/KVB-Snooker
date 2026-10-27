@@ -54,7 +54,7 @@
 - 原作力度条是挂在球杆上的 Babylon 网格（shader `powerview`，高亮色 H.BLUE、bgAlpha 0.25）；此处改为 DOM 条，颜色与底透明度照抄，位置/形状属美化弹性处理。
 - 原作快捷键条显示还需 gState=READY 且 stateRatio∈{0,1}（L6306-6309）；UI 拿不到 gState，以 `sim/shooting-start` 代理 READY，`state-change-end` 代理 stateRatio 落定。
 - FOUL 抑制读 `ScorePanel` 持有的 ballOn：若 rules 在同一结算中先发 `game/foul` 再发 `game/ball-on-changed`，终局犯规仍会弹出；集成时需保证 ball-on 先发。
-- 消息框的拖拽/钉住/关闭按钮、练习与单局结算面板（L6460-6480、L7700-7730）、侧栏菜单未移植。
+- 消息框的拖拽/钉住、练习与单局结算面板（L6460-6480、L7700-7730）、侧栏菜单未移植。
 
 ## 测试
 
@@ -76,6 +76,10 @@ nomination.ts接受只读目标文案、可选项、选择值、可操作状态�
 
 第二轮：RuleChoiceView.restoreLabel与独立复位回调由装配根提供，无权限时隐藏；UI不推断Miss。中心贴球提示复用FoulNoticeDom，由装配根注入文案与可见性，和犯规消息互斥，不复用犯规事件；2026-10-27改为复用相同计时公式但各自持有计时状态。
 
-贴球提示验收修正：FoulNotice.show接收标题和正文，showFoul复用同一1+0.08×字数、上限15秒公式。FoulNoticeDom可选关闭回调，贴球装配提供×及英文可访问名称；关闭后焦点返回画布。同杆提示由装配根去重，当前贴球仅英文，无中英并排，不引入全站语言切换。
+贴球提示验收修正：FoulNotice.show接收标题和正文，showFoul复用同一1+0.08×字数、上限15秒公式。FoulNoticeDom默认提供×及英文可访问名称，关闭回调可选；关闭后焦点返回画布。同杆提示由装配根去重，当前贴球仅英文，无中英并排，不引入全站语言切换。
 
 本次验收：383项全量测试、typecheck、build及Chrome规则专项通过；计时/上限/手动关闭后重新展示由单测覆盖，按钮、焦点、同杆不重弹及局面无修改由浏览器覆盖。
+
+统一临时提示关闭：FoulNoticeDom默认显示×并关闭最近sync的状态，HudDom转发关闭通知；ViewNoticeDom也绑定状态提供×，保留2.2秒计时。装配根只恢复输入焦点。犯规与Miss共用组件，关闭不改变规则选择；提名/回放/规则操作面板不自动消失。
+
+统一关闭验收：384项测试、typecheck/build通过，Chrome rules/camera/replay通过。首次并行回放启动加载超时，单独重跑通过；关闭临时消息不会丢失待选规则操作。

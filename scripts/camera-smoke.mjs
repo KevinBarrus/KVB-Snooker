@@ -31,9 +31,16 @@ try {
   for (const [value, label] of [["cue", "视线跟随母球"], ["object", "视线跟随子球"], ["natural", "自然起身"]]) {
     await page.keyboard.press("v");
     assert.equal(await mode(), value);
-    assert.equal(await page.locator(".view-notice").textContent(), label);
+    assert.equal(await page.locator(".view-notice-copy").textContent(), label);
   }
+  await page.locator(".view-notice").getByRole("button", { name: "Close message" }).click();
+  assert.equal(await page.locator(".view-notice").isVisible(), false);
+  assert.equal(await mode(), "natural");
+  assert.equal(await page.locator("canvas").evaluate(canvas => document.activeElement === canvas), true);
   await page.keyboard.press("v");
+  assert.equal(await page.locator(".view-notice").isVisible(), true);
+  await advance(150);
+  assert.equal(await page.locator(".view-notice").isVisible(), false);
   await page.reload(); await ready();
   assert.equal(await mode(), "cue");
   await page.keyboard.press("w"); await advance(120);
