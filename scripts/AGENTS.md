@@ -37,3 +37,5 @@ AI复位专项在同一规则脚本中通过公开控制器发出一杆无首碰
 声音第一版：audio-sources.json 保存79个本地WAV的来源分类、强度标签和SHA-256，不包含媒体。prepare-audio-assets.mjs（npm run audio:prepare）先验证全部输入，再复制到忽略目录 public/assets/audio，输出播放增益/起音偏移清单；不改原文件、不降噪。参数在来源清单 preparation 中集中维护，游戏动态曲线在 src/audio/calibration.ts。
 
 audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观察真实AudioBufferSourceNode及输出信号，验证触球时序、预测静默、球球/入袋声、静音持久化、回放隔离、销毁和缺资产降级。音效与物理的随机源隔离；运行前准备音频与球台资源。
+
+声音第二轮对照试听（2026-10-28）：audio-review.mjs（npm run audio:review）按 audio-review-cases.json 从 local-audio 读取 8 段代表素材，在 .cache/audio-review 生成 A/B/C/D 与增益对比、两条事件序列和一键试听页。纯逻辑在 audio-review-lib.mjs（WAV 读写/测量/淡出判定/IR/盲标签/片段运算/卷积）与 audio-review-fft.mjs（基-2 FFT），渲染在 audio-review-render.mjs，页面与说明在 audio-review-page.mjs/.html；有 tests/unit/audio-review.spec.ts 覆盖这些纯函数。输出目录、合成 IR、试听 WAV 均不提交；local-audio 与 public/assets/audio 只读，脚本前后自校验哈希。ffmpeg 探测结论：本机 6.1.1 的 afir 对合成 IR 恒输出静音（delta IR 亦复现），卷积改在 Node 内做；afftdn 恒定延后 25ms（1200 采样 @48k）且不向滤镜图报告，需显式裁齐，无前导时首 6ms 起音会被压低约 1.1dB，故前置 10ms 静音引导噪声跟踪。--out 可指定另一个 .cache 子目录用于可重复性比对。

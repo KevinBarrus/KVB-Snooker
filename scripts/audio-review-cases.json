@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "sources": "scripts/audio-sources.json",
+  "reference": "public/assets/audio/manifest.json",
+  "mediaRoot": "local-audio",
+  "output": ".cache/audio-review",
+  "measurement": {
+    "tailWindowMs": 10,
+    "onsetDb": -24,
+    "preRollMs": 3
+  },
+  "fade": {
+    "obviousDb": -30,
+    "minorDb": -40,
+    "obviousMs": 30,
+    "minorMs": 15
+  },
+  "denoise": {
+    "enabled": true,
+    "noiseReduction": 12,
+    "noiseFloor": -40,
+    "trackNoise": true,
+    "latencyMs": 25,
+    "primeMs": 10,
+    "transientWindowMs": 60,
+    "residualLimitDb": -20,
+    "note": "afftdn 输出恒定延后 25ms（实测 1200 采样 @48k，8 段一致），不向滤镜图报告延迟，故显式裁齐；前置 10ms 静音仅为避开滤镜起始端边缘效应：无引导时首 6ms 起音会被压低约 1.1dB，10ms 时降到 0.1dB 以内；nr/nf 取中等强度（12dB / -40dBFS），实测撞击窗约 -0.3dB、尾部约 -1 ~ -6dB；残差=原信号−降噪后信号"
+  },
+  "reverb": {
+    "wetLevels": [
+      0.15,
+      0.35
+    ],
+    "tailExtraSeconds": 0.65,
+    "ir": {
+      "sampleRate": 48000,
+      "durationSeconds": 2.0,
+      "preDelayMs": 25,
+      "rt60Seconds": 1.4,
+      "highRt60Scale": 0.7,
+      "crossHz": 1500,
+      "earlyTaps": 8,
+      "seed": 20261028
+    }
+  },
+  "gainStudy": {
+    "masterDb": -12
+  },
+  "compressor": {
+    "thresholdDb": -8,
+    "kneeDb": 8,
+    "ratio": 8,
+    "attackMs": 3,
+    "releaseMs": 120,
+    "makeup": 1,
+    "note": "近似游戏总线压缩器（src/audio/calibration.ts: threshold -8 / knee 12 / ratio 8 / attack 3ms / release 120ms）；ffmpeg acompressor 的 knee 上限为 8dB，故此处取 8，其余参数一致"
+  },
+  "peakTargetDb": -0.5,
+  "blindSeed": 7717,
+  "cases": [
+    {
+      "id": "cue-light",
+      "sampleId": "sample-33",
+      "label": "皮头·轻杆（中低杆小力）",
+      "reason": "轻杆干净对照；末尾 10ms 相对峰值约 -35dB，用于检验短淡出是否够用"
+    },
+    {
+      "id": "cue-heavy",
+      "sampleId": "sample-50",
+      "label": "皮头·低杆大力（长台库边手架）",
+      "reason": "交接文档点名；末尾能量最高的样本，检验明显截断的边缘处理",
+      "fadeMs": [
+        15,
+        30
+      ]
+    },
+    {
+      "id": "cue-low",
+      "sampleId": "sample-44",
+      "label": "皮头·低杆中小力",
+      "reason": "低杆干净对照，且基线播放起点偏移较大（约 160ms），检验时间映射",
+      "fadeMs": []
+    },
+    {
+      "id": "ball-light",
+      "sampleId": "sample-54",
+      "label": "球球·中力轻碰",
+      "reason": "轻碰干净对照，样本最短（0.17s），用于检验淡出对短瞬态的影响"
+    },
+    {
+      "id": "ball-heavy",
+      "sampleId": "sample-60",
+      "label": "球球·中大力重碰",
+      "reason": "交接文档点名；重碰且末尾能量偏高，同时作为事件序列的成员",
+      "fadeMs": [
+        15,
+        30
+      ]
+    },
+    {
+      "id": "pocket-clean-mid",
+      "sampleId": "sample-06",
+      "label": "空心入袋·中力",
+      "reason": "中力入袋干净对照，保留袋内声音结构"
+    },
+    {
+      "id": "pocket-clean-hard",
+      "sampleId": "sample-14",
+      "label": "空心入袋·大力",
+      "reason": "交接文档点名；大力入袋且末尾能量偏高",
+      "fadeMs": [
+        15,
+        30
+      ]
+    },
+    {
+      "id": "pocket-jaw",
+      "sampleId": "sample-02",
+      "label": "磕袋角入袋·大力（多次撞击）",
+      "reason": "组内最长（0.555s）的内部多次撞击样本，检验处理不删除袋口撞击",
+      "fadeMs": []
+    }
+  ],
+  "sequences": [
+    {
+      "id": "pot",
+      "label": "杆头→球球→空心入袋（示例时序 0 / 420 / 850ms，非真实事件记录）",
+      "events": [
+        {
+          "caseId": "cue-light",
+          "atMs": 0
+        },
+        {
+          "caseId": "ball-light",
+          "atMs": 420
+        },
+        {
+          "caseId": "pocket-clean-mid",
+          "atMs": 850
+        }
+      ]
+    },
+    {
+      "id": "cluster",
+      "label": "连续球球碰撞 ×4（示例时序 0 / 60 / 120 / 180ms，非真实事件记录）",
+      "events": [
+        {
+          "caseId": "ball-light",
+          "atMs": 0
+        },
+        {
+          "caseId": "ball-heavy",
+          "atMs": 60
+        },
+        {
+          "caseId": "ball-light",
+          "atMs": 120
+        },
+        {
+          "caseId": "ball-heavy",
+          "atMs": 180
+        }
+      ]
+    }
+  ],
+  "sequenceVersions": [
+    "A",
+    "B",
+    "C",
+    "D-wet0.35"
+  ]
+}

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>声音第二轮 · 对照试听</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 20px 96px; background: #14161a; color: #e6e8ec;
+         font: 15px/1.6 -apple-system, "Segoe UI", "Noto Sans SC", sans-serif; }
+  header { max-width: 880px; margin: 0 auto 24px; }
+  h1 { font-size: 20px; margin: 0 0 6px; font-weight: 600; letter-spacing: .01em; }
+  p.lead { margin: 0; color: #9aa3af; font-size: 13px; }
+  main { max-width: 880px; margin: 0 auto; }
+  section { border: 1px solid #262b33; border-radius: 10px; padding: 16px 18px; margin: 0 0 16px;
+            background: #191c21; }
+  h2 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
+  .meta { color: #7d8794; font-size: 12px; margin: 0 0 12px; }
+  .group { display: flex; flex-wrap: wrap; gap: 2px 20px; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 3px 0; min-width: 132px; }
+  button { background: #2a303a; color: #e6e8ec; border: 1px solid #39414d; border-radius: 7px;
+           padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  button:hover { background: #333b47; }
+  button.playing { background: #2f6f4f; border-color: #3d8f66; }
+  .code { font: 13px/1 ui-monospace, monospace; color: #8fb8ff; min-width: 42px; letter-spacing: .08em; }
+  .real { color: #b7c0cc; font-size: 12px; }
+  .dur { color: #6b7480; font-size: 12px; margin-left: auto; font-variant-numeric: tabular-nums; }
+  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 0 0 18px;
+             font-size: 13px; color: #9aa3af; }
+  .toolbar label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 20px;
+           background: #0f1114ee; border-top: 1px solid #262b33; display: flex; gap: 12px;
+           align-items: center; backdrop-filter: blur(6px); }
+  footer .status { color: #9aa3af; font-size: 12px; font-variant-numeric: tabular-nums; }
+  footer .stop { background: #4a2b30; border-color: #6d3d44; }
+  footer .stop:hover { background: #573339; }
+  code.inline { background: #232830; border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>声音第二轮 · 对照试听</h1>
+  <p class="lead">每组的版本只差一项处理；版本名默认隐藏。一次只播一个，“顺播本组”按固定间隔依次播放。</p>
+</header>
+<div class="toolbar">
+  <label><input type="checkbox" id="reveal"> 显示版本名</label>
+  <span>等能量匹配已在生成时完成，跨组不要比音量。</span>
+</div>
+<main id="root"></main>
+<footer>
+  <button class="stop" id="stop">■ 停止</button>
+  <span class="status" id="status">未播放</span>
+</footer>
+<script>
+const data = /*__DATA__*/null;
+const audio = new Audio();
+audio.preload = "none";
+let fadeTimer = null, queueTimer = null, currentRow = null;
+
+function clearTimers() {
+  if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; }
+  if (queueTimer) { clearTimeout(queueTimer); queueTimer = null; }
+}
+function stop(withFade) {
+  clearTimers();
+  if (currentRow) { currentRow.classList.remove("playing"); currentRow = null; }
+  if (audio.paused) { audio.currentTime = 0; return; }
+  if (!withFade) { audio.pause(); audio.currentTime = 0; audio.volume = 1; setStatus("已停止"); return; }
+  const step = audio.volume / 10;
+  fadeTimer = setInterval(() => {
+    audio.volume = Math.max(0, audio.volume - step);
+    if (audio.volume <= 0.001) { clearTimers(); audio.pause(); audio.currentTime = 0; audio.volume = 1; }
+  }, 5);
+  setStatus("已停止");
+}
+function setStatus(text) { document.getElementById("status").textContent = text; }
+
+function play(file, row) {
+  stop(false);
+  currentRow = row;
+  row.classList.add("playing");
+  audio.src = file;
+  audio.volume = 1;
+  setStatus("播放中 " + row.dataset.code);
+  audio.play().catch(error => { setStatus("无法播放：" + error.message); });
+  audio.onended = () => {
+    if (currentRow === row) { row.classList.remove("playing"); currentRow = null; setStatus("已结束"); }
+  };
+}
+
+function playSequence(rows, index, gapMs) {
+  if (index >= rows.length) { setStatus("顺播结束"); return; }
+  play(rows[index].file, rows[index].row);
+  queueTimer = setTimeout(() => {
+    if (index + 1 < rows.length) { stop(false); playSequence(rows, index + 1, gapMs); }
+    else setStatus("顺播结束");
+  }, Math.abs(rows[index].duration * 1000) + gapMs);
+}
+
+function rowElement(version) {
+  const row = document.createElement("div");
+  row.className = "row";
+  row.dataset.code = version.code;
+  row.file = version.file;
+  row.duration = version.duration;
+  const button = document.createElement("button");
+  button.textContent = "▶";
+  button.title = "播放";
+  button.onclick = () => play(version.file, row);
+  const code = document.createElement("span");
+  code.className = "code"; code.textContent = version.code;
+  const real = document.createElement("span");
+  real.className = "real"; real.textContent = decode(version.nameB64);
+  real.hidden = true;
+  row.dataset.real = real.textContent;
+  const dur = document.createElement("span");
+  dur.className = "dur"; dur.textContent = version.duration.toFixed(3) + "s"; dur.hidden = true;
+  row.append(button, code, real, dur);
+  return row;
+}
+
+function decode(value) {
+  try { return decodeURIComponent(escape(atob(value))); } catch { return value; }
+}
+
+function section(title, meta, versions, extraButton) {
+  const box = document.createElement("section");
+  const h2 = document.createElement("h2"); h2.textContent = title;
+  const p = document.createElement("p"); p.className = "meta"; p.textContent = meta;
+  box.append(h2, p);
+  const rows = versions.map(rowElement);
+  const group = document.createElement("div");
+  group.className = "group";
+  for (const row of rows) group.append(row);
+  box.append(group);
+  if (extraButton) {
+    const button = document.createElement("button");
+    button.textContent = "顺播本组";
+    button.style.marginTop = "10px";
+    button.onclick = () => {
+      playSequence(rows.map(row => ({ file: row.file, row, duration: row.duration })), 0, data.gapMs);
+    };
+    box.append(button);
+  }
+  return box;
+}
+
+const root = document.getElementById("root");
+for (const entry of data.cases) {
+  const main = entry.versions.filter(v => v.group !== "gain");
+  const gain = entry.versions.filter(v => v.group === "gain");
+  const note = entry.dryGainDb < -1
+    ? ` · 混响组干路 ${entry.dryGainDb.toFixed(1)} dB（原始素材已达满量程，混响只能从干路让出）` : "";
+  root.append(section(
+    entry.label,
+    `${entry.sampleId} · 末尾能量 ${entry.tailRelDb.toFixed(1)} dB（相对峰值）· ${entry.reason}${note}`,
+    main, true));
+  if (gain.length) {
+    root.append(section(`${entry.label} · 增益补偿对比`,
+      "固定主音量（-6dB），只切换第一版的逐样本 RMS 补偿；与上面的组不要混听。", gain, false));
+  }
+}
+for (const entry of data.sequences) {
+  root.append(section(entry.label, "同一组内事件时刻与选样完全一致；带“压缩”的版本经过游戏总线的压缩器设置。",
+    entry.versions, true));
+}
+
+const reveal = document.getElementById("reveal");
+reveal.onchange = () => {
+  for (const row of document.querySelectorAll(".row")) {
+    row.querySelector(".real").hidden = !reveal.checked;
+    row.querySelector(".dur").hidden = !reveal.checked;
+  }
+};
+document.getElementById("stop").onclick = () => stop(true);
+window.addEventListener("keydown", event => { if (event.key === "Escape") stop(true); });
+window.addEventListener("beforeunload", () => stop(false));
+</script>
+</body>
+</html>

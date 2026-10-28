@@ -18,6 +18,7 @@
     "test:rules": "node scripts/rules-test-smoke.mjs",
     "test:replay": "node scripts/replay-smoke.mjs",
     "audio:prepare": "node scripts/prepare-audio-assets.mjs",
+    "audio:review": "node scripts/audio-review.mjs",
     "test:audio": "node scripts/audio-smoke.mjs"
   },
   "devDependencies": {
