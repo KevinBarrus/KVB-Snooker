@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "profile": "three-level-pilot",
+  "sources": [
+    {
+      "id": "wst-trump-wu",
+      "file": "../.cache/audio-acquisition/SEqbVd9Na_A.f140.m4a",
+      "url": "https://www.youtube.com/watch?v=SEqbVd9Na_A",
+      "title": "Judd Trump vs Wu Yize | International Championship 2025 | FULL MATCH",
+      "uploader": "WST",
+      "channelId": "UC5lTEvtwu6SR3LMSmU9VZ2Q",
+      "formatId": "140",
+      "acquisition": "官方yt-dlp下载非DRC原始AAC音轨；仅容器修正，无再次有损编码",
+      "videoFile": "../.cache/audio-acquisition/SEqbVd9Na_A.f135.mp4"
+    },
+    {
+      "id": "wst-zhao-gao",
+      "file": "../.cache/audio-acquisition/VLPRhJbT9qM.f140-20.m4a",
+      "url": "https://www.youtube.com/watch?v=VLPRhJbT9qM",
+      "title": "Zhao Xintong vs Gao Yang | BetVictor Northern Ireland Open 2026",
+      "uploader": "WST",
+      "channelId": "UC5lTEvtwu6SR3LMSmU9VZ2Q",
+      "formatId": "140-20",
+      "acquisition": "官方yt-dlp下载英语非DRC原始AAC音轨；仅容器修正，无再次有损编码",
+      "videoFile": "../.cache/audio-acquisition/VLPRhJbT9qM.f135.mp4"
+    }
+  ],
+  "excludedClips": [
+    {
+      "sourceId": "wst-trump-wu",
+      "impactSeconds": 2065.955,
+      "startSeconds": 2065.835,
+      "endSeconds": 2066.455,
+      "previousFile": "ball-075-01.wav",
+      "reason": "用户确认可听两次撞击；整条淘汰，不修剪重交"
+    },
+    {
+      "sourceId": "wst-trump-wu",
+      "impactSeconds": 4300.995,
+      "startSeconds": 4300.875,
+      "endSeconds": 4301.595,
+      "previousFile": "pocket-clean-100-01.wav",
+      "reason": "用户确认含球球与入袋两次声响；整条淘汰，不修剪重交"
+    }
+  ],
+  "clips": [
+    {
+      "sourceId": "wst-trump-wu",
+      "startSeconds": 5320.285,
+      "impactSeconds": 5320.32,
+      "endSeconds": 5320.82,
+      "nextEventSeconds": 5321.09,
+      "group": "cue-unclassified",
+      "intensity": 0.5,
+      "classificationStatus": "cue-style-unconfirmed",
+      "boundaryReason": "只保留35ms前导；截于下一次球球撞击前270ms，不用前导时长凑数",
+      "note": "长距离出杆皮头，中力候选。杆法待确认，不计入高/中/低杆覆盖。",
+      "eventReview": {
+        "status": "isolated-candidate",
+        "evidence": "画面母球离杆后长距离运行，5321.09s才出现球球主瞬态；本段5320.32s单次起音后衰减，无第二个可归属独立碰撞的强瞬态。"
+      },
+      "contextSeconds": [
+        5319.12,
+        5322.12
+      ],
+      "frameEvidence": "frames-v2/SEqbVd9Na_A-5320.32.jpg"
+    },
+    {
+      "sourceId": "wst-zhao-gao",
+      "startSeconds": 459.835,
+      "impactSeconds": 459.87,
+      "endSeconds": 460.37,
+      "nextEventSeconds": 460.73,
+      "group": "cue-unclassified",
+      "intensity": 0.5,
+      "classificationStatus": "cue-style-unconfirmed",
+      "boundaryReason": "保留35ms前导，目标碰撞间隔约860ms；结束后再过360ms才有下一次球球主声",
+      "note": "较长距离出杆皮头，中力候选。尚未从画面可靠确认高/中/低杆，先放杆法待确认组。",
+      "eventReview": {
+        "status": "isolated-candidate",
+        "evidence": "母球跨台运动后才接近红球；459.872s主峰后背景回落，下一主峰460.739s在裁剪区间之外。"
+      },
+      "contextSeconds": [
+        458.67,
+        461.67
+      ],
+      "frameEvidence": "frames-v2/VLPRhJbT9qM-459.87.jpg"
+    },
+    {
+      "sourceId": "wst-trump-wu",
+      "startSeconds": 2712.435,
+      "impactSeconds": 2712.47,
+      "endSeconds": 2712.97,
+      "nextEventSeconds": 2713.38,
+      "group": "cue-unclassified",
+      "intensity": 0.5,
+      "classificationStatus": "cue-style-unconfirmed",
+      "boundaryReason": "保留35ms前导，下一次球球声在约910ms之后，本段提前410ms结束",
+      "note": "远距离出杆皮头，中力候选，原声电平较低，未调响；杆法待确认，先放杆法待确认组。",
+      "eventReview": {
+        "status": "isolated-candidate",
+        "evidence": "近景显示母球离杆后持续前进，2713.38s才首碰红球；2712.475s起音在裁剪内，2713.383s强碰撞完全不在本段。"
+      },
+      "contextSeconds": [
+        2711.27,
+        2714.27
+      ],
+      "frameEvidence": "frames-v2/SEqbVd9Na_A-2712.465.jpg"
+    },
+    {
+      "sourceId": "wst-trump-wu",
+      "startSeconds": 3405.215,
+      "impactSeconds": 3405.25,
+      "endSeconds": 3405.75,
+      "nextEventSeconds": 3406,
+      "group": "ball",
+      "intensity": 0.5,
+      "classificationStatus": "intensity-provisional",
+      "boundaryReason": "前导35ms；红球后续靠近右库，裁剪止于靠库之前",
+      "note": "母球碰单颗红球后两球分离，中力候选。下一事件时间3406.0s为画面保守边界，不冒充精确音频撞击点。",
+      "eventReview": {
+        "status": "isolated-candidate",
+        "evidence": "画面首碰后两球各自运行，保留区间没有碰其他球；3405.258s主瞬态后，500ms内没有另一处超过-38dBFS的独立峰簇。"
+      },
+      "contextSeconds": [
+        3404.05,
+        3407.05
+      ],
+      "frameEvidence": "frames-v2/SEqbVd9Na_A-3405.25.jpg"
+    },
+    {
+      "sourceId": "wst-zhao-gao",
+      "startSeconds": 460.695,
+      "impactSeconds": 460.73,
+      "endSeconds": 461.03,
+      "nextEventSeconds": 461.13,
+      "group": "ball",
+      "intensity": 0.3,
+      "classificationStatus": "intensity-provisional",
+      "boundaryReason": "只保留300ms后段，避开随后红球落袋；461.13s是画面保守边界，不是已确认的声学起音",
+      "note": "小力球球候选。皮头声在前约860ms，不在这条里；红球随后的入袋也不保留。",
+      "eventReview": {
+        "status": "isolated-candidate",
+        "evidence": "画面白球与靠底袋红球首次接触后分开，截于红球到袋前；460.739s主峰后到461.03s没有第二个显著声学起音。"
+      },
+      "contextSeconds": [
+        459.53,
+        462.53
+      ],
+      "frameEvidence": "frames-v2/VLPRhJbT9qM-460.73.jpg"
+    },
+    {
+      "sourceId": "wst-zhao-gao",
+      "startSeconds": 194.73,
+      "impactSeconds": 194.765,
+      "endSeconds": 195.315,
+      "nextEventSeconds": 195.4,
+      "group": "pocket-clean",
+      "intensity": 1,
+      "classificationStatus": "pocket-style-and-intensity-provisional",
+      "boundaryReason": "前导35ms不包含约194.005s的前一次球球事件；195.4s之后有其他声学变化，提前85ms结束",
+      "note": "较响的红球入袋候选，空心/擦袋角及大力标签均待确认；不能仅凭较响电平判断力度。",
+      "eventReview": {
+        "status": "unresolved",
+        "evidence": "194.005s附近球球接触后红球出画，后续记分增加；194.768s有主声，但主声后约200ms还有较明显起伏，不能可靠区分袋内声与另一事件。本轮不交付这条候选。"
+      },
+      "contextSeconds": [
+        193.565,
+        196.565
+      ],
+      "frameEvidence": "frames-v2/VLPRhJbT9qM-194.765.jpg"
+    }
+  ]
+}

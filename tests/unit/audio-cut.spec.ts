@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { auditClip, validateClip, type Clip } from '../../scripts/audio-cut-audit.mjs';
+import { auditClip, reviewClip, validateClip, type Clip } from '../../scripts/audio-cut-audit.mjs';
 import { readWav, type WavAudio } from '../../scripts/audio-review-lib.mjs';
 
 const rate = 48000;
@@ -52,6 +52,28 @@ describe('PCM24 source analysis', () => {
 });
 
 describe('raw collision acceptance', () => {
+  it('keeps overlapping or unresolved events out even when numerical checks pass', () => {
+    expect(auditClip(impact(), clip).passed).toBe(true);
+    for (const status of ['multiple-events', 'unresolved']) {
+      expect(reviewClip({ ...clip, eventReview: { status, evidence: 'two separate source contacts' } }, 'three-level-pilot')).toBe('rejected');
+    }
+  });
+  it('separates listening candidates from numerical diagnostics', () => {
+    const wav = impact(); wav.samples.fill(0.001, wav.frames - 1000);
+    expect(auditClip(wav, clip).passed).toBe(false);
+    expect(reviewClip({ ...clip, eventReview: { status: 'isolated-candidate', evidence: 'one visible contact, next outside cut' } }, 'three-level-pilot')).toBe('candidate');
+  });
+  it('requires three-level labels and source evidence for the pilot', () => {
+    const candidate = { ...clip, eventReview: { status: 'isolated-candidate', evidence: 'source frames and waveform' } };
+    expect(() => reviewClip(candidate, 'unknown')).toThrow();
+    expect(() => reviewClip(clip, 'three-level-pilot')).toThrow();
+    expect(() => reviewClip({ ...candidate, intensity: 0.75 }, 'three-level-pilot')).toThrow();
+    expect(() => reviewClip({ ...candidate, group: 'cue-mid-low' }, 'three-level-pilot')).toThrow();
+    expect(reviewClip({ ...candidate, group: 'cue-unclassified' }, 'three-level-pilot')).toBe('candidate');
+    expect(() => reviewClip({ ...candidate, group: 'cue-unclassified' })).toThrow();
+    expect(() => reviewClip({ ...candidate, startSeconds: 0.1 }, 'three-level-pilot')).toThrow();
+    expect(reviewClip({ ...candidate, startSeconds: 0.1, boundaryReason: 'exclude preceding event' }, 'three-level-pilot')).toBe('candidate');
+  });
   it('keeps a clean numerical pass pending human listening', () => {
     const audit = auditClip(impact(), clip);
     expect(audit.reasons).toEqual([]);

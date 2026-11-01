@@ -1,5 +1,9 @@
 # scripts · 本地验证工具
 
+第二轮试采按用户新确认的三档力度/三种杆法执行，输入清单为audio-resampling-round2.json，profile为three-level-pilot。首次strict-v1模式保持兼容；新模式分别记录数值诊断与事件筛选，已确认多事件和未能归属事件都不进candidates。旧两条用户确认双响的源区间写入excludedClips，重叠裁剪在生成文件前拒绝。
+
+本轮实际交付5条待试听：3条中力皮头、1条中力球球、1条小力球球。皮头杆法均未能可靠确认，使用仅限试采的cue-unclassified临时标记，不作为第四种杆法，也不接入游戏；新入袋候选无法确认后续起伏，单独否决。上下文WAV与候选分开，短前导用preWindowSeconds记录实际测量长度，不冒称100ms。正式素材、播放清单及src不变。结果与交付路径见docs/audio-resampling.md第二轮。
+
 原声重采样（2026-11-01）：audio-cut.mjs（npm run audio:cut）消费来源及起点/撞击/终点JSON，直接解码为48k PCM24，输出SHA-256、体检与人工待审报告；audio-cut-audit.mjs复用已有WAV/RMS工具。输出只允许新建的忽略目录，数值失败放rejected/，不改local-audio或public/assets。契约见docs/audio-resampling.md；原始Windows素材目录下的验收包单独复制，不覆盖现有文件。
 
 ### 重采样发现的工具边界

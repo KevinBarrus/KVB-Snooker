@@ -3,8 +3,23 @@ import { gainToDb, measureWav, rmsOfWindow } from './audio-review-lib.mjs';
 export const GROUPS = ['cue-low', 'cue-mid-low', 'cue-center', 'cue-high', 'ball', 'pocket-clean', 'pocket-jaw'];
 export const INTENSITIES = [0.1, 0.3, 0.5, 0.75, 1];
 
+export function reviewClip(clip, profile = 'strict-v1') {
+  if (profile === 'strict-v1') {
+    if (clip.group === 'cue-unclassified') throw new Error('Unclassified cue requires pilot profile');
+    return 'legacy';
+  }
+  if (profile !== 'three-level-pilot') throw new Error('Unknown capture profile');
+  validateClip(clip);
+  if (clip.group === 'cue-mid-low' || ![0.3, 0.5, 1].includes(clip.intensity)) throw new Error('Pilot requires three-level classification');
+  const review = clip.eventReview;
+  if (!review || !['isolated-candidate', 'multiple-events', 'unresolved'].includes(review.status)
+    || typeof review.evidence !== 'string' || !review.evidence.trim()) throw new Error('Missing event review evidence');
+  if (clip.impactSeconds - clip.startSeconds < 0.1 && !clip.boundaryReason?.trim()) throw new Error('Short pre-roll needs a boundary reason');
+  return review.status === 'isolated-candidate' ? 'candidate' : 'rejected';
+}
+
 export function validateClip(clip) {
-  if (!clip || !GROUPS.includes(clip.group) || !INTENSITIES.includes(clip.intensity)) throw new Error('Invalid group/intensity');
+  if (!clip || ![...GROUPS, 'cue-unclassified'].includes(clip.group) || !INTENSITIES.includes(clip.intensity)) throw new Error('Invalid group/intensity');
   for (const field of ['startSeconds', 'impactSeconds', 'endSeconds']) {
     if (!Number.isFinite(clip[field]) || clip[field] < 0) throw new Error(`Invalid ${field}`);
   }
@@ -57,7 +72,7 @@ export function auditClip(wav, clip) {
   if (clippedRun >= 3) reasons.push('clipping');
   if (clip.nextEventSeconds != null && clip.nextEventSeconds - clip.endSeconds < 0.02 - 1 / rate) reasons.push('next_event_margin');
   return { passed: reasons.length === 0, reasons, durationSeconds: duration, preSeconds, postSeconds, minimumPost,
-    preRmsDbFS, impactPeakDbFS: gainToDb(impactPeak), riseDb, peakDbFS: measured.peakDb,
+    preWindowSeconds: Math.min(0.1, preSeconds), preRmsDbFS, impactPeakDbFS: gainToDb(impactPeak), riseDb, peakDbFS: measured.peakDb,
     tailRmsDbFS: measured.tailDb, tailRelativeDb: measured.tailRelDb, tailBinsDbFS, tailDescending, clippedRun,
     manualStatus: 'pending', warnings: [
       '数值通过不等于无解说/咳嗽/第二次撞击；必须人工试听确认分类、力度和完整性',
