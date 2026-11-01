@@ -19,17 +19,30 @@ export function readWav(bytes) {
   }
   if (!format || format.length < 16 || !data?.length) throw new Error("Incomplete WAV");
   let tag = format.readUInt16LE(0);
-  if (tag === 0xfffe && format.length >= 26) tag = format.readUInt16LE(24);
-  const bits = tag === 1 ? 16 : 32;
+  if (tag === 0xfffe) {
+    if (format.length < 40) throw new Error("Incomplete extensible WAV format");
+    if (format.readUInt16LE(16) < 22 || format.subarray(28, 40).toString('hex') !== '00001000800000aa00389b71') {
+      throw new Error("Unsupported extensible WAV format");
+    }
+    const validBits = format.readUInt16LE(18);
+    if (validBits !== 0 && validBits !== format.readUInt16LE(14)) throw new Error("Unsupported WAV valid bits");
+    tag = format.readUInt32LE(24);
+  }
+  const bits = format.readUInt16LE(14);
   const channels = format.readUInt16LE(2);
   const sampleRate = format.readUInt32LE(4);
   if (channels < 1 || channels > 2 || sampleRate <= 0) throw new Error("Unsupported WAV layout");
-  if (tag !== 1 && tag !== 3) throw new Error("Expected PCM16 or float32 WAV");
+  if (!(tag === 1 && [16, 24].includes(bits)) && !(tag === 3 && bits === 32)) {
+    throw new Error("Expected PCM16, PCM24 or float32 WAV");
+  }
   const bytesPerSample = bits / 8;
+  if (format.readUInt16LE(12) !== channels * bytesPerSample) throw new Error("Invalid WAV block alignment");
   if (data.length % (channels * bytesPerSample)) throw new Error("Unaligned WAV data");
   const samples = new Float32Array(data.length / bytesPerSample);
   for (let i = 0; i < samples.length; ++i) {
-    samples[i] = bits === 16 ? data.readInt16LE(i * 2) / 32768 : data.readFloatLE(i * 4);
+    samples[i] = tag === 3 ? data.readFloatLE(i * 4)
+      : data.readIntLE(i * bytesPerSample, bytesPerSample) / 2 ** (bits - 1);
+    if (!Number.isFinite(samples[i])) throw new Error("Nonfinite WAV sample");
   }
   return { sampleRate, channels, frames: samples.length / channels, samples };
 }

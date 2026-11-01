@@ -1,5 +1,14 @@
 # scripts · 本地验证工具
 
+原声重采样（2026-11-01）：audio-cut.mjs（npm run audio:cut）消费来源及起点/撞击/终点JSON，直接解码为48k PCM24，输出SHA-256、体检与人工待审报告；audio-cut-audit.mjs复用已有WAV/RMS工具。输出只允许新建的忽略目录，数值失败放rejected/，不改local-audio或public/assets。契约见docs/audio-resampling.md；原始Windows素材目录下的验收包单独复制，不覆盖现有文件。
+
+### 重采样发现的工具边界
+
+- 原readWav曾忽略fmt中的位深，仅按PCM标签假设16位；现显式支持PCM16/PCM24/float32，拒绝错误块对齐及非有限采样，支持ffmpeg的extensible PCM24头。
+- ffprobe的码率只能说明当前流；标称128kbps AAC可因整数舍入报告127999bps，体检仅容许1bps差，不声明只有一代压缩。
+- 尾部趋势使用10ms RMS窗口、3dB波动容差与−70dBFS噪声地板。数值通过不能证明无说话/咳嗽/复合碰撞，仍须人工试听；不自动归一化或降噪来过关。
+- 首批六条原声诊断试样数值通过0条：6条尾部能量超标，其中1条前导超标，全部保留在rejected/。杆法/力度暂定，不计入24条合格目标；待试听6条与数值通过后的待试听数分开统计。结果与Windows交付位置见docs/audio-resampling.md，未改游戏素材。
+
 - prepare-render-assets.mjs 校验原作资源 SHA-256 后复制到 public/assets/render；输入默认 vendor-original/render，可传目录参数。
 - 两个资产目录均排除于 Git；禁止提交原始资源。
 - 不改 core，不下载或执行原作 JS。

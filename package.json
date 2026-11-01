@@ -19,6 +19,7 @@
     "test:replay": "node scripts/replay-smoke.mjs",
     "audio:prepare": "node scripts/prepare-audio-assets.mjs",
     "audio:review": "node scripts/audio-review.mjs",
+    "audio:cut": "node scripts/audio-cut.mjs",
     "test:audio": "node scripts/audio-smoke.mjs"
   },
   "devDependencies": {

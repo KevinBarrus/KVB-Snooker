@@ -37,4 +37,5 @@ tmp/
 
 # 本地音效素材与准备产物
 local-audio/
+local-audio-new/
 public/assets/audio/
