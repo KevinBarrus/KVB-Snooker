@@ -134,14 +134,15 @@ export class GameSession {
     this.response();
   }
 
-  advanceTime(seconds: number): void {
+  advanceTime(seconds: number): "shot" | "frame" | null {
     const nine = this.nine;
-    if (!nine || this.finished) return;
+    if (!nine || this.finished) return null;
     const expiry = nine.clock.advance(seconds);
     if (expiry === "shot") this.timeoutFoul();
     else if (expiry === "frame" && this.currentState !== GAME_STATE.SIMULATING) this.endNineHundredFrame();
-    else return;
+    else return expiry;
     if (this.currentState !== GAME_STATE.SIMULATING) this.response();
+    return expiry;
   }
 
   beginPlacement(playerIndex: number): boolean {

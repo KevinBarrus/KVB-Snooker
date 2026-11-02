@@ -63,8 +63,9 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       if (testTools?.start()) return;
       const values = new FormData(options);
       const level = values.get("difficulty");
-      game.setMode(values.get("mode") === "single-play" ? "single-play" : "practice",
-        level === "EASY" || level === "HARD" ? level : "NORMAL");
+      const mode = values.get("mode") === "single-play" ? "single-play" : "practice";
+      game.setMode(mode, level === "EASY" || level === "HARD" ? level : "NORMAL",
+        mode === "single-play" ? { ruleset: values.get("rules") === "snooker-900" ? "snooker-900" : "classic" } : {});
     };
     options?.addEventListener("submit", startGame);
     const syncInteraction = () => {

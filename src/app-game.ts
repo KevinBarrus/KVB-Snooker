@@ -86,6 +86,10 @@ export class BrowserGame {
           const index = result.outOfBoundsIndices[this.outSeen++];
           this.bus.emit("sim/out-of-bounds", { ballIndex: index, ballNumber: simulator.getBallView(index).number });
         }
+      },
+      cancelled: () => {
+        this.pendingShot = false; this.outSeen = 0;
+        this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.controls.update();
       }
     });
     const gameView = createGameView(simulator);
@@ -101,25 +105,31 @@ export class BrowserGame {
     this.controls = new GamingInput(canvas, this.human, this.shots, {
       state: () => this.pendingShot ? GAME_STATE.SIMULATING : this.session.state,
       canAim: () => this.human.active && this.canShoot(this.human.playerIndex),
-      canPlace: () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0,
+      canPlace: () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0 &&
+        (!this.session.clock || this.session.clock.phase === "placement"),
       cycleView: () => this.cycleView()
     }, {
       ray: (x, y) => {
         const bounds = canvas.getBoundingClientRect();
         return scene.createPickingRay(x - bounds.left, y - bounds.top, B.Matrix.Identity(), camera);
       },
-      valid: point => this.ref.placeCueBallCheck(point.x, simulator.spotY, point.z, simulator),
+      valid: point => this.session.canPlaceCueBall(point.x, simulator.spotY, point.z),
       place: point => {
         if (!this.human.active || !this.canShoot(this.human.playerIndex) || this.session.context.inHand <= 0) return false;
+        if (this.session.clock && this.session.clock.phase !== "placement") return false;
         const placed = this.session.placeCueBall(point.x, simulator.spotY, point.z);
-        if (placed) { this.human.activate(); this.syncHud(); }
+        if (placed) {
+          if (this.session.clock) this.session.confirmPlacement(this.human.playerIndex);
+          this.human.activate(); this.syncHud(); this.syncRuleChoice();
+        }
         return placed;
       }
     });
     this.hud = new Hud(() => this.session.players);
     this.hud.attach(this.bus);
     this.replay = new BrowserReplay(camera, canvas, () => this.captureReplay(),
-      () => !this.shots.busy && !this.pendingShot && this.session.state === GAME_STATE.READY && !this.controls.inHand.active,
+      () => !this.shots.busy && !this.pendingShot && this.session.state === GAME_STATE.READY && !this.controls.inHand.active &&
+        (this.session.ruleset !== "snooker-900" || this.session.finished),
       active => {
         this.controls.input.enabled = !active && !this.shots.inputLocked;
         this.hudDom.element.hidden = active;
@@ -203,6 +213,18 @@ export class BrowserGame {
     this.opponent.active = this.session.players[index].type === "AI" && ready;
     if (this.human.active) { this.human.playerIndex = index; this.human.activate(); }
     if (this.opponent.active) { this.opponent.playerIndex = index; this.ai.activate(); }
+    if (this.opponent.active && this.session.context.inHand > 0 && this.session.clock?.phase === "placement") this.placeForAI();
+  }
+
+  private placeForAI(): void {
+    const y = this.simulator.spotY;
+    const candidates: Array<[number, number]> = [[-1.04, 0]];
+    for (let x = -1.6; x <= 1.6; x += 0.2) for (let z = -0.8; z <= 0.8; z += 0.2) candidates.push([x, z]);
+    for (const [x, z] of candidates) {
+      if (!this.session.canPlaceCueBall(x, y, z) || !this.session.placeCueBall(x, y, z)) continue;
+      this.session.confirmPlacement(this.opponent.playerIndex);
+      return;
+    }
   }
 
   private syncRuleChoice(): void {
@@ -288,6 +310,15 @@ export class BrowserGame {
     if (missed) this.hud.foulNotice.head = "FOUL AND A MISS";
   }
 
+  private handleClockExpiry(): void {
+    if (this.session.state === GAME_STATE.SIMULATING) return;
+    this.pendingShot = false; this.outSeen = 0;
+    this.shots.finish();
+    this.human.gotoState0(true); this.opponent.gotoState0(true);
+    this.hud.foulNotice.close();
+    this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.controls.update();
+  }
+
   update(dt: number): void {
     this.human.camera.shotView.smoothing.aspect = this.scene.getEngine().getAspectRatio(this.camera);
     this.human.camera.shotView.smoothing.verticalFov = this.camera.fov;
@@ -303,6 +334,8 @@ export class BrowserGame {
     this.touchingMessage.update(dt);
     this.touchingNoticeDom.sync(this.touchingMessage);
     if (this.replay.active) { this.replay.update(dt); return; }
+    const expiry = this.session.advanceTime(dt);
+    if (expiry !== null) this.handleClockExpiry();
     this.controls.update();
     this.ai.update(dt);
     this.shots.update(dt, step => { this.human.update(step); this.opponent.update(step); this.replay.record(step); });
@@ -317,6 +350,7 @@ export class BrowserGame {
     this.hud.shortcutsBar.active = !this.controls.inHand.active && this.human.active && this.canShoot(this.human.playerIndex) && !this.shots.busy &&
       (this.human.camera.stateRatio === 0 || this.human.camera.stateRatio === 1);
     this.hud.shortcutsBar.group = this.human.camera.state;
+    this.hud.matchClock.sync(this.session.clock);
     this.hud.update(dt); this.hudDom.sync(this.hud);
     this.replay.sync();
   }

@@ -64,7 +64,7 @@ describe("900 计时与摆球", () => {
   it("超时未触球按目标球值罚分并给对手全台手中球", () => {
     const game = makeGame("snooker-900");
     begin(game);
-    game.advanceTime(20);
+    expect(game.advanceTime(20)).toBe("shot");
     expect(game.result).toEqual({ score: -4, foulCode: FOUL.SHOT_TIMEOUT });
     expect(game.players[0].penalty).toBe(-4);
     expect(game.context.playerIndex).toBe(1);
@@ -110,7 +110,7 @@ describe("900 压哨与决胜", () => {
     expect(game.clock?.phase).toBe("rolling");
     game.advanceTime(100);
     expect(game.clock).toMatchObject({ frameSeconds: 800, shotSeconds: 20 });
-    game.advanceTime(900);
+    expect(game.advanceTime(900)).toBe("frame");
     expect(game.clock?.phase).toBe("frame-expired");
     runOut(game);
     expect(game.result.foulCode).toBe(0);
@@ -124,7 +124,7 @@ describe("900 压哨与决胜", () => {
     const game = makeGame("snooker-900");
     begin(game);
     stroke(game, { powerFactor: 0 });
-    game.advanceTime(900);
+    expect(game.advanceTime(900)).toBe("frame");
     expect(game.clock?.phase).toBe("frame-expired");
     runOut(game);
     expect(game.result).toEqual({ score: 1, foulCode: 0 });

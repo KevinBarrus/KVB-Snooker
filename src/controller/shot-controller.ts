@@ -6,6 +6,7 @@ export interface ShotCommands {
   begin(playerIndex: number): boolean;
   stroke(playerIndex: number, vars: Float32Array): boolean;
   step(dt: number): void;
+  cancelled?(): void;
 }
 
 // PCOL L6338-6423
@@ -45,7 +46,12 @@ export class ShotController {
             remaining += excess;
             this.motion.rewind(excess);
             slice = this.strokeDelay;
-            if (!this.commands.stroke(person.playerIndex, person.getStrokeVars())) throw new Error("Reserved shot rejected at contact");
+            if (!this.commands.stroke(person.playerIndex, person.getStrokeVars())) {
+              this.finish();
+              person.gotoState0();
+              this.commands.cancelled?.();
+              return;
+            }
             person.camera.shotView.struck = true;
             this.strokeDelay = -1;
           } else this.strokeDelay -= slice;
