@@ -1,12 +1,16 @@
-import { SnookerRef, type RulesContext } from "./rules/snooker.js";
+import { BALL_ON, SnookerRef, type RulesContext } from "./rules/snooker.js";
 import type { Simulator } from "./simulator/simulator.js";
 import type { SerialData, StrokeVars } from "./simulator/shot-result.js";
 import { Player } from "./player.js";
-import { copyFrameSetup, type FrameSetup, type GameOptions } from "./frame-setup.js";
+import { copyFrameSetup, type FrameSetup, type GameOptions, type RuleSet } from "./frame-setup.js";
 import { availablePoints, isMiss } from "./rules/miss.js";
 import { inferColour, type NominationView } from "./rules/nomination.js";
 import { snookerView } from "./rules/snookered.js";
 import { hasOpenInHand } from "./rules/in-hand-visibility.js";
+import { FOUL } from "./rules/foul.js";
+import { NineHundredRef, canPlaceOnTable, targetPenalty } from "./rules/nine-hundred.js";
+import { NineHundredMatch, type ShootoutView } from "./nine-hundred-match.js";
+import type { MatchClockView } from "./match-clock.js";
 
 // PCOL L8922-8931
 export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16, DECIDING: 32 } as const;
@@ -33,7 +37,9 @@ export class GameSession {
   readonly context: GameContext = { inHand: 0, ballOn: 0, playerIndex: -1, nRounds: 0 };
   readonly players: Player[];
   readonly result = { score: 0, foulCode: 0 };
-  private readonly ref = new SnookerRef();
+  readonly ruleset: RuleSet;
+  private readonly ref: SnookerRef;
+  private readonly nine: NineHundredMatch | null;
   private currentState: GameState = GAME_STATE.NO_GAME;
   private serialData: SerialData | null = null;
   private readonly initialSetup?: FrameSetup;
@@ -51,6 +57,11 @@ export class GameSession {
     const opening = options.openingPlayerIndex ?? 0;
     if (!Number.isInteger(opening) || opening < 0 || opening >= types.length) throw new Error("Invalid opening player");
     this.openingIndex = opening;
+    this.ruleset = options.ruleset ?? "classic";
+    if (this.ruleset !== "classic" && this.ruleset !== "snooker-900") throw new Error("Invalid ruleset");
+    if (this.ruleset === "snooker-900" && mode === "practice") throw new Error("Practice does not support snooker-900");
+    this.ref = this.ruleset === "snooker-900" ? new NineHundredRef() : new SnookerRef();
+    this.nine = this.ruleset === "snooker-900" ? new NineHundredMatch() : null;
     this.players = types.map(type => new Player(type));
     this.initialSetup = options.setup && copyFrameSetup(options.setup, simulator.getBallCount(), this.players.length);
     this.currentState = GAME_STATE.PENDING;
@@ -60,7 +71,10 @@ export class GameSession {
 
   get openingPlayerIndex(): number { return this.openingIndex; }
   get state(): GameState { return this.currentState; }
-  get finished(): boolean { return this.mode === "single-play" && this.context.ballOn === 0; }
+  get finished(): boolean { return this.nine ? this.nine.finished : this.mode === "single-play" && this.context.ballOn === 0; }
+  get clock(): MatchClockView | null { return this.nine ? this.nine.clock.view : null; }
+  get timeUntilExpiry(): number { return this.nine ? this.nine.clock.untilExpiry : Infinity; }
+  get shootout(): ShootoutView | null { return this.nine ? this.nine.shootout : null; }
   get decision(): TurnDecision | null { return this.pendingDecision && { ...this.pendingDecision }; }
   get freeBallAvailable(): boolean { return this.freeBall; }
   get touchingBallIndices(): readonly number[] {
@@ -69,6 +83,7 @@ export class GameSession {
       ball.position.distanceTo(cue.position) <= 2 * this.simulator.ballRadius + 1e-5).map(ball => ball.index);
   }
   get winnerIndex(): number | null {
+    if (this.nine) return this.nine.winner;
     return this.finished ? (this.getScore(0) > this.getScore(1) ? 0 : this.getScore(1) > this.getScore(0) ? 1 : null) : null;
   }
   getScore(index: number): number {
@@ -115,12 +130,43 @@ export class GameSession {
       setup.scores.forEach((score, index) => { this.players[index].pts = score; });
       this.simulator.reset(false, true);
     }
+    this.nine?.reset(this.context.inHand > 0);
     this.response();
+  }
+
+  advanceTime(seconds: number): void {
+    const nine = this.nine;
+    if (!nine || this.finished) return;
+    const expiry = nine.clock.advance(seconds);
+    if (expiry === "shot") this.timeoutFoul();
+    else if (expiry === "frame" && this.currentState !== GAME_STATE.SIMULATING) this.endNineHundredFrame();
+    else return;
+    if (this.currentState !== GAME_STATE.SIMULATING) this.response();
+  }
+
+  beginPlacement(playerIndex: number): boolean {
+    if (!this.nine || this.state !== GAME_STATE.READY || this.finished || this.prepared ||
+        playerIndex !== this.context.playerIndex || this.context.inHand === 0) return false;
+    return this.nine.clock.beginPlacement();
+  }
+
+  confirmPlacement(playerIndex: number): boolean {
+    if (!this.nine || this.state !== GAME_STATE.READY || this.finished || this.prepared ||
+        playerIndex !== this.context.playerIndex) return false;
+    return this.nine.clock.confirmPlacement();
+  }
+
+  canPlaceCueBall(x: number, y: number, z: number): boolean {
+    if (this.nine) {
+      return !this.finished && (this.nine.fullTable ? canPlaceOnTable(this.simulator, x, y, z)
+        : this.ref.placeCueBallCheck(x, y, z, this.simulator));
+    }
+    return this.ref.placeCueBallCheck(x, y, z, this.simulator);
   }
 
   placeCueBall(x: number, y: number, z: number): boolean {
     if (this.state !== GAME_STATE.READY || this.finished || this.prepared || this.context.inHand === 0) return false;
-    if (!this.ref.placeCueBallCheck(x, y, z, this.simulator)) return false;
+    if (!this.canPlaceCueBall(x, y, z)) return false;
     this.currentState = GAME_STATE.JUDGING;
     this.simulator.respotIndexXYZ(0, x, this.simulator.spotY, z);
     if (this.context.inHand > 1) this.context.inHand = 1;
@@ -131,6 +177,7 @@ export class GameSession {
   stroke(playerIndex: number, vars: StrokeVars): boolean {
     if (this.state !== GAME_STATE.READY || this.finished || playerIndex !== this.context.playerIndex) return false;
     if (!this.prepared && !this.prepareStroke(playerIndex, vars)) return false;
+    if (this.nine && !this.nine.clock.strike()) { this.prepared = false; this.previousShot = null; return false; }
     this.players[playerIndex].shootingCount++;
     this.currentState = GAME_STATE.SIMULATING;
     this.simulator.stroke(vars);
@@ -205,14 +252,15 @@ export class GameSession {
     if (this.simulator.nAwakened !== 0) return;
     this.currentState = GAME_STATE.JUDGING;
     this.ref.checkResult(this.context, this.simulator, this.result);
-    this.prepared = false;
-    this.freeBall = false;
-    this.nominatedIndex = null;
-    delete this.context.nominatedBallIndex;
-    delete this.context.freeBallIndex;
+    this.resetShotState();
     const index = this.context.playerIndex;
-    const player = this.players[index];
     this.context.nRounds++;
+    if (this.nine) {
+      this.settleNineHundred(index);
+      this.response();
+      return;
+    }
+    const player = this.players[index];
     if (this.result.score > 0) {
       player.pts += this.result.score;
       player.scoreCount++;
@@ -242,6 +290,62 @@ export class GameSession {
       this.freeBall = this.context.inHand > 0 ? !hasOpenInHand(this.simulator, this.context.ballOn, this.ref.dArea)
         : snookerView(this.simulator, this.context.ballOn).snookered;
     }
+  }
+
+  private settleNineHundred(index: number): void {
+    const nine = this.nine!;
+    nine.clock.settle();
+    if (nine.shootout) {
+      nine.completeAttempt(nine.isDirectBluePot(this.simulator, this.result.foulCode), this.simulator, this.context);
+      return;
+    }
+    const player = this.players[index];
+    if (this.result.score > 0) {
+      player.pts += this.result.score;
+      player.scoreCount++;
+      player.brk += this.result.score;
+    } else {
+      player.penalty += this.result.score;
+      player.brk = 0;
+      this.context.playerIndex = (index + 1) % this.players.length;
+      if (this.result.foulCode !== 0) { this.context.inHand = 2; nine.fullTable = true; }
+    }
+    if (nine.clock.view.phase === "frame-expired") { this.endNineHundredFrame(); return; }
+    nine.clock.beginTurn(this.context.inHand > 0);
+  }
+
+  private timeoutFoul(): void {
+    const nine = this.nine!;
+    if (nine.shootout) { nine.completeAttempt(false, this.simulator, this.context); return; }
+    const index = this.context.playerIndex;
+    const penalty = targetPenalty(this.context, this.simulator);
+    this.players[index].penalty -= penalty;
+    this.players[index].brk = 0;
+    this.result.score = -penalty;
+    this.result.foulCode = FOUL.SHOT_TIMEOUT;
+    if (this.context.ballOn === BALL_ON.RED || this.context.ballOn === BALL_ON.COLOR_ALL) {
+      this.context.ballOn = this.simulator.getBalls().some(ball => ball.number === 1 && ball.active) ? BALL_ON.RED : BALL_ON.YELLOW;
+    }
+    this.context.playerIndex = (index + 1) % this.players.length;
+    this.context.inHand = 2;
+    this.context.nRounds++;
+    nine.fullTable = true;
+    this.resetShotState();
+    nine.clock.beginTurn(true);
+  }
+
+  private endNineHundredFrame(): void {
+    const nine = this.nine!;
+    nine.endFrame([this.getScore(0), this.getScore(1)], this.openingIndex, this.simulator, this.context);
+    this.resetShotState();
+  }
+
+  private resetShotState(): void {
+    this.prepared = false;
+    this.freeBall = false;
+    this.nominatedIndex = null;
+    delete this.context.nominatedBallIndex;
+    delete this.context.freeBallIndex;
   }
 
   private response(): void {

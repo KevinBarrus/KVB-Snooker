@@ -84,5 +84,8 @@ npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice �
 - [x] `match-clock.ts`：局时/出杆双表；placement/settling 暂停，rolling 只停出杆表；`advance` 只消费外部非负有限秒数，同一截止只报一次；`untilExpiry` 供装配分片。
 - [x] `nine-hundred-match.ts`：正常比分终局、平分蓝球决胜轮次与胜者、蓝球/母球归位、`isDirectBluePot` 判定。消费面收窄为 `ShootoutSimulator` 结构接口，测试无 cast。
 - 怪癖：`startShootout` 将局时固定为 0 且不再递减；决胜仅比较同等尝试次数后的合法直接进球数，正常比分保持原值不伪造加分。
-- 待接线：`GameSession`（计时推进、超时/压哨判罚、全台摆球权限、决胜）、controller/UI/AI、红点母球；当前 900 不可选择也无可玩入口。
+- [x] `GameSession` 接线：`ruleset` 配置（练习拒绝 900）、`clock/timeUntilExpiry/shootout` 只读快照、`advanceTime` 外部单调时间、`beginPlacement/confirmPlacement` 摆球暂停、`canPlaceCueBall`、超时/压哨/全台手中球/蓝球决胜。
+- 待接线：controller/UI/AI、红点母球、规则选择入口；当前 900 仍无浏览器入口。
 - `MatchClock` 在 rolling 期间局时归零后进入 frame-expired，`settle()` 不再改相位（计时已冻结），等待本杆结算由对局层表达。
+- 900 开局仍是 D 区摆球；只有犯规/超时后才置 `fullTable` 放开全台，蓝球决胜回到 D 区。超时应罚值按目标球（彩球待提名 7），并轮换球权、两表暂停到确认摆球；决胜中的超时记为一次失败尝试，不按普通犯规加全台手中球。
+- 压哨：触球后局时归零不结束对局，物理与判分照常；球停后一次性结算再进入终局或决胜。`advanceTime` 在 SIMULATING 中只推进计时，不驱动物理快进。
