@@ -6,7 +6,9 @@ export const FOUL = {
   POTTING_CUE_BALL: 8,
   OFF_TABLE: 16,
   PUSH_STROKE: 32,
-  FREE_BALL_SNOOKER: 64
+  FREE_BALL_SNOOKER: 64,
+  SHOT_TIMEOUT: 128,
+  NO_CUSHION: 256
 } as const;
 
 const TEXTS = [
@@ -17,7 +19,9 @@ const TEXTS = [
   "POTTING THE CUE BALL",
   "OFF TABLE",
   "PUSH STROKE",
-  "SNOOKERED BY FREE BALL"
+  "SNOOKERED BY FREE BALL",
+  "SHOT TIME EXPIRED",
+  "NO CUSHION OR POT"
 ] as const;
 
 export function getFoulDescription(foulCode: number): string {

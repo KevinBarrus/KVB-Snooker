@@ -44,6 +44,9 @@ export interface RefSimulator {
   resetBallPosition(t: BallRefLike, spot: Vec3): void;
   resetBallXYZ(t: BallRefLike, x: number, y: number, z: number): void;
   getContactEvidence?(): { readonly touchingIndices: readonly number[]; readonly firstContactIndices: readonly number[]; readonly pushedIndices: readonly number[] } | null;
+  getCushionEvidence?(): { readonly contacts: readonly { readonly ballIndex: number; readonly kind: "cushion" | "jaw"; readonly x: number; readonly z: number }[] } | null;
+  readonly sidePolyGroups?: { readonly polys: readonly { readonly sidehard: boolean; readonly sidesoft: boolean;
+    readonly edges: readonly { readonly va: Vec3; readonly vb: Vec3 }[] }[] } | null;
 }
 
 export interface RulesContext {
@@ -133,6 +136,10 @@ export class SnookerRef extends Ref {
     t.ballOn = BALL_ON.RED;
   }
 
+  protected adjudicate(ctx: RulesContext, sim: RefSimulator): { score: number; foulCode: number } {
+    return adjudicate(ctx, sim);
+  }
+
   // PCOL L12703-12739：checkResult 全量。
   override checkResult(t: RulesContext, e: RefSimulator, i: { score: number; foulCode: number }): void {
     const result = e.result;
@@ -143,7 +150,7 @@ export class SnookerRef extends Ref {
       t.inHand = 1;
       return;
     }
-    Object.assign(i, adjudicate(t, e));
+    Object.assign(i, this.adjudicate(t, e));
     const freeOnlyPot = t.freeBallIndex !== undefined && i.score > 0 && t.ballOn !== BALL_ON.RED &&
       !result.pottedIndices.some(index => index !== t.freeBallIndex && Math.pow(2, e.getBallAtIndex(index).number) === t.ballOn);
     const onlyBlack = e.getBalls().every(ball => ball.number === 0 || ball.number === 7 ||

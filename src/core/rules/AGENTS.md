@@ -84,3 +84,11 @@ PCOL 斯诺克规则引擎：犯规枚举、有效区域几何、ballOn/ball-in-
 ## 第二轮：简化Miss
 
 miss.ts按首碰犯规位及击球前后双方是否需要罚分判定；分差等于剩余分可追平，只有超过才排除Miss。availablePoints含每颗红后的最高彩球及COLOR_ALL当前彩球机会；清彩只算当前及之后的目标。不判断尽力、故意、完全无解或连续三次判负；这是用户批准的简化规则，不声称完整官规。合法贴球打离沿用adjudicate首碰豁免。
+
+## 规则扩展：斯诺克 900
+
+- `nine-hundred.ts`：`NineHundredRef` 复用 `adjudicate` 后按本杆碰库证据追加 `FOUL.NO_CUSHION(256)`；仅在未进球且无 `getCushionEvidence` 记录时触发。`sidehard` 记为 cushion、`sidesoft` 记为 jaw，均满足碰库义务；pocket/tunnel/end/ground 不进入证据。罚值取 `max(4, 目标球值)`（`targetPenalty`），彩球待提名按 7；与既有犯规合并时取最大罚值、不累加。
+- `canPlaceOnTable`：全台合法支撑区 = ground 投影内 + 高度等于 `spotY` + 不与其他球重叠 + 距台边与 sidehard/sidesoft 库面不小于球半径。它是核心最终校验，UI 绿色预览应复用同一能力；经典规则仍走 D 区。
+- 新犯规码由 `FOUL` 追加在尾部（128/256），`getFoulDescription` 位序文案随之扩展；经典判分路径未改变。
+- 登记差异：900 的犯规后全台手中球、专门犯规与决胜尚未进入 `GameSession.checkResult` 流程，当前只有规则策略与几何校验；状态机与流程接线在后续单元。
+- 已知近似：`isDirectBluePot` 用碰库点与蓝球落袋位置 0.25 m 距离区分“目标袋弧面”和“先碰其他库面”，不识别具体袋口。
