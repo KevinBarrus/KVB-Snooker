@@ -6,7 +6,10 @@ export interface FrameSetup {
   readonly scores: readonly number[];
 }
 
+export type RuleSet = "classic" | "snooker-900";
+
 export interface GameOptions {
+  readonly ruleset?: RuleSet;
   readonly openingPlayerIndex?: number;
   readonly players?: readonly ("USER" | "AI")[];
   readonly setup?: FrameSetup;

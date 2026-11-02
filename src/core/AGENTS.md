@@ -78,3 +78,11 @@ npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice �
 补充回归：Miss与自由球同时成立时，复位撤销本次自由球资格并保留罚分；浏览器复位重新创建当前难度AI，避免恢复相同evolution后旧搜索任务不重启。
 
 声音第一版：EventBus 新增 sim/impact，载荷为 simulator/impact.ts 的只读联合类型。旧 ContactEvent 不变，不向 core 引入 DOM 或音频依赖。
+
+## 施工单元：斯诺克 900（进行中）
+
+- [x] `match-clock.ts`：局时/出杆双表；placement/settling 暂停，rolling 只停出杆表；`advance` 只消费外部非负有限秒数，同一截止只报一次；`untilExpiry` 供装配分片。
+- [x] `nine-hundred-match.ts`：正常比分终局、平分蓝球决胜轮次与胜者、蓝球/母球归位、`isDirectBluePot` 判定。消费面收窄为 `ShootoutSimulator` 结构接口，测试无 cast。
+- 怪癖：`startShootout` 将局时固定为 0 且不再递减；决胜仅比较同等尝试次数后的合法直接进球数，正常比分保持原值不伪造加分。
+- 待接线：`GameSession`（计时推进、超时/压哨判罚、全台摆球权限、决胜）、controller/UI/AI、红点母球；当前 900 不可选择也无可玩入口。
+- `MatchClock` 在 rolling 期间局时归零后进入 frame-expired，`settle()` 不再改相位（计时已冻结），等待本杆结算由对局层表达。
