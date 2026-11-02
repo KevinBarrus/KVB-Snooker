@@ -87,3 +87,7 @@ Miss UI只在核心授予canReplace时提供“复位，让对手重打”；成
 用户授权的接入契约见 docs/audio-v1-design.md、architecture §9。只做杆头、球球、空心/磕袋角入袋；原始 local-audio 与生成 public/assets/audio 不提交，校准只调播放增益。Simulator 只读事件与 audio 纯策略/浏览器后端分离，不改物理公式或摄像机。
 
 声音运行：npm run audio:prepare 从 local-audio 校验并准备79个WAV；npm run dev 即可加载。app-audio.ts负责原生Web Audio解锁/音量/生命周期，浏览器代码在audio独立DOM工程检查。npm run test:audio检查真实音频输出和物理触发；素材缺失只提示声音不可用，不阻塞游戏。
+
+## 斯诺克 900 设计（尚未实现）
+
+2026-11-02 用户授权先写文档并推送，完成后停止，等待实现指令。设计见 docs/snooker-900-design.md，架构边界见 architecture §4.7。规则选择独立于人机/双人测试；900 为15分钟局时、20秒出杆，两表在合法摆球/复位时暂停，球运动只停出杆表，实际触球才算完成出杆，局时归零前已触球的杆完整结算。AI同样受限，UI显示双计时；红点母球复用既有旋转、物理参数不变。经典规则与练习不改；900专门罚值与蓝球细则尚需核实，不得直接套用Shoot Out或经典争黑。本次不修改代码或冻结未核实的新签名。
