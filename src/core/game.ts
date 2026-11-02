@@ -130,7 +130,10 @@ export class GameSession {
       setup.scores.forEach((score, index) => { this.players[index].pts = score; });
       this.simulator.reset(false, true);
     }
-    this.nine?.reset(this.context.inHand > 0);
+    this.nine?.reset(false);
+    const cue = this.simulator.getBallAtIndex(0);
+    if (this.nine && this.context.inHand > 0 && (!cue.active ||
+        !this.canPlaceCueBall(cue.position.x, cue.position.y, cue.position.z))) this.nine.clock.beginPlacement();
     this.response();
   }
 
@@ -153,7 +156,9 @@ export class GameSession {
 
   confirmPlacement(playerIndex: number): boolean {
     if (!this.nine || this.state !== GAME_STATE.READY || this.finished || this.prepared ||
-        playerIndex !== this.context.playerIndex) return false;
+        playerIndex !== this.context.playerIndex || this.context.inHand === 0) return false;
+    const cue = this.simulator.getBallAtIndex(0);
+    if (!cue.active || !this.canPlaceCueBall(cue.position.x, cue.position.y, cue.position.z)) return false;
     return this.nine.clock.confirmPlacement();
   }
 
@@ -312,13 +317,13 @@ export class GameSession {
       this.context.playerIndex = (index + 1) % this.players.length;
       if (this.result.foulCode !== 0) { this.context.inHand = 2; nine.fullTable = true; }
     }
-    if (nine.clock.view.phase === "frame-expired") { this.endNineHundredFrame(); return; }
+    if (nine.clock.view.phase === "frame-expired" || this.context.ballOn === 0) { this.endNineHundredFrame(); return; }
     nine.clock.beginTurn(this.context.inHand > 0);
   }
 
   private timeoutFoul(): void {
     const nine = this.nine!;
-    if (nine.shootout) { nine.completeAttempt(false, this.simulator, this.context); return; }
+    if (nine.shootout) { this.resetShotState(); nine.completeAttempt(false, this.simulator, this.context); return; }
     const index = this.context.playerIndex;
     const penalty = targetPenalty(this.context, this.simulator);
     this.players[index].penalty -= penalty;

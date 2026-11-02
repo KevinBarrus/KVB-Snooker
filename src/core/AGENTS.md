@@ -13,7 +13,7 @@
 
 ## 施工单元状态
 
-- [x] 900首单元：match-clock.ts独立计时，摆球/归位双暂停、触球停出杆表、压哨局表到期只通知一次、决胜独立20秒；无DOM/系统时钟。GameSession/浏览器接线待后续单元。
+- [x] 900首单元：match-clock.ts独立计时，摆球扣两表、归位扣局表、触球停出杆表、压哨局表到期只通知一次、决胜独立20秒；无DOM/系统时钟。GameSession/浏览器接线待后续单元。
 
 - [x] 普通犯规选择与黑球平分：DECIDING阻止出杆；持权者选择接手/对手从当前位置继续，罚分不回滚；平分重新摆黑、非本局开球方直接D区先打（第二轮覆盖首轮抽签）。reset清空待选择状态，Node demo显式接手。
 
@@ -81,11 +81,13 @@ npm run test、npx tsc --noEmit 全绿；npm run demo 完成单局，practice �
 
 ## 施工单元：斯诺克 900（进行中）
 
-- [x] `match-clock.ts`：局时/出杆双表；placement/settling 暂停，rolling 只停出杆表；`advance` 只消费外部非负有限秒数，同一截止只报一次；`untilExpiry` 供装配分片。
+- [x] `match-clock.ts`：局时/出杆双表；placement 扣两表，settling/rolling 只停出杆表；`advance` 只消费外部非负有限秒数，同一截止只报一次；`untilExpiry` 供装配分片。
 - [x] `nine-hundred-match.ts`：正常比分终局、平分蓝球决胜轮次与胜者、蓝球/母球归位、`isDirectBluePot` 判定。消费面收窄为 `ShootoutSimulator` 结构接口，测试无 cast。
 - 怪癖：`startShootout` 将局时固定为 0 且不再递减；决胜仅比较同等尝试次数后的合法直接进球数，正常比分保持原值不伪造加分。
-- [x] `GameSession` 接线：`ruleset` 配置（练习拒绝 900）、`clock/timeUntilExpiry/shootout` 只读快照、`advanceTime` 外部单调时间、`beginPlacement/confirmPlacement` 摆球暂停、`canPlaceCueBall`、超时/压哨/全台手中球/蓝球决胜。
-- 待接线：controller/UI/AI、红点母球、规则选择入口；当前 900 仍无浏览器入口。
+- [x] `GameSession` 接线：`ruleset` 配置（练习拒绝 900）、`clock/timeUntilExpiry/shootout` 只读快照、`advanceTime` 外部单调时间、`beginPlacement/confirmPlacement` 摆球交互（不停表）、`canPlaceCueBall`、超时/压哨/全台手中球/蓝球决胜。
+- 浏览器第一版已接线；2026-11-03修订验收仍在进行，具体状态见主设计文档。
 - `MatchClock` 在 rolling 期间局时归零后进入 frame-expired，`settle()` 不再改相位（计时已冻结），等待本杆结算由对局层表达。
-- 900 开局仍是 D 区摆球；只有犯规/超时后才置 `fullTable` 放开全台，蓝球决胜回到 D 区。超时应罚值按目标球（彩球待提名 7），并轮换球权、两表暂停到确认摆球；决胜中的超时记为一次失败尝试，不按普通犯规加全台手中球。
+- 900 开局仍是 D 区摆球；只有犯规/超时后才置 `fullTable` 放开全台，蓝球决胜回到 D 区。超时应罚值按目标球（彩球待提名 7），并轮换球权、摆球期间两表继续；决胜中的超时记为一次失败尝试，不按普通犯规加全台手中球。
 - 压哨：触球后局时归零不结束对局，物理与判分照常；球停后一次性结算再进入终局或决胜。`advanceTime` 在 SIMULATING 中只推进计时，不驱动物理快进。
+
+2026-11-03计时修订：进入比赛后两表运行，合法默认开球点不强制确认；主动摆球仍须合法且有效的母球才能确认，不补时。归位阶段只扣局时。提前清台/末黑终结立即判胜或进入蓝球决胜；决胜超时清除预备杆，下一方可正常放置。核心时间仍由外部输入，不按物理快进计时。

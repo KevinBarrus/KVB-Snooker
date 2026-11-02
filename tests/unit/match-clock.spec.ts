@@ -2,31 +2,31 @@ import { describe, expect, it } from "vitest";
 import { MatchClock } from "../../src/core/match-clock.js";
 
 describe("900 match clock", () => {
-  it("pauses placement and settlement without consuming either budget", () => {
+  it("counts placement against both budgets and settlement against the frame", () => {
     const clock = new MatchClock();
-    clock.advance(60);
-    expect(clock.view).toMatchObject({ frameSeconds: 900, shotSeconds: 20, phase: "placement" });
+    clock.advance(2);
+    expect(clock.view).toMatchObject({ frameSeconds: 898, shotSeconds: 18, phase: "placement" });
     expect(clock.strike()).toBe(false);
     expect(clock.confirmPlacement()).toBe(true);
     clock.advance(3);
     expect(clock.strike()).toBe(true);
     clock.advance(7);
-    expect(clock.view).toMatchObject({ frameSeconds: 890, shotSeconds: 17, phase: "rolling" });
+    expect(clock.view).toMatchObject({ frameSeconds: 888, shotSeconds: 15, phase: "rolling" });
     clock.settle(); clock.advance(120);
-    expect(clock.view).toMatchObject({ frameSeconds: 890, shotSeconds: 17, phase: "settling" });
+    expect(clock.view).toMatchObject({ frameSeconds: 768, shotSeconds: 15, phase: "settling" });
     clock.beginTurn(false);
-    expect(clock.view).toMatchObject({ frameSeconds: 890, shotSeconds: 20, phase: "aiming" });
+    expect(clock.view).toMatchObject({ frameSeconds: 768, shotSeconds: 20, phase: "aiming" });
   });
 
   it("repeated placement cannot restore time spent aiming", () => {
     const clock = new MatchClock();
     clock.confirmPlacement(); clock.advance(12);
-    clock.beginPlacement(); clock.advance(40);
-    clock.beginPlacement(); clock.advance(50);
+    clock.beginPlacement(); clock.advance(1);
+    clock.beginPlacement(); clock.advance(2);
     clock.confirmPlacement();
     expect(clock.confirmPlacement()).toBe(false);
-    expect(clock.view).toMatchObject({ frameSeconds: 888, shotSeconds: 8 });
-    expect(clock.advance(8)).toBe("shot");
+    expect(clock.view).toMatchObject({ frameSeconds: 885, shotSeconds: 5 });
+    expect(clock.advance(5)).toBe("shot");
     expect(clock.strike()).toBe(false);
     expect(clock.beginPlacement()).toBe(false);
   });
@@ -38,7 +38,7 @@ describe("900 match clock", () => {
     expect(clock.view).toMatchObject({ frameSeconds: 880, shotSeconds: 0 });
     expect(clock.advance(100)).toBeNull();
     clock.beginTurn(true); clock.advance(10);
-    expect(clock.view).toMatchObject({ frameSeconds: 880, shotSeconds: 20 });
+    expect(clock.view).toMatchObject({ frameSeconds: 870, shotSeconds: 10 });
   });
 
   it("accepts a contact before the deadline and preserves the rolling shot when frame expires", () => {
@@ -83,8 +83,8 @@ describe("900 match clock", () => {
 
   it("shootout has a shot clock but cannot expire the completed frame again", () => {
     const clock = new MatchClock();
-    clock.startShootout(); clock.advance(200);
-    expect(clock.view).toMatchObject({ frameSeconds: 0, shotSeconds: 20, shootout: true });
+    clock.startShootout(); clock.advance(2);
+    expect(clock.view).toMatchObject({ frameSeconds: 0, shotSeconds: 18, shootout: true });
     clock.confirmPlacement();
     expect(clock.advance(20)).toBe("shot");
     clock.beginTurn(true); clock.confirmPlacement(); clock.strike();

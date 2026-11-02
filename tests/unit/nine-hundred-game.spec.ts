@@ -9,7 +9,7 @@ import { makePocketTable } from "../fixtures/table.js";
 
 function makeGame(ruleset?: "classic" | "snooker-900"): GameSession {
   const sim = new Simulator(makePocketTable(), { ...DEFAULT_SCENE,
-    ballSet: [0, 0, 0.15, 1, 0, -0.55, 5, 1.6, 0]
+    ballSet: [0, -1.04, -0.145, 1, 0, -0.55, 5, 1.6, 0]
   });
   return new GameSession(sim, "single-play", ruleset ? { ruleset } : {});
 }
@@ -21,7 +21,6 @@ function runOut(game: GameSession): void {
 }
 
 function begin(game: GameSession): void {
-  expect(game.confirmPlacement(game.context.playerIndex)).toBe(true);
   expect(game.clock?.phase).toBe("aiming");
 }
 
@@ -42,23 +41,45 @@ describe("900 规则配置", () => {
   it("900 提供双表初始快照；练习模式拒绝 900", () => {
     const game = makeGame("snooker-900");
     expect(game.ruleset).toBe("snooker-900");
-    expect(game.clock).toEqual({ frameSeconds: 900, shotSeconds: 20, phase: "placement", shootout: false });
+    expect(game.clock).toEqual({ frameSeconds: 900, shotSeconds: 20, phase: "aiming", shootout: false });
     const sim = new Simulator(makePocketTable(), DEFAULT_SCENE);
     expect(() => new GameSession(sim, "practice", { ruleset: "snooker-900" })).toThrow();
   });
 });
 
 describe("900 计时与摆球", () => {
-  it("摆球阶段两表暂停，确认后开始消耗", () => {
+  it("默认合法位置不经确认即可预备出杆，拿起后才要求确认", () => {
     const game = makeGame("snooker-900");
-    game.advanceTime(60);
-    expect(game.clock).toMatchObject({ frameSeconds: 900, shotSeconds: 20 });
+    game.advanceTime(1);
+    stroke(game);
+    expect(game.players[0].shootingCount).toBe(1);
+    expect(game.clock).toMatchObject({ phase: "rolling", frameSeconds: 899, shotSeconds: 19 });
+  });
+
+  it("确认不能接受落袋、越界或与其他球重叠的母球", () => {
+    const game = makeGame("snooker-900"), sim = game.simulator;
     expect(game.beginPlacement(0)).toBe(true);
-    game.advanceTime(60);
-    expect(game.clock).toMatchObject({ frameSeconds: 900, shotSeconds: 20 });
-    begin(game);
+    for (const [x, z] of [[2, 0], [0, -0.55]]) {
+      sim.respotIndexXYZ(0, x, sim.spotY, z);
+      expect(game.confirmPlacement(0)).toBe(false);
+    }
+    sim.resetBallPosition(sim.getBallAtIndex(0), null);
+    expect(game.confirmPlacement(0)).toBe(false);
+    expect(game.placeCueBall(-1.15, sim.spotY, 0)).toBe(true);
+    expect(game.confirmPlacement(1)).toBe(false);
+    expect(game.confirmPlacement(0)).toBe(true);
+  });
+  it("开局立即计时，重复摆球和确认不补时", () => {
+    const game = makeGame("snooker-900");
     game.advanceTime(3);
     expect(game.clock).toMatchObject({ frameSeconds: 897, shotSeconds: 17 });
+    expect(game.beginPlacement(0)).toBe(true);
+    game.advanceTime(5);
+    expect(game.confirmPlacement(0)).toBe(true);
+    expect(game.clock).toMatchObject({ frameSeconds: 892, shotSeconds: 12, phase: "aiming" });
+    expect(game.beginPlacement(0)).toBe(true);
+    expect(game.advanceTime(12)).toBe("shot");
+    expect(game.result.foulCode).toBe(FOUL.SHOT_TIMEOUT);
   });
 
   it("超时未触球按目标球值罚分并给对手全台手中球", () => {
@@ -76,8 +97,9 @@ describe("900 计时与摆球", () => {
   it("摆球未确认时拒绝预备出杆，确认后恢复", () => {
     const game = makeGame("snooker-900");
     const vars = makeStrokeVars(game.simulator, { dx: 0, dy: 0, dz: -1, fbSpin: 0, powerFactor: 0.1, priority: 1 });
+    expect(game.beginPlacement(0)).toBe(true);
     expect(game.prepareStroke(0, vars)).toBe(false);
-    begin(game);
+    expect(game.confirmPlacement(0)).toBe(true);
     expect(game.prepareStroke(0, vars)).toBe(true);
   });
 
@@ -107,6 +129,35 @@ describe("900 计时与摆球", () => {
 });
 
 describe("900 压哨与决胜", () => {
+  it.each([0, 7])("末黑结算不等待15分钟，之前对手得分%s", opponentScore => {
+    const sim = new Simulator(makePocketTable(), { ...DEFAULT_SCENE,
+      ballSet: [0, 0, 0.15, 7, 0, -0.55, 5, 1.6, 0]
+    });
+    const game = new GameSession(sim, "single-play", { ruleset: "snooker-900", setup: {
+      balls: sim.getBalls().map(ball => ({ index: ball.index, x: ball.position.x, z: ball.position.z, active: ball.index !== 2 })),
+      ballOn: 128, inHand: 0, playerIndex: 0, scores: [0, opponentScore]
+    } });
+    stroke(game, { fbSpin: -0.99 });
+    runOut(game);
+    expect(game.getScore(0)).toBe(7);
+    if (opponentScore === 0) {
+      expect(game.finished).toBe(true);
+      expect(game.winnerIndex).toBe(0);
+    } else {
+      expect(game.shootout).toEqual({ attempts: [0, 0], potted: [0, 0] });
+      expect(game.context.playerIndex).toBe(1);
+      expect(game.placeCueBall(-1.15, sim.spotY, 0)).toBe(true);
+      expect(game.confirmPlacement(1)).toBe(true);
+      const vars = makeStrokeVars(sim, { dx: 1, dy: 0, dz: 0, fbSpin: 0, powerFactor: 0.1, priority: 1 });
+      expect(game.prepareStroke(1, vars)).toBe(true);
+      game.advanceTime(20);
+      expect(game.shootout?.attempts).toEqual([0, 1]);
+      expect(game.placeCueBall(-1.15, sim.spotY, 0)).toBe(true);
+      expect(game.confirmPlacement(0)).toBe(true);
+      expect(game.getScore(0)).toBe(7);
+      expect(game.getScore(1)).toBe(7);
+    }
+  });
   it("已触球的杆在局时归零后完整结算，平分进入蓝球决胜", () => {
     const game = makeGame("snooker-900");
     begin(game);
@@ -131,6 +182,7 @@ describe("900 压哨与决胜", () => {
   it("压哨前进球按原力度完整结算，终局不再产生超时罚分", () => {
     const game = makeGame("snooker-900");
     begin(game);
+    game.simulator.respotIndexXYZ(0, 0, game.simulator.spotY, 0.15);
     stroke(game, { powerFactor: 0 });
     expect(game.advanceTime(900)).toBe("frame");
     expect(game.clock?.phase).toBe("frame-expired");
