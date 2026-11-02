@@ -4,12 +4,14 @@ import { FoulNotice, FoulNoticeDom } from "./foul-notice";
 import { PowerBar, PowerBarDom } from "./power-bar";
 import { ScorePanel, ScorePanelDom, type ScoreSource } from "./score-panel";
 import { ShortcutsBar, ShortcutsBarDom } from "./shortcuts-bar";
+import { MatchClock, MatchClockDom } from "./match-clock";
 
 export class Hud {
   readonly scorePanel = new ScorePanel();
   readonly foulNotice = new FoulNotice();
   readonly powerBar = new PowerBar();
   readonly shortcutsBar = new ShortcutsBar();
+  readonly matchClock = new MatchClock();
   playerIndex = 0;
   private readonly disposers: Array<() => void> = [];
 
@@ -60,6 +62,7 @@ export class HudDom {
   private readonly foulNotice: FoulNoticeDom;
   private readonly powerBar: PowerBarDom;
   private readonly shortcutsBar: ShortcutsBarDom;
+  private readonly matchClock: MatchClockDom;
 
   constructor(doc: Document = document, onNoticeClose?: () => void) {
     this.element = doc.createElement("div");
@@ -68,11 +71,13 @@ export class HudDom {
     this.foulNotice = new FoulNoticeDom(doc, onNoticeClose);
     this.powerBar = new PowerBarDom(doc);
     this.shortcutsBar = new ShortcutsBarDom(doc);
+    this.matchClock = new MatchClockDom(doc);
     this.element.append(
       this.scorePanel.element,
       this.foulNotice.element,
       this.powerBar.element,
-      this.shortcutsBar.element
+      this.shortcutsBar.element,
+      this.matchClock.element
     );
   }
 
@@ -81,5 +86,6 @@ export class HudDom {
     this.foulNotice.sync(hud.foulNotice);
     this.powerBar.sync(hud.powerBar);
     this.shortcutsBar.sync(hud.shortcutsBar);
+    this.matchClock.sync(hud.matchClock);
   }
 }
