@@ -82,4 +82,4 @@ PCOL L1105-1115 使用 planebatch，L9911 指定 shader 根路径。当前同源
 
 - Gunsight 复用 table-overlay 的原作 planebatch shader、图集与mask，五段用独立网格共享材质；高度为台面+0.001+0.0001，目标标记 alphaIndex=10，其余−10。不依赖 controller，不读 World。
 
-- [x] 900 红点母球：BallRenderer 可选 `redDots` 提供者，在母球局部坐标 ±X/±Y/±Z 六点挂小半球，随真实 rotationQuaternion 旋转；材质为关闭直接光的暗红自发光，球半径/质量/物理与经典一致。经典/练习隐藏，900 显示。
+- [x] 900 红点母球：BallRenderer 可选 `redDots` 提供者，在母球局部坐标 ±X/±Y/±Z 六点贴无厚度圆盘（切向、半径 0.17r、位于 1.0005r），随真实 rotationQuaternion 旋转，呈现喷漆平面标记而不是凸起；材质为关闭直接光与背面剔除的暗红自发光。球半径/质量/物理与经典一致。经典/练习隐藏，900 显示。

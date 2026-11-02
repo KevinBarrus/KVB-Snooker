@@ -48,16 +48,23 @@ export class BallRenderer {
   private addRedDots(scene: B.Scene, cue: B.Mesh, radius: number): void {
     const material = new B.StandardMaterial("cue-red-dots", scene);
     material.diffuseColor = new B.Color3(0, 0, 0);
-    material.emissiveColor = new B.Color3(0.72, 0.02, 0.02);
+    material.emissiveColor = new B.Color3(0.62, 0.015, 0.015);
     material.specularColor = new B.Color3(0, 0, 0);
     material.disableLighting = true;
+    material.backFaceCulling = false;
     this.dotMaterial = material;
-    const offset = radius * 0.992, diameter = radius * 0.34;
-    for (const [x, y, z] of [[offset, 0, 0], [-offset, 0, 0], [0, offset, 0], [0, -offset, 0], [0, 0, offset], [0, 0, -offset]]) {
-      const dot = B.MeshBuilder.CreateSphere(`cue-red-dot-${this.dotMeshes.length}`, { segments: 8, diameter }, scene);
+    const offset = radius * 1.0005;
+    const axies: ReadonlyArray<readonly [number, number, number, number, number, number]> = [
+      [1, 0, 0, 0, Math.PI / 2, 0], [-1, 0, 0, 0, -Math.PI / 2, 0],
+      [0, 1, 0, -Math.PI / 2, 0, 0], [0, -1, 0, Math.PI / 2, 0, 0],
+      [0, 0, 1, 0, 0, 0], [0, 0, -1, 0, Math.PI, 0]
+    ];
+    for (const [x, y, z, rx, ry, rz] of axies) {
+      const dot = B.Mesh.CreateDisc(`cue-red-dot-${this.dotMeshes.length}`, radius * 0.17, 24, scene, false);
       dot.material = material;
       dot.parent = cue;
-      dot.position.copyFromFloats(x, y, z);
+      dot.position.copyFromFloats(x * offset, y * offset, z * offset);
+      dot.rotation.copyFromFloats(rx, ry, rz);
       this.dotMeshes.push(dot);
     }
   }
