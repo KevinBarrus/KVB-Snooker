@@ -281,6 +281,8 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 专门犯规码预留并冻结：`FOUL.SHOT_TIMEOUT=128;FOUL.NO_CUSHION=256`；均按max(4,本杆目标分值)计罚，COLOR_ALL未完成提名按7；不得与普通犯规简单叠加罚分。正常900犯规直接对方全台手中球。蓝球每次20秒、双方同等次数后比较合法直接进球、本局非开球方先打；900进行中禁用暂停式回放，终局保留¼慢放。严格截止，两表同刻到期先终局不追加超时罚分。以上为用户确认游戏约定。
 
+模拟器扩展：`getCushionEvidence():CushionEvidence|null`，`CushionEvidence {readonly contacts:readonly {readonly ballIndex:number;readonly kind:"cushion"|"jaw";readonly x:number;readonly z:number}[]}`。同球/同面首次有效闭合冲量记录位置，sidehard为cushion、sidesoft为jaw，其他面不计；返回副本，reset/restore/新杆清空，predict隔离。RefSimulator可选同结构消费，无反向import。规则策略允许SnookerRef新增protected adjudicate结果钩子，经典仍调用既有adjudicate，900先合并NO_CUSHION再走相同归位/阶段推进。
+
 ## 5. 目录结构（骨架）
 
 ```

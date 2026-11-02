@@ -4,7 +4,7 @@ import type { MeshBody } from "../physics/mesh-body.js";
 import { WorldClient } from "../physics/world-client.js";
 import { Ball } from "./ball.js";
 import { DEFAULT_SCENE, type SceneParameters } from "./scene.js";
-import { ContactRecorder, type ContactEvidence } from "./contact-evidence.js";
+import { ContactRecorder, type ContactEvidence, type CushionEvidence } from "./contact-evidence.js";
 import { contactImpact, cueImpact, type ImpactEvent } from "./impact.js";
 import {
   makeShotResult, type ShotResult, type StrokeVars, type SerialData,
@@ -126,6 +126,7 @@ export class Simulator {
   }
 
   getContactEvidence(): ContactEvidence | null { return this.contacts.snapshot(); }
+  getCushionEvidence(): CushionEvidence | null { return this.contacts.cushionSnapshot(); }
 
   onImpact(listener: (event: ImpactEvent) => void): () => void {
     this.impactListeners.add(listener);

@@ -8,6 +8,15 @@ export interface ContactEvidence {
   readonly pushedIndices: readonly number[];
 }
 
+export interface CushionContact {
+  readonly ballIndex: number;
+  readonly kind: "cushion" | "jaw";
+  readonly x: number;
+  readonly z: number;
+}
+
+export interface CushionEvidence { readonly contacts: readonly CushionContact[] }
+
 export class ContactRecorder extends Solver {
   private balls: readonly Ball[] = [];
   private touching: number[] = [];
@@ -15,6 +24,7 @@ export class ContactRecorder extends Solver {
   private first: number[] = [];
   private pushed = new Set<number>();
   private firstPoint: { x: number; y: number; z: number; evolution: number } | null = null;
+  private readonly cushions = new Map<string, CushionContact>();
 
   constructor(private readonly evolution: () => number, private readonly afterSolve?: (contact: ContactBase) => void) { super(); }
 
@@ -28,10 +38,15 @@ export class ContactRecorder extends Solver {
 
   clear(): void {
     this.balls = []; this.touching = []; this.held.clear(); this.first = []; this.pushed.clear(); this.firstPoint = null;
+    this.cushions.clear();
   }
 
   snapshot(): ContactEvidence | null {
     return this.balls.length ? { touchingIndices: [...this.touching], firstContactIndices: [...this.first], pushedIndices: [...this.pushed] } : null;
+  }
+
+  cushionSnapshot(): CushionEvidence | null {
+    return this.balls.length ? { contacts: [...this.cushions.values()].map(contact => ({ ...contact })) } : null;
   }
 
   checkSeparation(): void {
@@ -45,11 +60,20 @@ export class ContactRecorder extends Solver {
 
   override solveContact(contact: ContactBase): void {
     this.checkSeparation();
+    const other = contact.bj;
+    const cushionBall = !contact.isSS && other && (("sidehard" in other && other.sidehard) ||
+      ("sidesoft" in other && other.sidesoft)) && contact.getCloseSpeed() < -1e-7 ? contact.bi as Ball : null;
+    const cx = cushionBall?.v.x ?? 0, cz = cushionBall?.v.z ?? 0;
     const cue = this.balls[0];
     const target = contact.isSS && cue ? (contact.bi === cue ? contact.bj : contact.bj === cue ? contact.bi : null) as Ball | null : null;
     const vx = target?.v.x ?? 0, vz = target?.v.z ?? 0;
     const toward = target && cue ? cue.v.x * (target.position.x - cue.position.x) + cue.v.z * (target.position.z - cue.position.z) : 0;
     super.solveContact(contact);
+    if (cushionBall && other && this.balls.length && Math.hypot(cushionBall.v.x - cx, cushionBall.v.z - cz) > 1e-7) {
+      const key = `${cushionBall.index}:${contact.idj}`;
+      if (!this.cushions.has(key)) this.cushions.set(key, { ballIndex: cushionBall.index,
+        kind: "sidesoft" in other && other.sidesoft ? "jaw" : "cushion", x: cushionBall.position.x, z: cushionBall.position.z });
+    }
     if (target && Math.hypot(target.v.x - vx, target.v.z - vz) > 1e-7) {
       if (this.held.has(target.index) && toward > 1e-7) this.pushed.add(target.index);
       if (!this.firstPoint) this.firstPoint = { ...cue.position, evolution: this.evolution() };

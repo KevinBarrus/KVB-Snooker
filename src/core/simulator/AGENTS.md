@@ -15,6 +15,8 @@ PCOL 模拟器装配、球 wrapper 与单杆结果统计。
 
 ## 施工单元状态
 
+- [x] 900碰库证据：getCushionEvidence独立只读快照，真实闭合冲量后记录sidehard/sidesoft，预测隔离且与音频订阅无关。旧ShotResult和接触证据不变。
+
 - [x] ball.ts / scene.ts / shot-result.ts / simulator.ts（15 项单测，含真实 SnookerRef 接入）。
 - [x] BallView.renderPosition / renderOrientation（2026-10-19 用户批准扩展）：只读数值快照；重摆及显式 restore 同步显示状态；新增 13 项单测，模块共 28 项，全量 235 项与 typecheck 通过。
 
@@ -35,6 +37,8 @@ PCOL 模拟器装配、球 wrapper 与单杆结果统计。
 10. 预测开始仅重置命中标志和起点；无撞击时 p1、p2、target 等旧值残留（L14644-14681），必须按 impactOccured/hasImpactTarget 取用，不能主动清零。
 
 ## 登记差异
+
+- 900扩展只观察已发生的求解结果；静止贴库、台呢、袋喉和漏斗不满足碰库义务。每球每面仅记首次有效位置，供蓝球直接进袋检查；新杆/reset/restore清理，返回深拷贝。不改物理公式或调用次数。
 
 - 构造接受已加载 MeshBody + SceneParameters；sync/_checkSyncList 同步装配，省略原作缓存轮询 setTimeout、加载事件与浏览器事件发射。
 - getBallView/getCueBallPosition/getResult/predict 的契约视图返回拷贝；Ref 所需内部 getBalls/result 保留原作引用语义。
