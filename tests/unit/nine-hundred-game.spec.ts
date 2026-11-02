@@ -73,6 +73,14 @@ describe("900 计时与摆球", () => {
     expect(game.canPlaceCueBall(1.6, game.simulator.spotY, 0.5)).toBe(true);
   });
 
+  it("摆球未确认时拒绝预备出杆，确认后恢复", () => {
+    const game = makeGame("snooker-900");
+    const vars = makeStrokeVars(game.simulator, { dx: 0, dy: 0, dz: -1, fbSpin: 0, powerFactor: 0.1, priority: 1 });
+    expect(game.prepareStroke(0, vars)).toBe(false);
+    begin(game);
+    expect(game.prepareStroke(0, vars)).toBe(true);
+  });
+
   it("开局仍在 D 区摆球，犯规后才放开全台", () => {
     const game = makeGame("snooker-900");
     expect(game.canPlaceCueBall(1.6, game.simulator.spotY, 0.5)).toBe(false);

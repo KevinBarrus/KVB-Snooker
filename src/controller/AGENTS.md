@@ -83,4 +83,5 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 ## 900 超时取消
 
 - ShotController 在实际触球回调返回 false 时按正常取消处理：结束出杆视图、回到起身姿势并调用可选 `cancelled`，不再抛异常。900 出杆表到期由核心裁决并轮换球权，控制器只清理未触球的预备/动画，不施加冲量、不重复判罚。
+- 900 摆球阶段：`canAim` 由装配根按 `clock.phase==="aiming"` 放行；P 进入手中球后按 Enter 采用当前位置并确认（`PlacementCommands.confirmCurrent`），确认才启动双表。经典模式无时钟，沿用原点击放球。
 - 装配根 `cancelled` 清 pendingShot、重新激活当前球权方并同步 HUD；摆球点击成功后由装配根请求确认以启动计时。浏览器专项：`npm run test:900`。

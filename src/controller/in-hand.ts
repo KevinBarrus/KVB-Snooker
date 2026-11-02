@@ -5,6 +5,7 @@ export interface PlacementCommands {
   ray(x: number, y: number): { origin: Point3; direction: Point3 };
   valid(point: Point3): boolean;
   place(point: Point3): boolean;
+  confirmCurrent?(): boolean;
 }
 
 // PCOL L4177-4345
@@ -26,6 +27,12 @@ export class InHand {
     this.camera.setState(0);
   }
   exit(): void { this.active = this.visible = this.valid = false; }
+  confirm(): boolean {
+    if (!this.active) return false;
+    const done = this.commands.confirmCurrent?.() ?? false;
+    if (done) this.exit();
+    return done;
+  }
   move(x: number, y: number): void { this.mouseX = x; this.mouseY = y; this.dirty = true; }
   press(x: number, y: number): boolean {
     if (Number.isNaN(this.mouseX) || Number.isNaN(this.mouseY)) { this.move(x, y); return false; }

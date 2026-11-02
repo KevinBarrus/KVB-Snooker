@@ -203,6 +203,7 @@ export class GameSession {
   prepareStroke(playerIndex: number, vars: StrokeVars): boolean {
     if (this.state !== GAME_STATE.READY || this.finished || playerIndex !== this.context.playerIndex) return false;
     if (this.prepared) return true;
+    if (this.nine && this.nine.clock.view.phase !== "aiming") return false;
     const nomination = this.getNomination(vars[3], vars[5]);
     if (nomination.required) {
       if (nomination.ballIndex === null) return false;

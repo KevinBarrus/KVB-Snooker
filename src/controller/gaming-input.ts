@@ -30,6 +30,7 @@ export class GamingInput {
       "82": { states: all, down: () => { if (!this.inHand.active) camera.resetLookAt(); } },
       "67": { states: 4, down: () => { if (!this.inHand.active) person.stick.clearTip(camera.state === 1); } },
       "80": { states: 4, down: () => this.pickUp() },
+      "13": { states: 4, down: () => { if (this.inHand.active) this.inHand.confirm(); } },
       "27": { states: 4, down: () => this.inHand.exit() },
       "32": { states: 4, down: () => { if (!this.inHand.active && game.canAim()) shots.launch(person); } }
     }, {

@@ -104,7 +104,8 @@ export class BrowserGame {
     });
     this.controls = new GamingInput(canvas, this.human, this.shots, {
       state: () => this.pendingShot ? GAME_STATE.SIMULATING : this.session.state,
-      canAim: () => this.human.active && this.canShoot(this.human.playerIndex),
+      canAim: () => this.human.active && this.canShoot(this.human.playerIndex) &&
+        (!this.session.clock || this.session.clock.phase === "aiming"),
       canPlace: () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0 &&
         (!this.session.clock || this.session.clock.phase === "placement"),
       cycleView: () => this.cycleView()
@@ -123,6 +124,16 @@ export class BrowserGame {
           this.human.activate(); this.syncHud(); this.syncRuleChoice();
         }
         return placed;
+      },
+      confirmCurrent: () => {
+        if (!this.human.active || !this.canShoot(this.human.playerIndex) || this.session.context.inHand <= 0) return false;
+        if (this.session.clock && this.session.clock.phase !== "placement") return false;
+        const cue = simulator.getCueBallPosition();
+        if (!this.session.canPlaceCueBall(cue.x, simulator.spotY, cue.z)) return false;
+        if (!this.session.placeCueBall(cue.x, simulator.spotY, cue.z)) return false;
+        if (this.session.clock) this.session.confirmPlacement(this.human.playerIndex);
+        this.human.activate(); this.syncHud(); this.syncRuleChoice();
+        return true;
       }
     });
     this.hud = new Hud(() => this.session.players);

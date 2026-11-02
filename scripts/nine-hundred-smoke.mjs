@@ -18,13 +18,23 @@ try {
     balls.sync(); scene.render();
     return { ruleset: game.session.ruleset, clock: game.session.clock, player: game.session.context.playerIndex,
       inHand: game.session.context.inHand, foul: game.session.result.foulCode, phase: game.session.clock?.phase ?? null,
-      finished: game.session.finished, round: game.session.context.nRounds };
+      finished: game.session.finished, round: game.session.context.nRounds,
+      busy: game.shots.busy, state: game.session.state };
   }, { count, dt });
 
-  await page.selectOption('select[name="mode"]', "single-play");
-  await page.selectOption('select[name="rules"]', "snooker-900");
-  await page.getByRole("button", { name: "开始新局" }).click();
-  let state = await advance(2);
+  const start900 = async () => {
+    await page.selectOption('select[name="mode"]', "single-play");
+    await page.selectOption('select[name="rules"]', "snooker-900");
+    await page.getByRole("button", { name: "开始新局" }).click();
+    return advance(2);
+  };
+  const confirmHere = async () => {
+    await page.locator("canvas").focus();
+    await page.keyboard.press("p"); await advance(2);
+    await page.keyboard.press("Enter"); await advance(2);
+  };
+
+  let state = await start900();
   assert.equal(state.ruleset, "snooker-900");
   assert.deepEqual(state.clock, { frameSeconds: 900, shotSeconds: 20, phase: "placement", shootout: false });
   const clockText = await page.locator(".match-clock").evaluate(node => ({ hidden: node.hidden, text: node.textContent }));
@@ -36,13 +46,24 @@ try {
     const { scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     const meshes = scene.meshes.filter(mesh => mesh.name.startsWith("cue-red-dot-"));
     return { count: meshes.length, visible: meshes.filter(mesh => mesh.isVisible).length,
-      parent: meshes[0]?.parent?.name };
+      parent: meshes[0]?.parent?.name, flat: meshes.every(mesh => mesh.getTotalVertices() < 100) };
   });
-  assert.deepEqual(dots, { count: 6, visible: 6, parent: "ball-0" });
+  assert.deepEqual(dots, { count: 6, visible: 6, parent: "ball-0", flat: true });
 
   state = await advance(10);
   assert.deepEqual(state.clock, { frameSeconds: 900, shotSeconds: 20, phase: "placement", shootout: false });
-  await page.evaluate(async () => { const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime; game.session.confirmPlacement(game.session.context.playerIndex); });
+  await page.locator("canvas").focus();
+  await page.keyboard.press("w");
+  const blocked = await page.evaluate(async () => {
+    const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    for (let i = 0; i < 60; ++i) game.update(.0167);
+    return { state: game.human.camera.state, ratio: game.human.camera.stateRatio, phase: game.session.clock.phase };
+  });
+  assert.deepEqual(blocked, { state: 0, ratio: 0, phase: "placement" }, "placement must block aiming");
+
+  await confirmHere();
+  assert.equal(await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.session.clock.phase), "aiming");
+  assert.equal(await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.session.context.inHand), 1);
   state = await advance(10);
   assert.equal(state.phase, "aiming");
   assert.deepEqual([state.clock.frameSeconds, state.clock.shotSeconds].map(value => Math.round(value)), [899, 19]);
@@ -58,6 +79,23 @@ try {
   const afterTimeout = await page.locator(".match-clock").textContent();
   assert.match(afterTimeout, /出杆 (18|19|20)/);
   assert.match(afterTimeout, /瞄准中/);
+  for (let i = 0; i < 80; ++i) { state = await advance(30); if (!state.busy && state.state === 4) break; }
+
+  await page.reload();
+  await page.waitForFunction(() => document.body.dataset.state === "ready", undefined, { timeout: 30000 });
+  await page.evaluate(async () => { const { engine } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime; engine.stopRenderLoop(); });
+  state = await start900();
+  await confirmHere();
+  await page.locator("canvas").focus();
+  await page.keyboard.press("w"); await advance(120);
+  await page.keyboard.press("Space"); await advance(60);
+  const shotStarted = await page.evaluate(async () => {
+    const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return { busy: game.shots.busy, striker: game.session.players[0].shootingCount, phase: game.session.clock.phase };
+  });
+  assert.deepEqual(shotStarted, { busy: true, striker: 1, phase: "rolling" }, "confirmed placement must allow a real stroke");
+  for (let i = 0; i < 80; ++i) { state = await advance(30); if (!state.busy && state.state === 4) break; }
+  assert.equal(state.state, 4, "stroke must settle back to READY");
 
   await page.selectOption('select[name="mode"]', "practice");
   await page.selectOption('select[name="rules"]', "snooker-900");
