@@ -46,7 +46,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const game = new BrowserGame(simulator, scene, scene.activeCamera, canvas);
     disposeGame = () => game.dispose();
     const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(), getBallView: index => game.getDisplayBallView(index) },
-      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask);
+      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.session.ruleset === "snooker-900" });
     const cue = await loadCue(scene, lighting);
     const placement = new PlacementMarkers(scene, atlas, mask);
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);

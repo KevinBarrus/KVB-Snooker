@@ -16,7 +16,8 @@ export class BallRenderer {
     private readonly tableHeight: number,
     lighting: BallLighting,
     atlas: B.Texture,
-    mask: B.Texture
+    mask: B.Texture,
+    private readonly options: { readonly redDots?: () => boolean } = {}
   ) {
     if (!Number.isFinite(radius) || 2 * radius <= 1e-6) throw new Error(`Invalid ball radius: ${radius}`);
     this.shadows = new BallShadows(scene, simulator.getBallCount(), radius, atlas, mask);
@@ -35,12 +36,35 @@ export class BallRenderer {
       }
       mesh.material = material;
       mesh.rotationQuaternion = B.Quaternion.Identity();
+      if (number === 0) this.addRedDots(scene, mesh, radius);
       this.meshes.push(mesh);
     }
     this.sync();
   }
 
+  private readonly dotMeshes: B.Mesh[] = [];
+  private dotMaterial: B.StandardMaterial | null = null;
+
+  private addRedDots(scene: B.Scene, cue: B.Mesh, radius: number): void {
+    const material = new B.StandardMaterial("cue-red-dots", scene);
+    material.diffuseColor = new B.Color3(0, 0, 0);
+    material.emissiveColor = new B.Color3(0.72, 0.02, 0.02);
+    material.specularColor = new B.Color3(0, 0, 0);
+    material.disableLighting = true;
+    this.dotMaterial = material;
+    const offset = radius * 0.992, diameter = radius * 0.34;
+    for (const [x, y, z] of [[offset, 0, 0], [-offset, 0, 0], [0, offset, 0], [0, -offset, 0], [0, 0, offset], [0, 0, -offset]]) {
+      const dot = B.MeshBuilder.CreateSphere(`cue-red-dot-${this.dotMeshes.length}`, { segments: 8, diameter }, scene);
+      dot.material = material;
+      dot.parent = cue;
+      dot.position.copyFromFloats(x, y, z);
+      this.dotMeshes.push(dot);
+    }
+  }
+
   sync(): void {
+    const showDots = this.options.redDots?.() ?? false;
+    for (const dot of this.dotMeshes) dot.isVisible = showDots && this.simulator.getBallView(0).active;
     for (let index = 0; index < this.meshes.length; ++index) {
       const mesh = this.meshes[index];
       const ball = this.simulator.getBallView(index);
@@ -60,6 +84,8 @@ export class BallRenderer {
   }
 
   dispose(): void {
+    for (const dot of this.dotMeshes) dot.dispose();
+    this.dotMaterial?.dispose();
     for (const mesh of this.meshes) mesh.dispose();
     for (const material of this.materials.values()) material.dispose();
     this.shadows.dispose();

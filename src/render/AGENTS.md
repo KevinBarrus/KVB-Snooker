@@ -81,3 +81,5 @@ PCOL L1105-1115 使用 planebatch，L9911 指定 shader 根路径。当前同源
 - 已知工具提示：Babylon 3.2 发布包缺少其声明的 source map，Vitest 会提示但测试通过；Vite 提示完整 Babylon bundle 大于500 kB，当前 gzip 约450 kB，尚未做体积优化。
 
 - Gunsight 复用 table-overlay 的原作 planebatch shader、图集与mask，五段用独立网格共享材质；高度为台面+0.001+0.0001，目标标记 alphaIndex=10，其余−10。不依赖 controller，不读 World。
+
+- [x] 900 红点母球：BallRenderer 可选 `redDots` 提供者，在母球局部坐标 ±X/±Y/±Z 六点挂小半球，随真实 rotationQuaternion 旋转；材质为关闭直接光的暗红自发光，球半径/质量/物理与经典一致。经典/练习隐藏，900 显示。
