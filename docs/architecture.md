@@ -264,7 +264,7 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 ### 4.7 斯诺克 900（设计阶段，2026-11-02）
 
-需求及施工说明见 [snooker-900-design.md](snooker-900-design.md)。用户本轮仅授权文档提交推送，尚未授权开始实现。本节登记设计边界，既有冻结签名保持不变；具体新增签名须在细则核实后补入本节，不能在其他文档自行定义第二套公开契约。
+需求及施工说明见 [snooker-900-design.md](snooker-900-design.md)。用户随后设置“完成斯诺克900模式的开发”目标，已授权实现，并确认设计文档 §11 的游戏细则；原仅文档阶段结束。既有接口兼容，新增契约集中登记在本节。
 
 - 规则类型独立于对局方式：经典为默认，900 首版用于人机和独立双人测试。计划通过 `GameOptions`新增规则配置，不给 `GameMode`添加测试模式；自由练习维持原行为。
 - 900 的局时 900 秒、出杆时限 20 秒；合法摆球及系统复位时两表暂停，球运动时只停止出杆表。Space/预备动画不是完成出杆；实际触球前仍受截止检查。局时截止前已触球的杆完整结算得分和罚分，随后终局或蓝球决胜。
@@ -274,6 +274,12 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 - UI 只显示双计时与规则选择，不自行判罚；controller 通过窄回调处理摆球确认、实际触球和超时取消，取消不能沿用“触球被拒即抛异常”的现行流程。AI 同样经核心放置和触球校验，不获得额外时间。
 - 红点母球由装配根选择 render 外观，复用 `BallView.renderOrientation`；球半径、质量、惯量及摩擦不变。规则不依赖 render，表现层不新增横向依赖，既有镜头行为不改。
 - 900 官方简介未充分覆盖专门罚值、蓝球程序等细节，待核实项目见设计文档 §2.3。不得用 Shoot Out 对照条款冒充已确认的 900 规则；摆球双暂停及压哨结算按用户约定登记。
+
+首单元：`core/match-clock.ts`为对局内部计时组件，`advance(seconds:number):"frame"|"shot"|null`只消费外部提供的非负有限秒数；同一截止只返回一次。`view:MatchClockView`返回独立快照，含`frameSeconds:number;shotSeconds:number;phase:ClockPhase;shootout:boolean`；`ClockPhase`为placement/aiming/rolling/settling/frame-expired/shot-expired/finished。`untilExpiry:number`给装配分片使用，暂停时为Infinity。reset、beginTurn(placement:boolean)、beginPlacement/confirmPlacement/strike（返回boolean）、settle、startShootout、finish由对局层管理；表现层不直接改这个组件。
+
+后续核心接线契约：`GameOptions.ruleset?:"classic"|"snooker-900"`默认classic，practice配900拒绝；`GameSession.ruleset`只读。`clock:MatchClockView|null`、`advanceTime(seconds:number):void`、`timeUntilExpiry:number`提供独立于物理的计时；`beginPlacement(playerIndex:number):boolean`和`confirmPlacement(playerIndex:number):boolean`经权限校验暂停/恢复，不补时；`canPlaceCueBall(x:number,y:number,z:number):boolean`供装配预检。原stroke布尔返回拒绝超时，prepareStroke不停止计时。`shootout: {readonly attempts:readonly number[];readonly potted:readonly number[]}|null`显示决胜结果，finished/winnerIndex在决胜阶段按轮次结果而非平分比分判断。方法新增前保持Node和浏览器调用方编译兼容。
+
+专门犯规码预留并冻结：`FOUL.SHOT_TIMEOUT=128;FOUL.NO_CUSHION=256`；均按max(4,本杆目标分值)计罚，COLOR_ALL未完成提名按7；不得与普通犯规简单叠加罚分。正常900犯规直接对方全台手中球。蓝球每次20秒、双方同等次数后比较合法直接进球、本局非开球方先打；900进行中禁用暂停式回放，终局保留¼慢放。严格截止，两表同刻到期先终局不追加超时罚分。以上为用户确认游戏约定。
 
 ## 5. 目录结构（骨架）
 
