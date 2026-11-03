@@ -56,13 +56,13 @@ function fadeMsFor(tailRelDb) {
 }
 
 // 尾部处理：干路淡出 + 共享 send 混响，尾巴延长到原长 + tailExtraSeconds。
-function withTail(source, gainDb, note) {
+// wet 与 tailExtra 随力度上升，高档位因此更厚、拖得更长（不是只把音量拧大）。
+function withTail(source, options) {
   const fadeMs = fadeMsFor(lib.measureWav(source).tailRelDb);
-  const total = Math.round((source.frames / rate + config.tailExtraSeconds) * rate);
+  const total = Math.round((source.frames / rate + options.tailExtraSeconds) * rate);
   const dry = lib.padWav(lib.fadeOutWav(source, fadeMs), total);
-  const wet = lib.convolveStereo(source, irFor(0.35), total, fft);
-  const summed = lib.addWav(dry, wet);
-  return applyGain(summed, gainDb, { fadeMs, wet: 0.35, note });
+  const wet = lib.convolveStereo(source, irFor(options.wet), total, fft);
+  return { wav: lib.addWav(dry, wet), fadeMs, wet: options.wet, tailExtraSeconds: options.tailExtraSeconds };
 }
 
 // 只记录目标增益，不做峰值保护：先按组统一缩放到"最响档刚好顶到上限"，
@@ -83,12 +83,9 @@ async function buildProcess(item) {
   const start = Math.max(0, onset - config.preRollMs / 1000);
   const tmp = join(scratchDir, `hp-${item.process}.wav`);
   const cleaned = await highpass(input, start, tmp);
-  const result = withTail(cleaned, item.gainDb ?? 0, {
-    source: `${source.source}`, sourceId: item.process,
-    onsetSeconds: round(onset, 3), trimSeconds: round(start, 3),
-    highpassHz: config.highpassHz
-  });
-  return result;
+  return { ...withTail(cleaned, item),
+    source: source.source, sourceId: item.process,
+    onsetSeconds: round(onset, 3), trimSeconds: round(start, 3), highpassHz: config.highpassHz };
 }
 
 async function buildReuse(item) {
@@ -102,7 +99,7 @@ async function buildReuse(item) {
     extra.onsetSeconds = round(trimmed.onset, 3);
     extra.trimSeconds = round(trimmed.start / rate, 3);
   }
-  return applyGain(wav, item.gainDb ?? 0, extra);
+  return { wav, ...extra };
 }
 
 const slots = [];
@@ -115,37 +112,65 @@ for (const slot of spec.slots) {
       `-${(item.process ?? basename(item.reuse.caseId)).replace(/[^a-z0-9-]/gi, "")}.wav`;
     items.push({
       file: `samples/${name}`, note: item.note, unspecified: item.unspecified === true,
-      wav: built.wav, gainDb: built.gainDb, rawPeakDb: built.rawPeakDb,
-      fadeMs: built.fadeMs ?? null, wet: built.wet ?? null, sourceId: built.sourceId ?? null,
+      wav: built.wav,
+      fadeMs: built.fadeMs ?? null, wet: built.wet ?? null, tailExtraSeconds: built.tailExtraSeconds ?? null,
+      sourceId: built.sourceId ?? null,
       source: built.source ?? null, reviewKey: built.reviewKey ?? null, reviewFile: built.reviewFile ?? null,
       trimSeconds: built.trimSeconds ?? null, highpassHz: built.highpassHz ?? null
     });
     counter++;
   }
-  slots.push({ group: slot.group, band: slot.band, items });
+  slots.push({ group: slot.group, band: slot.band, peakDb: slot.peakDb, items });
 }
 
-// 组内统一缩放：让该组"增益最高的那一条"刚好顶到峰值上限，其余按阶梯递减。
-const groupScale = new Map();
+// 峰值落位的两条依据：
+// 1) slot.peakDb 给出该档的目标峰值；
+// 2) 峰均比补偿（crestCompensation）：本地"大力"素材底噪很高、峰均比低约 5dB，
+//    同样峰值下能量高出一大截，直接换素材会在 0.5→0.75 处听出 12dB 的跳变。
+//    按峰均比相对本组最干净素材的差值补偿，让换素材那一步只多出体量、不多出响度。
+const crestOf = wav => {
+  const onset = Math.round(lib.findOnset(wav) * rate);
+  const to = Math.min(wav.frames, onset + Math.round(0.08 * rate));
+  return lib.gainToDb(lib.peakOf(wav)) - lib.gainToDb(lib.rmsOfWindow(wav, onset, to));
+};
+const referenceCrest = new Map();
+for (const group of [...new Set(slots.map(slot => slot.group))]) {
+  const crests = slots.filter(slot => slot.group === group)
+    .flatMap(slot => slot.items.map(item => crestOf(item.wav)));
+  referenceCrest.set(group, Math.max(...crests));
+}
+const alpha = spec.crestCompensation ?? 0;
+for (const slot of slots) {
+  for (const item of slot.items) {
+    const crestTrim = -alpha * (referenceCrest.get(slot.group) - crestOf(item.wav));
+    item.crestTrimDb = round(crestTrim, 2);
+    item.targetPeakDb = round(slot.peakDb + crestTrim, 2);
+    item.normDb = item.targetPeakDb - lib.gainToDb(lib.peakOf(item.wav));
+  }
+}
+// 组内统一抬起：让每组最响的一条落在峰值上限，保留阶梯形状，跨组响度一致。
+const groupOffset = new Map();
 for (const group of [...new Set(slots.map(slot => slot.group))]) {
   const items = slots.filter(slot => slot.group === group).flatMap(slot => slot.items);
-  const loudest = Math.max(...items.map(item => item.gainDb));
-  groupScale.set(group, round(config.peakTargetDb - loudest, 2));
+  const loudest = Math.max(...items.map(item => lib.gainToDb(lib.peakOf(item.wav)) + item.normDb));
+  groupOffset.set(group, round(config.peakTargetDb - loudest, 2));
 }
 for (const slot of slots) {
-  const shift = groupScale.get(slot.group);
+  const offset = groupOffset.get(slot.group);
   for (const item of slot.items) {
-    const normDb = -item.rawPeakDb;
-    const final = lib.scaleWav(item.wav, lib.dbToGain(normDb + shift + item.gainDb));
+    const normDb = item.normDb + offset;
+    const final = lib.scaleWav(item.wav, lib.dbToGain(normDb));
     await writeFile(join(sampleDir, basename(item.file)), lib.encodeWavAudio(final));
     const measured = lib.measureWav(final);
     item.durationSeconds = round(final.frames / rate, 3);
     item.peakDb = round(measured.peakDb);
     item.tailRelDb = round(measured.tailRelDb, 1);
     item.onsetSeconds = round(lib.findOnset(final), 3);
-    item.appliedGainDb = round(normDb + shift + item.gainDb, 2);
-    item.groupShiftDb = shift;
+    item.appliedGainDb = round(normDb, 2);
+    item.groupOffsetDb = offset;
+    item.rmsDb = round(lib.gainToDb(lib.rmsOfWindow(final, 0, Math.min(final.frames, Math.round(0.3 * rate)))), 1);
     delete item.wav;
+    delete item.normDb;
   }
 }
 
@@ -153,12 +178,13 @@ const flat = slots.flatMap(slot => slot.items.map(item => ({ ...item, group: slo
 const checks = [
   { name: "文件数", ok: flat.length === counter, detail: `${flat.length} 条，覆盖 ${slots.length} 个槽位` },
   { name: "峰值上限", ok: flat.every(item => item.peakDb <= config.peakTargetDb + 0.05), detail: `${config.peakTargetDb} dBFS` },
-  { name: "力度阶梯保留", ok: [...new Set(slots.map(slot => slot.group))].every(group => {
+  { name: "峰值按目标落位", ok: flat.every(item => Math.abs(item.peakDb - (item.targetPeakDb + item.groupOffsetDb)) <= 0.1), detail: "每档误差 ≤0.1dB（含组内统一抬起）" },
+  { name: "力度阶梯单调", ok: [...new Set(slots.map(slot => slot.group))].every(group => {
     const bands = [...new Set(slots.filter(slot => slot.group === group).map(slot => slot.band))].sort((a, b) => a - b);
-    const peakOf = band => Math.max(...slots.filter(slot => slot.group === group && slot.band === band)
-      .flatMap(slot => slot.items.map(item => item.peakDb)));
-    return bands.every((band, index) => index === 0 || peakOf(band) >= peakOf(bands[index - 1]) - 2);
-  }), detail: "同组内高档位不显著轻于低档位" },
+    const at = band => Math.max(...slots.filter(slot => slot.group === group && slot.band === band)
+      .flatMap(slot => slot.items.map(item => item.rmsDb)));
+    return bands.every((band, index) => index === 0 || at(band) > at(bands[index - 1]));
+  }), detail: "同组内高档位的前 300ms 能量严格大于低档位" },
   { name: "无前摇", ok: flat.every(item => item.onsetSeconds <= 0.06), detail: "起音 ≤60ms（裁掉前置底噪）" },
   { name: "每组每档至少 1 条", ok: slots.every(slot => slot.items.length > 0), detail: `${slots.length} 个槽位` },
   { name: "同组同档无重复文件", ok: slots.every(slot => new Set(slot.items.map(item => item.file)).size === slot.items.length), detail: "洗牌基础" }
