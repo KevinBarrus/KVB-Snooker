@@ -83,5 +83,7 @@ docs/controller-design.md 记录 REA 身份证据、原作行号、规格修正�
 ## 900 超时取消
 
 - ShotController 在实际触球回调返回 false 时按正常取消处理：结束出杆视图、回到起身姿势并调用可选 `cancelled`，不再抛异常。900 出杆表到期由核心裁决并轮换球权，控制器只清理未触球的预备/动画，不施加冲量、不重复判罚。
-- 900 摆球阶段：`canAim` 由装配根按 `clock.phase==="aiming"` 放行；P 进入手中球后按 Enter 采用当前位置并确认（`PlacementCommands.confirmCurrent`），确认才启动双表。经典模式无时钟，沿用原点击放球。
-- 装配根 `cancelled` 清 pendingShot、重新激活当前球权方并同步 HUD；摆球点击成功后由装配根请求确认以启动计时。浏览器专项：`npm run test:900`。
+- 900 开局默认合法位置直接瞄准出杆；P主动拿起或犯规后进入有可见预览的摆球流程，点击/Enter确认合法位置，不停表、不补时。新增可选begin/origin/constrain回调由装配根提供权限、起点与连续路径约束；经典不启用连续路径。
+- 装配根 `cancelled` 清 pendingShot、重新激活当前球权方并同步 HUD；摆球点击成功后由装配根请求确认并重新锚定瞄准器。浏览器专项：`npm run test:900`。
+
+2026-11-03修订：ShotCommands.advanceTime在动画实际消耗的片段边界、触球之前更新时钟，超时返回false阻止冲量。经典保留先stroke再step的物理顺序。900台面静止即可判分，不再等待起身动画；AI先放置再激活及重建搜索，避免旧瞄点。placement-path对球使用解析线段/圆交点，台面与D区边界经同一有效区域校验截断；可绕行、不跨越。Chrome controller与900专项通过。

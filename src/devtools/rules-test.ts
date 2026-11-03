@@ -24,14 +24,17 @@ export function mountRulesTest(form: HTMLFormElement, game: BrowserGame) {
   const start = () => {
     if (mode.value !== "rules-test") { loaded = null; return false; }
     const selected = RULE_TEST_PRESETS.find(preset => preset.id === presets.value);
-    if (selected && game.setMode("single-play", "NORMAL", { players: ["USER", "USER"], setup: makeRuleTestSetup(selected.id) })) {
+    const ruleset = form.querySelector<HTMLSelectElement>('select[name="rules"]')?.value === "snooker-900" ? "snooker-900" : "classic";
+    if (selected && game.setMode("single-play", "NORMAL", { ruleset, players: ["USER", "USER"], setup: makeRuleTestSetup(selected.id) })) {
       loaded = selected.id; loadedSession = game.session;
     }
     return true;
   };
   const restart = () => {
     if (!loaded || loadedSession !== game.session || !game.canReset) return;
-    presets.value = loaded; start();
+    presets.value = loaded;
+    if (game.setMode("single-play", "NORMAL", { ruleset: loadedSession.ruleset,
+      players: ["USER", "USER"], setup: makeRuleTestSetup(loaded) })) loadedSession = game.session;
   };
   const sync = () => {
     const testing = mode.value === "rules-test";

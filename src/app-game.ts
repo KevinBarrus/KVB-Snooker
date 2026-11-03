@@ -5,7 +5,7 @@ import { AIController } from "./core/ai/task-pipeline.js";
 import { AI_PROFILES } from "./core/ai/profiles.js";
 import { createGameView } from "./core/ai/play-area.js";
 import { coreRandom } from "./core/rng.js";
-import { SnookerRef } from "./core/rules/snooker.js";
+import { placementCommands } from "./app-placement.js";
 import { getFoulDescription } from "./core/rules/foul.js";
 import type { Simulator } from "./core/simulator/simulator.js";
 import { PersonController } from "./controller/person-controller.js";
@@ -43,7 +43,6 @@ export class BrowserGame {
   private touchingKey = "";
   readonly touchingNoticeDom = new FoulNoticeDom(document, () => this.canvas.focus());
   session: GameSession;
-  private readonly ref = new SnookerRef();
   private difficulty: keyof typeof AI_PROFILES = "NORMAL";
   private brain = new AIController(AI_PROFILES.NORMAL);
   private readonly ai: AIRunner;
@@ -55,7 +54,6 @@ export class BrowserGame {
   constructor(readonly simulator: Simulator, private readonly scene: B.Scene,
     private readonly camera: B.TargetCamera, private readonly canvas: HTMLCanvasElement) {
     this.session = new GameSession(simulator, "practice");
-    this.ref.syncAreaWithSimulator(simulator);
     this.human = new PersonController(simulator, this.bus, simulator.ballRadius);
     this.opponent = new PersonController(simulator, new EventBus(), simulator.ballRadius, 1);
     try {
@@ -63,11 +61,16 @@ export class BrowserGame {
       if (isShotViewMode(mode)) this.human.camera.shotView.mode = mode;
     } catch {}
     this.shots = new ShotController(this.bus, {
+      advanceTime: dt => {
+        const expiry = this.session.advanceTime(dt);
+        if (expiry !== null) this.handleClockExpiry();
+        return expiry === null || this.session.state === GAME_STATE.SIMULATING;
+      },
       begin: index => {
         if (!this.canShoot(index)) return false;
         const person = this.human.active ? this.human : this.opponent;
         if (!this.session.prepareStroke(index, person.getStrokeVars())) {
-          this.viewNotice.show("目标不明确，请先提名彩球");
+          this.viewNotice.show(this.session.clock?.phase === "placement" ? "请先放置母球并确认，计时继续" : "目标不明确，请先提名彩球");
           return false;
         }
         this.pendingShot = true; this.outSeen = simulator.getResult().outOfBoundsIndices.length;
@@ -104,38 +107,22 @@ export class BrowserGame {
     });
     this.controls = new GamingInput(canvas, this.human, this.shots, {
       state: () => this.pendingShot ? GAME_STATE.SIMULATING : this.session.state,
-      canAim: () => this.human.active && this.canShoot(this.human.playerIndex) &&
-        (!this.session.clock || this.session.clock.phase === "aiming"),
-      canPlace: () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0 &&
-        (!this.session.clock || this.session.clock.phase === "placement"),
+      canAim: () => {
+        if (!this.human.active || !this.canShoot(this.human.playerIndex)) return false;
+        if (this.session.clock?.phase === "placement") {
+          this.viewNotice.show("请按 P 摆球，点击或 Enter 确认；计时继续");
+          return false;
+        }
+        return true;
+      },
+      canPlace: () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0,
       cycleView: () => this.cycleView()
-    }, {
-      ray: (x, y) => {
+    }, placementCommands(simulator, () => this.session, () => this.human.playerIndex,
+      () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0,
+      (x, y) => {
         const bounds = canvas.getBoundingClientRect();
         return scene.createPickingRay(x - bounds.left, y - bounds.top, B.Matrix.Identity(), camera);
-      },
-      valid: point => this.session.canPlaceCueBall(point.x, simulator.spotY, point.z),
-      place: point => {
-        if (!this.human.active || !this.canShoot(this.human.playerIndex) || this.session.context.inHand <= 0) return false;
-        if (this.session.clock && this.session.clock.phase !== "placement") return false;
-        const placed = this.session.placeCueBall(point.x, simulator.spotY, point.z);
-        if (placed) {
-          if (this.session.clock) this.session.confirmPlacement(this.human.playerIndex);
-          this.human.activate(); this.syncHud(); this.syncRuleChoice();
-        }
-        return placed;
-      },
-      confirmCurrent: () => {
-        if (!this.human.active || !this.canShoot(this.human.playerIndex) || this.session.context.inHand <= 0) return false;
-        if (this.session.clock && this.session.clock.phase !== "placement") return false;
-        const cue = simulator.getCueBallPosition();
-        if (!this.session.canPlaceCueBall(cue.x, simulator.spotY, cue.z)) return false;
-        if (!this.session.placeCueBall(cue.x, simulator.spotY, cue.z)) return false;
-        if (this.session.clock) this.session.confirmPlacement(this.human.playerIndex);
-        this.human.activate(); this.syncHud(); this.syncRuleChoice();
-        return true;
-      }
-    });
+      }, () => { this.human.activate(); this.syncHud(); this.syncRuleChoice(); }, text => this.viewNotice.show(text)));
     this.hud = new Hud(() => this.session.players);
     this.hud.attach(this.bus);
     this.replay = new BrowserReplay(camera, canvas, () => this.captureReplay(),
@@ -223,8 +210,15 @@ export class BrowserGame {
     this.human.active = this.session.players[index].type === "USER" && ready;
     this.opponent.active = this.session.players[index].type === "AI" && ready;
     if (this.human.active) { this.human.playerIndex = index; this.human.activate(); }
-    if (this.opponent.active) { this.opponent.playerIndex = index; this.ai.activate(); }
-    if (this.opponent.active && this.session.context.inHand > 0 && this.session.clock?.phase === "placement") this.placeForAI();
+    if (this.opponent.active) {
+      this.opponent.playerIndex = index;
+      if (this.session.clock) {
+        if (this.session.clock.phase === "placement") this.placeForAI();
+        this.brain = new AIController(AI_PROFILES[this.difficulty]);
+      }
+      this.ai.activate();
+    }
+    if (this.human.active && this.session.clock?.phase === "placement") this.controls.inHand.enter();
   }
 
   private placeForAI(): void {
@@ -303,6 +297,7 @@ export class BrowserGame {
     this.session.step(0);
     const missed = this.session.decision?.canReplace ?? false;
     if (this.session.state !== GAME_STATE.READY && this.session.state !== GAME_STATE.DECIDING) return;
+    if (this.session.clock) this.shots.launchingController?.gotoState0();
     this.shots.finish();
     this.human.camera.endShotView();
     this.human.camera.unfollow();
@@ -324,9 +319,12 @@ export class BrowserGame {
   private handleClockExpiry(): void {
     if (this.session.state === GAME_STATE.SIMULATING) return;
     this.pendingShot = false; this.outSeen = 0;
-    this.shots.finish();
+    this.shots.finish(); this.controls.inHand.exit();
+    this.replay.clear();
     this.human.gotoState0(true); this.opponent.gotoState0(true);
     this.hud.foulNotice.close();
+    const { foulCode, score } = this.session.result;
+    if (foulCode) this.bus.emit("game/foul", { foulCode, score, description: getFoulDescription(foulCode) });
     this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.controls.update();
   }
 
@@ -345,12 +343,18 @@ export class BrowserGame {
     this.touchingMessage.update(dt);
     this.touchingNoticeDom.sync(this.touchingMessage);
     if (this.replay.active) { this.replay.update(dt); return; }
-    const expiry = this.session.advanceTime(dt);
-    if (expiry !== null) this.handleClockExpiry();
-    this.controls.update();
-    this.ai.update(dt);
-    this.shots.update(dt, step => { this.human.update(step); this.opponent.update(step); this.replay.record(step); });
-    if (this.shots.canJudge && !Array.from({ length: this.simulator.getBallCount() }, (_, i) => this.simulator.getBallView(i)).some(ball => ball.async)) this.judge();
+    let remaining = dt;
+    do {
+      const slice = this.session.clock ? Math.min(remaining, 1 / 30, this.session.timeUntilExpiry) : remaining;
+      if (this.session.clock) this.hud.update(slice);
+      this.controls.update();
+      if (!this.session.clock || this.session.clock.phase === "aiming") this.ai.update(slice);
+      this.shots.update(slice, step => { this.human.update(step); this.opponent.update(step); this.replay.record(step); });
+      if (this.session.state === GAME_STATE.SIMULATING && (this.session.clock || this.shots.canJudge) &&
+          this.simulator.nAwakened === 0) this.judge();
+      remaining -= slice;
+      if (this.session.finished || slice === 0) break;
+    } while (remaining > 1e-9);
     if (!this.shots.busy && this.human.active && this.canShoot(this.human.playerIndex)) this.human.updatePrediction();
     this.camera.position.copyFrom(this.human.camera.position);
     this.camera.lockedTarget = this.human.camera.target;
@@ -362,7 +366,8 @@ export class BrowserGame {
       (this.human.camera.stateRatio === 0 || this.human.camera.stateRatio === 1);
     this.hud.shortcutsBar.group = this.human.camera.state;
     this.hud.matchClock.sync(this.session.clock);
-    this.hud.update(dt); this.hudDom.sync(this.hud);
+    if (!this.session.clock) this.hud.update(dt);
+    this.hudDom.sync(this.hud);
     this.replay.sync();
   }
 

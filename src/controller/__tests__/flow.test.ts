@@ -7,8 +7,10 @@ import { PersonController } from "../person-controller.js";
 import { ShotController } from "../shot-controller.js";
 import { AIRunner } from "../ai-runner.js";
 import { InHand } from "../in-hand.js";
+import { MatchClock } from "../../core/match-clock.js";
+import { TipMotion } from "../tip-motion.js";
 
-function setup(playerIndex = 0) {
+function setup(playerIndex = 0, clock?: MatchClock) {
   const mesh = new MeshBody({ ground: {
     p: [-10, .88, -10, 10, .88, -10, 10, .88, 10, -10, .88, 10],
     q: [{ i: [0, 1, 2, 3], n: [0, 1, 0], f: ["ground"] }]
@@ -18,13 +20,33 @@ function setup(playerIndex = 0) {
   const person = new PersonController(simulator, bus, .02625, playerIndex);
   const calls: (number | string)[] = [];
   const begin = vi.fn(() => true);
-  const stroke = vi.fn((_index: number, vars: Float32Array) => { calls.push("stroke"); simulator.stroke(vars); return true; });
-  const shots = new ShotController(bus, { begin, stroke, step: dt => { calls.push(dt); simulator.step(dt); } });
+  const stroke = vi.fn((_index: number, vars: Float32Array) => {
+    if (clock && !clock.strike()) return false;
+    calls.push("stroke"); simulator.stroke(vars); return true;
+  });
+  const shots = new ShotController(bus, { begin, stroke, step: dt => { calls.push(dt); simulator.step(dt); },
+    advanceTime: clock ? dt => {
+      const expiry = clock.advance(dt);
+      if (expiry) { shots.finish(); return false; }
+      return true;
+    } : undefined });
   const aim = () => { person.gotoState1(true); for (let i = 0; i < 30; ++i) person.update(.016); };
   return { simulator, bus, person, shots, begin, stroke, calls, aim };
 }
 
 describe("Controller shot flow", () => {
+  it.each([-0.001, 0.001])("同一长帧内按触球相对截止的时刻处理：%s秒", margin => {
+    const clock = new MatchClock(); clock.confirmPlacement();
+    const { person, shots, stroke, aim } = setup(0, clock);
+    aim();
+    const delay = new TipMotion().launch(person.stick, person.strokePower);
+    clock.advance(20 - delay + margin);
+    expect(shots.launch(person)).toBe(true);
+    shots.update(1, dt => person.update(dt));
+    expect(stroke).toHaveBeenCalledTimes(margin < 0 ? 1 : 0);
+    expect(clock.view.phase).toBe(margin < 0 ? "rolling" : "shot-expired");
+    if (margin < 0) expect(clock.view.shotSeconds).toBeCloseTo(.001, 10);
+  });
   it("本地控制席位1同样锁输入并启用观察，不能用编号判断AI", () => {
     const { person, shots, aim } = setup();
     person.playerIndex = 1;

@@ -7,6 +7,7 @@ export interface ShotCommands {
   stroke(playerIndex: number, vars: Float32Array): boolean;
   step(dt: number): void;
   cancelled?(): void;
+  advanceTime?(dt: number): boolean;
 }
 
 // PCOL L6338-6423
@@ -37,33 +38,39 @@ export class ShotController {
     const person = this.actor;
     let remaining = dt;
     if (person) {
-      while (this.motion.needsUpdate && remaining > 1e-6) {
+      while (this.motion.needsUpdate && remaining > 0) {
         let slice = this.motion.tick(remaining);
         remaining -= slice;
+        let striking = false;
         if (this.strokeDelay >= 0) {
           if (this.strokeDelay <= slice) {
             const excess = slice - this.strokeDelay;
             remaining += excess;
             this.motion.rewind(excess);
             slice = this.strokeDelay;
-            if (!this.commands.stroke(person.playerIndex, person.getStrokeVars())) {
-              this.finish();
-              person.gotoState0();
-              this.commands.cancelled?.();
-              return;
-            }
-            person.camera.shotView.struck = true;
-            this.strokeDelay = -1;
+            striking = true;
           } else this.strokeDelay -= slice;
+        }
+        if (this.commands.advanceTime?.(slice) === false) return;
+        if (striking) {
+          if (!this.commands.stroke(person.playerIndex, person.getStrokeVars())) {
+            this.finish();
+            person.gotoState0();
+            this.commands.cancelled?.();
+            return;
+          }
+          person.camera.shotView.struck = true;
+          this.strokeDelay = -1;
         }
         this.commands.step(slice);
         this.motion.updateLength(person.simulator.getCueBallPosition(), person.radius);
         person.stick.leadingSpace = this.motion.length;
         updatePeople(slice);
-        if (remaining < 1e-6) return;
+        if (remaining <= 0) return;
       }
       if (this.motion.needsUpdate) return;
     }
+    if (this.commands.advanceTime?.(remaining) === false) return;
     this.commands.step(remaining);
     if (person && this.standDelay >= 0 && (this.standDelay -= remaining) < 0) person.gotoState0();
     updatePeople(remaining);
