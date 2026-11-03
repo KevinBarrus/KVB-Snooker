@@ -3,6 +3,7 @@ import type { PoolHost } from "./pool.js";
 import { Vec3 } from "../math/vec3.js";
 import { ContactBase } from "./contact.js";
 import type { Body } from "./body.js";
+import { TABLE_TUNING } from "./table-tuning.js";
 
 /**
  * PCOL L14110-14169（原模 92）：球-多边形接触（SP）。
@@ -37,6 +38,11 @@ export class ContactSP extends ContactBase {
 
   private get bjPoly(): CollisionPolygon {
     return this.bj as unknown as CollisionPolygon;
+  }
+
+  override startResting(): void {
+    super.startResting();
+    this.rollingFriction = this.bjPoly.ground ? TABLE_TUNING.clothRollingFriction : 0.013;
   }
 
   resetRestingWithPeneCP(depth: number, contactPoint: Vec3): void {

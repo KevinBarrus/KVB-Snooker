@@ -1,4 +1,5 @@
 import { Vec3 } from "../math/vec3.js";
+import { TABLE_TUNING } from "./table-tuning.js";
 
 /** PCOL L8932-8968（原模 16）：物理常量表，逐值 1:1。 */
 export interface RestitutionKeys {
@@ -57,6 +58,11 @@ export function setPolyFrictionAndRestitution(t: { friction: number; restitution
   for (const key in table) {
     if (flags[key]) {
       t.restitution = table[key as keyof RestitutionKeys];
+      if (key === "ground") t.friction = TABLE_TUNING.clothSlidingFriction;
+      if (key === "sidehard") {
+        t.friction = TABLE_TUNING.cushionFriction;
+        t.restitution = TABLE_TUNING.cushionRestitution;
+      }
       return;
     }
   }

@@ -2,6 +2,7 @@ import { Vec3 } from "../math/vec3.js";
 import { Matrix3 } from "../math/matrix3.js";
 import { Quaternion } from "../math/quaternion.js";
 import { PHYSICS } from "./constants.js";
+import { TABLE_TUNING } from "./table-tuning.js";
 import { coreRandom } from "../rng.js";
 
 /**
@@ -65,7 +66,7 @@ export class Body {
   wProp_sq = 0;
   wProp_dirty = false;
   invInertia = new Matrix3();
-  airAngularDamping = PHYSICS.airAngularDamping;
+  airAngularDamping = TABLE_TUNING.angularRetention;
   rfPower = 0;
   rfDir = new Vec3(0, 0, 0);
   position: Vec3;

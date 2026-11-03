@@ -5,6 +5,7 @@ import { PHYSICS, getGravityDir, setBallFrictionAndRestitution, setPolyFrictionA
 import { Body } from "../../src/core/physics/body.js";
 import { BodySphere } from "../../src/core/physics/ball.js";
 import { SeededRandom, setCoreRandom } from "../../src/core/rng.js";
+import { TABLE_TUNING } from "../../src/core/physics/table-tuning.js";
 
 const UNIT_Y = new Vec3(0, 1, 0);
 
@@ -56,8 +57,8 @@ describe("physics/constants（PCOL L8932 常量表逐值）", () => {
 
     const poly = { sidehard: true, friction: 0, restitution: 0 };
     setPolyFrictionAndRestitution(poly as typeof poly & Record<string, unknown>);
-    expect(poly.restitution).toBe(0.92);
-    expect(poly.friction).toBe(0.15);
+    expect(poly.restitution).toBe(TABLE_TUNING.cushionRestitution);
+    expect(poly.friction).toBe(TABLE_TUNING.cushionFriction);
 
     const plain = { friction: 0, restitution: 0 };
     setPolyFrictionAndRestitution(plain);
@@ -105,6 +106,7 @@ describe("Body（PCOL L11324 刚体基类）", () => {
 
   it("predVelocities：acc·dt 与角阻尼；rf 钳制走位（PCOL 怪癖 4）", () => {
     const b = new Body(1);
+    b.airAngularDamping = PHYSICS.airAngularDamping;
     b.v.set(3, 0.5, 0);
     b.w.set(1.5, 0.5, 0);
     b.rfDir.set(0, 3, 0);

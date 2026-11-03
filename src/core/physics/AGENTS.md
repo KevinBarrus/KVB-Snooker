@@ -62,6 +62,8 @@ PCOL 自研物理引擎：物理常量、刚体（Body/Sphere）、接触（Cont
 
 ## 登记差异
 
+- 2026-11-03 用户批准初步球台调校，配置和恢复入口在 `table-tuning.ts`，说明见 `docs/table-tuning.md`。`PCOL_TABLE_TUNING`/`PHYSICS` 保留原作基线；生效的 `TABLE_TUNING` 将地面滚动摩擦改为 0.012、普通硬库摩擦/恢复改为 0.18/0.94、角速度保留改为 0.992。台面滑动摩擦仍为 0.15，软库/袋口/球球不改。这是明确授权的参数差异，不改变求解器、CCD、出杆公式或原作衰减调用时机。
+- `ContactSP.startResting` 每次重新分配地面滚动摩擦，非地面恢复 0.013，防止池复用泄漏；所有模式与预测共用配置，红点外观只消费既有姿态。新增 5 项调校测试覆盖滚动行程/侧旋保留/最终休眠、左右吃库对称与软库/袋口材料隔离；基础测试保留原值算法验证。
 - 原模 20 性能统计尚未移植，省略 `startTick`/`stopTick`/`count`（World.step/internalStep/求解器多处）；仅影响诊断，不影响行为。
 - 原模 91 `log()` 调试方法未移植。
 - 模 85 的 `interrupt` 在 callback 为 null 时退化为基础 Solver；`SolverEngine.sharedInstance` 供预测路径专用。
