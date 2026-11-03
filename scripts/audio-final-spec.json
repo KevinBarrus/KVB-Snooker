@@ -1,0 +1,467 @@
+{
+  "version": 1,
+  "sources": "scripts/audio-sources.json",
+  "mediaRoot": "local-audio",
+  "reviewManifest": ".cache/audio-review/manifest.json",
+  "output": ".cache/audio-final",
+  "process": {
+    "preRollMs": 25,
+    "highpassHz": 150,
+    "tailExtraSeconds": 0.65,
+    "peakTargetDb": -0.5,
+    "fade": {
+      "loudMs": 120,
+      "mediumMs": 60,
+      "quietMs": 30,
+      "loudAboveDb": -25,
+      "mediumAboveDb": -40
+    },
+    "ir": {
+      "sampleRate": 48000,
+      "durationSeconds": 2.0,
+      "preDelayMs": 25,
+      "rt60Seconds": 1.4,
+      "highRt60Scale": 0.7,
+      "crossHz": 1500,
+      "earlyTaps": 8,
+      "seed": 20261028
+    }
+  },
+  "slots": [
+    {
+      "group": "cue-low",
+      "band": 0.1,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-low",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -8,
+          "note": "低杆小力"
+        }
+      ]
+    },
+    {
+      "group": "cue-low",
+      "band": 0.3,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-low",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -6,
+          "note": "低杆中小力"
+        }
+      ]
+    },
+    {
+      "group": "cue-low",
+      "band": 0.5,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-low",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -4,
+          "note": "未指定，暂用同一素材放大",
+          "unspecified": true
+        }
+      ]
+    },
+    {
+      "group": "cue-low",
+      "band": 0.75,
+      "items": [
+        {
+          "process": "sample-47",
+          "wet": 0.35,
+          "gainDb": -2.5,
+          "note": "未指定，暂用低杆大力素材降 3dB",
+          "unspecified": true
+        }
+      ]
+    },
+    {
+      "group": "cue-low",
+      "band": 1.0,
+      "items": [
+        {
+          "process": "sample-47",
+          "wet": 0.35,
+          "gainDb": 0,
+          "note": "低杆大力（长台低杆大力2，裁前摇 + 高通 + 混响）"
+        }
+      ]
+    },
+    {
+      "group": "cue-mid-low",
+      "band": 0.1,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-light",
+            "version": "D-wet0.15"
+          },
+          "gainDb": -3,
+          "note": "中低杆小力，整体 +2dB"
+        }
+      ]
+    },
+    {
+      "group": "cue-mid-low",
+      "band": 0.3,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-light",
+            "version": "D-wet0.15"
+          },
+          "gainDb": -3,
+          "note": "中低杆中小力，整体 +2dB"
+        }
+      ]
+    },
+    {
+      "group": "cue-mid-low",
+      "band": 0.5,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-light",
+            "version": "D-wet0.15"
+          },
+          "gainDb": -1,
+          "note": "未指定，暂用同一素材放大",
+          "unspecified": true
+        }
+      ]
+    },
+    {
+      "group": "cue-mid-low",
+      "band": 0.75,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-light",
+            "version": "D-wet0.15"
+          },
+          "gainDb": 1,
+          "note": "未指定，暂用同一素材放大",
+          "unspecified": true
+        }
+      ]
+    },
+    {
+      "group": "cue-mid-low",
+      "band": 1.0,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-light",
+            "version": "D-wet0.15"
+          },
+          "gainDb": 3,
+          "note": "未指定，暂用同一素材放大",
+          "unspecified": true
+        }
+      ]
+    },
+    {
+      "group": "cue-center",
+      "band": 0.1,
+      "items": [
+        {
+          "process": "sample-36",
+          "wet": 0.35,
+          "gainDb": -4,
+          "note": "中杆 · 中杆中小力1（裁前摇 + 高通 + 混响）"
+        }
+      ]
+    },
+    {
+      "group": "cue-center",
+      "band": 0.3,
+      "items": [
+        {
+          "process": "sample-36",
+          "wet": 0.35,
+          "gainDb": -2,
+          "note": "中杆 · 同上"
+        }
+      ]
+    },
+    {
+      "group": "cue-center",
+      "band": 0.5,
+      "items": [
+        {
+          "process": "sample-36",
+          "wet": 0.35,
+          "gainDb": 0,
+          "note": "中杆 · 同上"
+        }
+      ]
+    },
+    {
+      "group": "cue-center",
+      "band": 0.75,
+      "items": [
+        {
+          "process": "sample-36",
+          "wet": 0.35,
+          "gainDb": 2,
+          "note": "中杆 · 同上"
+        }
+      ]
+    },
+    {
+      "group": "cue-center",
+      "band": 1.0,
+      "items": [
+        {
+          "process": "sample-36",
+          "wet": 0.35,
+          "gainDb": 4,
+          "note": "中杆 · 同上"
+        }
+      ]
+    },
+    {
+      "group": "cue-high",
+      "band": 0.1,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-low",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -7,
+          "note": "中高杆小力"
+        }
+      ]
+    },
+    {
+      "group": "cue-high",
+      "band": 0.3,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-low",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -5,
+          "note": "中高杆中小力"
+        }
+      ]
+    },
+    {
+      "group": "cue-high",
+      "band": 0.5,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "cue-low",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -3,
+          "note": "中高杆中力"
+        }
+      ]
+    },
+    {
+      "group": "cue-high",
+      "band": 0.75,
+      "items": [
+        {
+          "process": "sample-40",
+          "wet": 0.35,
+          "gainDb": -1.5,
+          "note": "中高杆中大力（长台中高杆中大力2）"
+        }
+      ]
+    },
+    {
+      "group": "cue-high",
+      "band": 1.0,
+      "items": [
+        {
+          "process": "sample-40",
+          "wet": 0.35,
+          "gainDb": 0,
+          "note": "中高杆大力（同上）"
+        }
+      ]
+    },
+    {
+      "group": "ball",
+      "band": 0.1,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "ball-light",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -7,
+          "note": "球球小力"
+        }
+      ]
+    },
+    {
+      "group": "ball",
+      "band": 0.3,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "ball-light",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -5,
+          "note": "球球中小力"
+        }
+      ]
+    },
+    {
+      "group": "ball",
+      "band": 0.5,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "ball-light",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -3,
+          "note": "球球中力"
+        }
+      ]
+    },
+    {
+      "group": "ball",
+      "band": 0.75,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "ball-light",
+            "version": "D-wet0.35"
+          },
+          "gainDb": -1.5,
+          "note": "未指定，暂用中力素材放大",
+          "unspecified": true
+        }
+      ]
+    },
+    {
+      "group": "ball",
+      "band": 1.0,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "ball-light",
+            "version": "D-wet0.35"
+          },
+          "gainDb": 0,
+          "note": "未指定，暂用中力素材放大",
+          "unspecified": true
+        }
+      ]
+    },
+    {
+      "group": "pocket-clean",
+      "band": 0.5,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "pocket-clean-mid",
+            "version": "D-wet0.15"
+          },
+          "gainDb": -4,
+          "note": "空心入袋中力"
+        }
+      ]
+    },
+    {
+      "group": "pocket-clean",
+      "band": 0.75,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "pocket-clean-mid",
+            "version": "D-wet0.15"
+          },
+          "gainDb": -2,
+          "note": "空心入袋中大力"
+        }
+      ]
+    },
+    {
+      "group": "pocket-clean",
+      "band": 1.0,
+      "items": [
+        {
+          "process": "sample-16",
+          "wet": 0.35,
+          "gainDb": 0,
+          "note": "空心入袋大力1（裁前摇 + 高通 + 混响）"
+        },
+        {
+          "process": "sample-17",
+          "wet": 0.35,
+          "gainDb": 0,
+          "note": "空心入袋大力2（同上）"
+        },
+        {
+          "process": "sample-18",
+          "wet": 0.35,
+          "gainDb": 0,
+          "note": "空心入袋大力3（同上）"
+        },
+        {
+          "process": "sample-13",
+          "wet": 0.35,
+          "gainDb": 0,
+          "note": "空心入袋中大力1（同上）"
+        },
+        {
+          "reuse": {
+            "caseId": "pocket-clean-hard",
+            "version": "D-wet0.35"
+          },
+          "gainDb": 0,
+          "note": "空心入袋大力 · 观感组 D-wet0.35"
+        }
+      ]
+    },
+    {
+      "group": "pocket-jaw",
+      "band": 0.5,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "pocket-jaw",
+            "version": "D-wet0.15"
+          },
+          "trimFront": true,
+          "gainDb": -3,
+          "note": "磕袋角入袋中力（已裁掉约 180ms 前摇）"
+        }
+      ]
+    },
+    {
+      "group": "pocket-jaw",
+      "band": 1.0,
+      "items": [
+        {
+          "reuse": {
+            "caseId": "pocket-jaw",
+            "version": "D-wet0.15"
+          },
+          "trimFront": true,
+          "gainDb": 0,
+          "note": "磕袋角入袋大力（同上）"
+        }
+      ]
+    }
+  ]
+}

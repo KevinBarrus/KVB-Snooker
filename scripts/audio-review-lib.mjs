@@ -331,3 +331,20 @@ export function lagBetween(reference, candidate, maxLag = 64) {
   }
   return best.lag;
 }
+
+// 起音点：10ms 窗包络里第一个进入"峰值 −thresholdDb"的窗口。
+// 旧素材里最脏的一段开头就是持续 −29dB 的底噪、最大跃升只有 6dB，
+// 用"首个超过固定阈值"或"跃升最陡"都会被拖到末尾的小起伏上。
+export function findOnset(wav, options = {}) {
+  const windowMs = options.windowMs ?? 10;
+  const thresholdDb = options.thresholdDb ?? -10;
+  const frames = Math.max(1, Math.round(wav.sampleRate * windowMs / 1000));
+  const envelope = [];
+  for (let start = 0; start + frames <= wav.frames; start += frames) {
+    envelope.push(rmsOfWindow(wav, start, start + frames));
+  }
+  if (!envelope.length) return 0;
+  const limit = Math.max(...envelope) * dbToGain(thresholdDb);
+  const index = envelope.findIndex(value => value >= limit);
+  return (index < 0 ? 0 : index) * frames / wav.sampleRate;
+}

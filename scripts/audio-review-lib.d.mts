@@ -37,5 +37,6 @@ export interface FftApi {
   inverseInto(spectra: { re: Float64Array; im: Float64Array }[], size: number, length: number): Float32Array;
   convolutionSize(aLength: number, bLength: number): number;
 }
+export declare function findOnset(wav: WavAudio, options?: { windowMs?: number; thresholdDb?: number }): number;
 export declare function lagBetween(reference: WavAudio, candidate: WavAudio, maxLag?: number): number;
 export declare function convolveStereo(wav: WavAudio, irChannels: Float32Array[], totalFrames: number, fft: FftApi): WavAudio;

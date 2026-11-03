@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   addWav, blindCodes, buildIr, convolveStereo, dbToGain, decideDenoise, decideFadeCandidates,
-  encodeWav, encodeWavAudio, fadeLengthMs, fadeOutWav, gainToDb, lagBetween, measureWav, padWav,
-  peakOf, readWav, rmsOfWindow, scaleChannels, scaleWav, sliceWav, windowEnergyRelDb,
+  encodeWav, encodeWavAudio, fadeLengthMs, fadeOutWav, findOnset, gainToDb, lagBetween, measureWav,
+  padWav, peakOf, readWav, rmsOfWindow, scaleChannels, scaleWav, sliceWav, windowEnergyRelDb,
   type WavAudio
 } from "../../scripts/audio-review-lib.mjs";
 import * as fft from "../../scripts/audio-review-fft.mjs";
@@ -176,6 +176,27 @@ describe("片段运算", () => {
     const faded = fadeOutWav(wav, 10);
     expect(faded.samples[0]).toBe(1);
     expect(faded.samples[(4800 - 1) * 2]).toBeLessThan(0.01);
+  });
+});
+
+describe("起音点", () => {
+  it("跳过前置底噪，定位真正的撞击", () => {
+    const silence = 9600; // 200ms
+    const wav = makeWav(silence + 9600, frame => {
+      const local = frame - silence;
+      if (local < 0) return 0.004 * Math.sin(frame * 0.9);   // −48dB 底噪
+      return 0.8 * Math.exp(-local / 4000) * Math.sin(local * 0.4);
+    });
+    expect(findOnset(wav)).toBeCloseTo(0.2, 2);
+  });
+
+  it("本来就从撞击开始的文件返回 0（不裁掉起音）", () => {
+    const wav = makeWav(9600, frame => 0.8 * Math.exp(-frame / 4000));
+    expect(findOnset(wav)).toBe(0);
+  });
+
+  it("对全静音输入不抛错", () => {
+    expect(findOnset(makeWav(4800, () => 0))).toBe(0);
   });
 });
 
