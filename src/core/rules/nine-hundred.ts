@@ -10,6 +10,8 @@ export function targetPenalty(ctx: RulesContext, sim: RefSimulator): number {
 }
 
 export class NineHundredRef extends SnookerRef {
+  protected override readonly endsOnBlackFoul = false;
+
   protected override adjudicate(ctx: RulesContext, sim: RefSimulator): { score: number; foulCode: number } {
     const result = adjudicate(ctx, sim);
     if (!sim.result.pottedIndices.length && !sim.getCushionEvidence?.()?.contacts.length) {

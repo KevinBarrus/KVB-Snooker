@@ -77,6 +77,30 @@ describe("900 罚值（snooker-900-design.md §11）", () => {
 });
 
 describe("NineHundredRef 碰库义务", () => {
+  it.each(["cue", "both", "black-off-table"])("末黑犯规继续归位：%s", cause => {
+    const sim = makeSim(), ref = new NineHundredRef();
+    sim.balls[1].number = 7;
+    sim.balls[1].spot.set(1.42, sim.spotY, 0);
+    sim.balls[2].active = false;
+    sim.getContactEvidence = () => ({ touchingIndices: [], firstContactIndices: [1], pushedIndices: [] });
+    sim.cushions = [{ ballIndex: 0, kind: "cushion", x: 1, z: 1 }];
+    sim.result.pottedIndices = cause === "cue" ? [0] : cause === "both" ? [0, 1] : [];
+    sim.result.outOfBoundsIndices = cause === "black-off-table" ? [1] : [];
+    for (const index of [...sim.result.pottedIndices, ...sim.result.outOfBoundsIndices]) {
+      sim.balls[index].active = false;
+      sim.balls[index].position.set(3, 0, 2);
+    }
+    ref.syncAreaWithSimulator(sim);
+    const context = ctx(BALL_ON.BLACK), result = { score: 0, foulCode: 0 };
+    ref.checkResult(context, sim, result);
+    expect(result.score).toBe(-7);
+    expect(result.foulCode).not.toBe(0);
+    expect(context.ballOn).toBe(BALL_ON.BLACK);
+    expect(sim.balls[0].active).toBe(true);
+    expect(sim.balls[1].active).toBe(true);
+    if (cause !== "cue") expect(sim.balls[1].position).toEqual(sim.balls[1].spot);
+  });
+
   it("合法首碰但未碰库且未进球：NO_CUSHION 且罚目标球值", () => {
     const sim = makeSim(), ref = new ExposedRef();
     sim.result.firstKissIndex = 1;

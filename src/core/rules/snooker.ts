@@ -99,6 +99,7 @@ export abstract class Ref {
 // PCOL L12659-12822（原模 54）：斯诺克规则引擎。
 export class SnookerRef extends Ref {
   protected readonly _dArea = new DiscRegion();
+  protected readonly endsOnBlackFoul: boolean = true;
   private readonly _tmpArray: BallRefLike[] = [];
   private readonly _tmpOccupiedSpots: number[] = [];
   private readonly _tmpSections: number[] = [];
@@ -159,7 +160,7 @@ export class SnookerRef extends Ref {
       this._liveRespot([t.freeBallIndex], [], e);
     }
     t.inHand = 0;
-    if (t.ballOn === BALL_ON.BLACK && !freeOnlyPot && (i.score > 0 || (i.score < 0 && onlyBlack))) {
+    if (t.ballOn === BALL_ON.BLACK && !freeOnlyPot && (i.score > 0 || (this.endsOnBlackFoul && i.score < 0 && onlyBlack))) {
       t.ballOn = 0;
     } else {
       if (i.score <= 0 || t.ballOn === BALL_ON.RED || t.ballOn === BALL_ON.COLOR_ALL) {
