@@ -427,7 +427,8 @@
           },
           "note": "空心入袋大力 · D-wet0.35"
         }
-      ]
+      ],
+      "gainTrimDb": -3.5
     },
     {
       "group": "pocket-jaw",
@@ -453,7 +454,8 @@
           "tailExtraSeconds": 1.2,
           "note": "磕袋角入袋大力（同上）"
         }
-      ]
+      ],
+      "gainTrimDb": -3.5
     }
   ]
 }

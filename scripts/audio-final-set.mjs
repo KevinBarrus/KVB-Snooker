@@ -129,7 +129,7 @@ for (const slot of spec.slots) {
     });
     counter++;
   }
-  slots.push({ group: slot.group, band: slot.band, peakDb: slot.peakDb, items });
+  slots.push({ group: slot.group, band: slot.band, peakDb: slot.peakDb, gainTrimDb: slot.gainTrimDb ?? 0, items });
 }
 
 // 峰值落位的两条依据：
@@ -172,7 +172,7 @@ for (const slot of slots) {
   const offset = groupOffset.get(slot.group);
   for (const item of slot.items) {
     if (item.copyFrom) continue;
-    const normDb = item.normDb + offset;
+    const normDb = item.normDb + offset + (slot.gainTrimDb ?? 0);
     const final = lib.scaleWav(item.wav, lib.dbToGain(normDb));
     await writeFile(join(sampleDir, basename(item.file)), lib.encodeWavAudio(final));
     const measured = lib.measureWav(final);
@@ -182,6 +182,7 @@ for (const slot of slots) {
     item.onsetSeconds = round(lib.findOnset(final), 3);
     item.appliedGainDb = round(normDb, 2);
     item.groupOffsetDb = offset;
+    item.slotTrimDb = slot.gainTrimDb ?? 0;
     item.rmsDb = round(lib.gainToDb(lib.rmsOfWindow(final, 0, Math.min(final.frames, Math.round(0.3 * rate)))), 1);
     delete item.wav;
     delete item.normDb;
@@ -210,7 +211,7 @@ const flat = slots.flatMap(slot => slot.items.map(item => ({ ...item, group: slo
 const checks = [
   { name: "文件数", ok: flat.length === counter, detail: `${flat.length} 条，覆盖 ${slots.length} 个槽位` },
   { name: "峰值上限", ok: flat.every(item => item.peakDb <= config.peakTargetDb + 0.05), detail: `${config.peakTargetDb} dBFS` },
-  { name: "峰值按目标落位", ok: flat.every(item => item.copiedFrom || Math.abs(item.peakDb - (item.targetPeakDb + item.groupOffsetDb)) <= 0.1), detail: "每档误差 ≤0.1dB（含组内统一抬起）" },
+  { name: "峰值按目标落位", ok: flat.every(item => item.copiedFrom || Math.abs(item.peakDb - (item.targetPeakDb + item.groupOffsetDb + item.slotTrimDb)) <= 0.1), detail: "每档误差 ≤0.1dB（含组内抬起与档位修正）" },
   { name: "沿用音频逐字节相同", ok: flat.filter(item => item.copiedFrom).length === 4, detail: "cue-mid-low/cue-center 的 0.75 与 1.0 直接复制来源文件" },
   { name: "力度阶梯单调", ok: [...new Set(slots.map(slot => slot.group))].every(group => {
     const bands = [...new Set(slots.filter(slot => slot.group === group).map(slot => slot.band))].sort((a, b) => a - b);
@@ -273,7 +274,7 @@ const failed = checks.filter(check => !check.ok);
 console.log(`生成 ${flat.length} 条音效，覆盖 ${slots.length} 个槽位 → ${outputDir}`);
 if (installMode) {
   console.log(`已安装 ${installed.files} 条到 ${installed.directory}` +
-    (installed.backup ? `（旧的准备产物已备份到 ${installed.backup}）` : ""));
+    (installed.backup ? `（上一次安装的产物已备份到 ${installed.backup}）` : ""));
 }
 for (const check of checks) console.log(`  ${check.ok ? "OK  " : "FAIL"} ${check.name}：${check.detail}`);
 const gaps = slots.filter(slot => slot.items.some(item => item.unspecified));
