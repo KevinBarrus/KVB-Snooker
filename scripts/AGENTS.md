@@ -55,4 +55,6 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 
 声音最终候选集（2026-10-28）：audio-final-set.mjs（读 audio-final-spec.json）按用户逐组指定的映射，从 local-audio 与上一轮试听包生成"即将用于游戏"的 34 条音效与试听页，输出到 .cache/audio-final，不写 public/assets/audio。处理链：findOnset 定位起音（10ms 包络首个进入峰值−10dB 的窗口）后裁掉前置底噪、150Hz 二阶高通去房间轰鸣、末端按尾部电平选 30/60/120ms 淡出、共享 send 卷积混响补 0.65s 尾；reuse 条目直接取上一轮 D 版并按需裁前摇。力度不再只改增益：slot.peakDb 给每档目标峰值，wet 与 tailExtraSeconds 随力度上升（0.15/0.45s → 0.45/1.2s），高档位因此更响、更厚、拖得更长。另有两项修正：crestCompensation 按峰均比相对本组最干净素材的差值补偿（本地大力素材底噪高、峰均比低约 5dB，同样峰值下能量高一大截，0.5→0.75 换素材会出现 10dB 以上的跳变）；组内再统一抬起，让每组最响一条落在 −0.5dBFS，跨组响度一致。注意峰均比补偿会让"换素材那档"的峰值低于前一档（能量仍单调递增），这是同一素材同时满足"峰值单调"和"能量单调"不可能的结果。实测：afftdn 对本批大力素材几乎无效（撞击 −0.0 ~ −0.2dB、噪声区 −0.1 ~ −0.3dB，nr 到 48 仍如此），故改用"裁前摇 + 高通"，没有假装做了降噪。
 
+安装（2026-10-28）：audio-final-set.mjs --install（npm run audio:install）把成品复制到 public/assets/audio 并写播放清单（offset 0、gain 1，电平已烘焙），同时把构建清单存为 provenance.json；安装前把旧的准备产物备份到 .cache/audio-prepared-backup，不删除 local-audio，也不改 audio-sources.json。npm run audio:final 仅重建到 .cache/audio-final。
+
 复听第二轮修正（2026-10-28）：用户要求 cue-mid-low/cue-center 的 0.75 与 1.0 直接沿用 cue-low/cue-high 同档音频，因此新增 copyFrom 条目——渲染后逐字节复制来源槽位成品，组内不再做统一抬起（否则 0.5 会反超 0.75），并用"沿用音频逐字节相同"检查守住。两组 0.5 档单独加大：湿声 0.35、尾音 +1.0s，峰值按各自素材峰均比放到 −4/−2dB，使 0.5 与 0.75 的峰值接近、能量仍单调（0.5→0.75 的能量跳约 9–10dB，因为换成了本地更厚的大力录音，这是素材决定的，不是参数问题）。

@@ -20,6 +20,8 @@
     "test:900": "node scripts/nine-hundred-smoke.mjs",
     "audio:prepare": "node scripts/prepare-audio-assets.mjs",
     "audio:review": "node scripts/audio-review.mjs",
+    "audio:final": "node scripts/audio-final-set.mjs",
+    "audio:install": "node scripts/audio-final-set.mjs --install",
     "audio:cut": "node scripts/audio-cut.mjs",
     "test:audio": "node scripts/audio-smoke.mjs"
   },

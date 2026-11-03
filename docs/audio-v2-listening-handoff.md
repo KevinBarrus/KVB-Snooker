@@ -243,3 +243,16 @@
 2. 是否出现水声/金属声、瞬态变钝、声音变远或拖尾过长？
 3. 是否仍能分清轻碰和重碰、空心入袋和磕袋角？
 4. 连续事件是否像同一空间内发生，而不是几个录音片段拼接？
+
+## 11. 接入定稿（2026-10-28）
+
+用户验收了第三轮候选集，作为游戏原声接入。素材与播放链路的关系如下。
+
+- **生成**：`npm run audio:final`（`scripts/audio-final-set.mjs` + `scripts/audio-final-spec.json`）从 `local-audio` 与上一轮试听包重建 34 条音效到 `.cache/audio-final/`（含试听页与 provenance 清单）。
+- **安装**：`npm run audio:install` 把成品复制到 `public/assets/audio/`，写出播放清单（`offset` 0、`gain` 1，电平已在文件里烘焙），并把构建清单另存为 `provenance.json`；安装前把旧的准备产物整体备份到 `.cache/audio-prepared-backup/`。
+- **清单结构**：34 条覆盖 7 组 / 30 个槽位 —— 皮头四组各 5 档、球球 5 档、空心入袋 0.5/0.75/1（1.0 档 5 条可轮询）、磕袋角 0.5/1。轮询仍由 `SampleMixer` 按「组 × 力度档」洗牌，同档多条时随机、跨轮避免立即重复。
+- **原始素材未动**：`local-audio/` 与 `scripts/audio-sources.json` 保持原样，仍是第一版 79 段的索引；`npm run audio:prepare` 仍可用它重建第一版产物（不会自动跑）。
+- **运行时曲线未改**：`src/audio/calibration.ts` 的连续音量曲线叠加在烘焙的力度阶梯之上（合计跨度约 30dB）。若实际听感动态过大，只需调该文件的 `exponent`，不必重做素材。
+- **验收**：`npm run test:audio` 通过 —— 真实 Chrome 解码全部 34 条、触球/球球/空心入袋/磕袋角、静音、回放隔离、缺资产降级；`npm run build` 通过；`npm run test` 与 `npm run typecheck` 全绿。
+
+已知限制：`pocket-clean` 的 0.5/0.75 与 `pocket-jaw` 的两档各只有 1 条素材，同档连续命中会听到同一个声音；皮头与球球的 0.5→0.75 档在换素材处仍有 9–10dB 的能量跳变，根因是本地大力录音峰均比低约 5dB，需靠重新采集解决。

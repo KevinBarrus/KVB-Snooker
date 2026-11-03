@@ -2,7 +2,7 @@
 // 输出到 .cache/audio-final；不改 public/assets/audio、local-audio 与 src/**。
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
 import * as lib from "./audio-review-lib.mjs";
 import * as fft from "./audio-review-fft.mjs";
@@ -10,6 +10,7 @@ import * as fft from "./audio-review-fft.mjs";
 const spec = JSON.parse(await readFile(new URL("./audio-final-spec.json", import.meta.url), "utf8"));
 const sources = JSON.parse(await readFile(spec.sources, "utf8"));
 const review = JSON.parse(await readFile(spec.reviewManifest, "utf8"));
+const installMode = process.argv.includes("--install");
 const outIndex = process.argv.indexOf("--out");
 const outputDir = resolve(outIndex > 0 ? process.argv[outIndex + 1] : spec.output);
 if (!outputDir.startsWith(`${resolve(".cache")}${sep}`)) throw new Error(`Refusing to write outside .cache: ${outputDir}`);
@@ -20,6 +21,7 @@ const sourceById = new Map(sources.samples.map(sample => [sample.id, sample]));
 const config = spec.process;
 const rate = config.ir.sampleRate;
 const round = (value, digits = 2) => Number(value.toFixed(digits));
+const pathExists = async path => { try { await access(path); return true; } catch { return false; } };
 
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(sampleDir, { recursive: true });
@@ -221,6 +223,33 @@ const checks = [
   { name: "同组同档无重复文件", ok: slots.every(slot => new Set(slot.items.map(item => item.file)).size === slot.items.length), detail: "洗牌基础" }
 ];
 
+// --install：把成品装进 public/assets/audio，并写出播放清单（offset 0、gain 1，电平已烘焙）。
+const installed = { directory: "public/assets/audio", files: 0, backup: null };
+if (installMode) {
+  const target = resolve("public/assets/audio");
+  if (await pathExists(target)) {
+    const backup = resolve(".cache/audio-prepared-backup");
+    await rm(backup, { recursive: true, force: true });
+    await mkdir(backup, { recursive: true });
+    for (const name of await readdir(target)) await copyFile(join(target, name), join(backup, name));
+    installed.backup = backup;
+  }
+  await rm(target, { recursive: true, force: true });
+  await mkdir(target, { recursive: true });
+  const entries = [];
+  for (const slot of slots) {
+    for (const [index, item] of slot.items.entries()) {
+      const id = `${slot.group}-${String(Math.round(slot.band * 100)).padStart(3, "0")}-${index + 1}`;
+      const name = `${id}.wav`;
+      await copyFile(join(sampleDir, basename(item.file)), join(target, name));
+      entries.push({ id, url: `/assets/audio/${name}`, group: slot.group, intensity: slot.band,
+        gain: 1, offset: 0, duration: item.durationSeconds });
+      installed.files++;
+    }
+  }
+  await writeFile(join(target, "manifest.json"), `${JSON.stringify({ version: 1, samples: entries }, null, 2)}\n`);
+}
+
 const manifest = {
   version: 1,
   generatedAt: new Date().toISOString(),
@@ -230,14 +259,22 @@ const manifest = {
     group, slots: slots.filter(slot => slot.group === group)
   })),
   totals: { files: flat.length, slots: slots.length, unspecified: flat.filter(item => item.unspecified).length },
+  installed,
   checks
 };
 await writeFile(join(outputDir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+if (installMode) {
+  await copyFile(join(outputDir, "manifest.json"), join(resolve("public/assets/audio"), "provenance.json"));
+}
 await writeFile(join(outputDir, "index.html"), page(manifest));
 await rm(scratchDir, { recursive: true, force: true });
 
 const failed = checks.filter(check => !check.ok);
 console.log(`生成 ${flat.length} 条音效，覆盖 ${slots.length} 个槽位 → ${outputDir}`);
+if (installMode) {
+  console.log(`已安装 ${installed.files} 条到 ${installed.directory}` +
+    (installed.backup ? `（旧的准备产物已备份到 ${installed.backup}）` : ""));
+}
 for (const check of checks) console.log(`  ${check.ok ? "OK  " : "FAIL"} ${check.name}：${check.detail}`);
 const gaps = slots.filter(slot => slot.items.some(item => item.unspecified));
 console.log(`  未指定槽位 ${gaps.length} 个：` + gaps.map(slot => `${slot.group}@${slot.band}`).join(", "));
