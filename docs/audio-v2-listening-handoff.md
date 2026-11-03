@@ -252,7 +252,7 @@
 - **安装**：`npm run audio:install` 把成品复制到 `public/assets/audio/`，写出播放清单（`offset` 0、`gain` 1，电平已在文件里烘焙），并把构建清单另存为 `provenance.json`；安装前把旧的准备产物整体备份到 `.cache/audio-prepared-backup/`。
 - **清单结构**：34 条覆盖 7 组 / 30 个槽位 —— 皮头四组各 5 档、球球 5 档、空心入袋 0.5/0.75/1（1.0 档 5 条可轮询）、磕袋角 0.5/1。轮询仍由 `SampleMixer` 按「组 × 力度档」洗牌，同档多条时随机、跨轮避免立即重复。
 - **原始素材未动**：`local-audio/` 与 `scripts/audio-sources.json` 保持原样，仍是第一版 79 段的索引；`npm run audio:prepare` 仍可用它重建第一版产物（不会自动跑）。
-- **运行时曲线未改**：`src/audio/calibration.ts` 的连续音量曲线叠加在烘焙的力度阶梯之上（合计跨度约 30dB）。若实际听感动态过大，只需调该文件的 `exponent`，不必重做素材。
+- **组间平衡（2026-10-28 第二轮调音）**：`src/audio/calibration.ts` 的组增益改为 cue 0.30（原 0.45）、ball 0.85（原 0.48）、pocket 0.44（原 0.50）。依据是同样峰值（−0.5dBFS）下前 100ms 的实际能量：杆头 −14.3dB、磕袋角 −12.5dB、球球 −21.2dB —— 素材是"峰值拉平"而不是"响度拉平"，球球因此被压低约 7dB。改动后球球相对杆头净提升 8.5dB、相对入袋 6.1dB，球球 3.5m/s 成为全场最响（约 −6.6dBFS，落在总线压缩器阈值附近）。曲线本身（silentBelow / fullAt / exponent）未动。
 - **验收**：`npm run test:audio` 通过 —— 真实 Chrome 解码全部 34 条、触球/球球/空心入袋/磕袋角、静音、回放隔离、缺资产降级；`npm run build` 通过；`npm run test` 与 `npm run typecheck` 全绿。
 
 已知限制：`pocket-clean` 的 0.5/0.75 与 `pocket-jaw` 的两档各只有 1 条素材，同档连续命中会听到同一个声音；皮头与球球的 0.5→0.75 档在换素材处仍有 9–10dB 的能量跳变，根因是本地大力录音峰均比低约 5dB，需靠重新采集解决。

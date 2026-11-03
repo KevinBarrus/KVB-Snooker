@@ -61,7 +61,7 @@ sample-mixer.ts 按实际击点和力度选 cue 组、按相对闭速度选 ball
 
 browser-backend.ts 是本轮批准的浏览器薄后端，独立 audio/tsconfig 开 DOM，根 Node 编译仅排除此文件。预解码 AudioBuffer、用户手势恢复 AudioContext、有限并发声部、主音量及压缩器防连续碰撞叠加过响；dispose 释放源/连接/请求/context。app-audio.ts 装配加载、音量持久化、生命周期，不阻塞无音频时的对局。
 
-当前安装的音效集（2026-10-28 定稿）：34 条，由 `npm run audio:install`（scripts/audio-final-set.mjs --install）生成到 public/assets/audio，播放清单 offset 0 / gain 1、电平与混响已烘焙进文件，覆盖皮头四组各 5 档、球球 5 档、空心入袋 0.5/0.75/1、磕袋角 0.5/1。第一版 79 段索引仍在 scripts/audio-sources.json，可用 npm run audio:prepare 重建旧产物。运行时不再需要额外混响；如需调节动态范围，改 calibration.ts 的曲线而不是重做素材。
+当前安装的音效集（2026-10-28 定稿）：34 条，由 `npm run audio:install`（scripts/audio-final-set.mjs --install）生成到 public/assets/audio，播放清单 offset 0 / gain 1、电平与混响已烘焙进文件，覆盖皮头四组各 5 档、球球 5 档、空心入袋 0.5/0.75/1、磕袋角 0.5/1。第一版 79 段索引仍在 scripts/audio-sources.json，可用 npm run audio:prepare 重建旧产物。运行时不再需要额外混响。组间平衡在 calibration.ts 的 gain 里调（2026-10-28：cue 0.30 / ball 0.85 / pocket 0.44，按"同样峰值下前 100ms 能量差"确定，球球比杆头净高 8.5dB），动态范围在 exponent 里调；两者都不需要重做素材。
 
 原 local-audio 与生成 public/assets/audio 不提交。npm run audio:prepare 使用 scripts/audio-sources.json 的分类和 SHA-256 校验复制，测量最响20ms窗口RMS，按配置生成最多±6dB的播放增益以及起音前3ms的播放偏移；原文件完全不变，不降噪、不补尾音。响度档标签来源于用户目录，不从已归一化文件峰值推断出杆力度。
 
