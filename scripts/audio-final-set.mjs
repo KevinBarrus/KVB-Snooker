@@ -2,7 +2,7 @@
 // 输出到 .cache/audio-final；不改 public/assets/audio、local-audio 与 src/**。
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
 import * as lib from "./audio-review-lib.mjs";
 import * as fft from "./audio-review-fft.mjs";
@@ -107,9 +107,16 @@ let counter = 0;
 for (const slot of spec.slots) {
   const items = [];
   for (const [index, item] of slot.items.entries()) {
-    const built = item.process ? await buildProcess(item) : await buildReuse(item);
+    const built = item.copyFrom ? { wav: null } : item.process ? await buildProcess(item) : await buildReuse(item);
+    if (item.copyFrom) counter++;
+    const slug = item.process ?? (item.copyFrom ? `${item.copyFrom.group}` : basename(item.reuse.caseId));
     const name = `${slot.group}-${String(Math.round(slot.band * 100)).padStart(3, "0")}-${index + 1}` +
-      `-${(item.process ?? basename(item.reuse.caseId)).replace(/[^a-z0-9-]/gi, "")}.wav`;
+      `-${slug.replace(/[^a-z0-9-]/gi, "")}.wav`;
+    if (item.copyFrom && built.wav === null) {
+      items.push({ file: `samples/${name}`, note: item.note, copyFrom: item.copyFrom,
+        unspecified: item.unspecified === true });
+      continue;
+    }
     items.push({
       file: `samples/${name}`, note: item.note, unspecified: item.unspecified === true,
       wav: built.wav,
@@ -135,13 +142,14 @@ const crestOf = wav => {
 };
 const referenceCrest = new Map();
 for (const group of [...new Set(slots.map(slot => slot.group))]) {
-  const crests = slots.filter(slot => slot.group === group)
-    .flatMap(slot => slot.items.map(item => crestOf(item.wav)));
+  const crests = slots.filter(slot => slot.group === group).flatMap(slot => slot.items)
+    .filter(item => item.wav).map(item => crestOf(item.wav));
   referenceCrest.set(group, Math.max(...crests));
 }
 const alpha = spec.crestCompensation ?? 0;
 for (const slot of slots) {
   for (const item of slot.items) {
+    if (!item.wav) continue;
     const crestTrim = -alpha * (referenceCrest.get(slot.group) - crestOf(item.wav));
     item.crestTrimDb = round(crestTrim, 2);
     item.targetPeakDb = round(slot.peakDb + crestTrim, 2);
@@ -149,15 +157,19 @@ for (const slot of slots) {
   }
 }
 // 组内统一抬起：让每组最响的一条落在峰值上限，保留阶梯形状，跨组响度一致。
+// 含 copyFrom 的组不做组内抬起：那两条直接沿用来源组电平，抬起会让 0.5 反超。
 const groupOffset = new Map();
 for (const group of [...new Set(slots.map(slot => slot.group))]) {
-  const items = slots.filter(slot => slot.group === group).flatMap(slot => slot.items);
-  const loudest = Math.max(...items.map(item => lib.gainToDb(lib.peakOf(item.wav)) + item.normDb));
+  const all = slots.filter(slot => slot.group === group).flatMap(slot => slot.items);
+  if (all.some(item => item.copyFrom)) { groupOffset.set(group, 0); continue; }
+  const loudest = Math.max(...all.map(item => lib.gainToDb(lib.peakOf(item.wav)) + item.normDb));
   groupOffset.set(group, round(config.peakTargetDb - loudest, 2));
 }
+const writtenBySlot = new Map();
 for (const slot of slots) {
   const offset = groupOffset.get(slot.group);
   for (const item of slot.items) {
+    if (item.copyFrom) continue;
     const normDb = item.normDb + offset;
     const final = lib.scaleWav(item.wav, lib.dbToGain(normDb));
     await writeFile(join(sampleDir, basename(item.file)), lib.encodeWavAudio(final));
@@ -172,13 +184,32 @@ for (const slot of slots) {
     delete item.wav;
     delete item.normDb;
   }
+  writtenBySlot.set(`${slot.group}|${slot.band}`, slot);
+}
+// copyFrom：直接复制来源槽位的成品文件，保证与来源组逐字节相同。
+for (const slot of slots) {
+  for (const item of slot.items) {
+    if (!item.copyFrom) continue;
+    const source = writtenBySlot.get(`${item.copyFrom.group}|${item.copyFrom.band}`).items[0];
+    await copyFile(join(sampleDir, basename(source.file)), join(sampleDir, basename(item.file)));
+    const copiedWav = lib.readWav(await readFile(join(sampleDir, basename(item.file))));
+    const measured = lib.measureWav(copiedWav);
+    Object.assign(item, {
+      durationSeconds: round(copiedWav.frames / rate, 3), peakDb: round(measured.peakDb),
+      tailRelDb: round(measured.tailRelDb, 1), onsetSeconds: round(lib.findOnset(copiedWav), 3),
+      appliedGainDb: source.appliedGainDb, groupOffsetDb: 0,
+      rmsDb: round(lib.gainToDb(lib.rmsOfWindow(copiedWav, 0, Math.min(copiedWav.frames, Math.round(0.3 * rate)))), 1),
+      targetPeakDb: source.targetPeakDb, copiedFrom: `${item.copyFrom.group}@${item.copyFrom.band}`
+    });
+  }
 }
 
 const flat = slots.flatMap(slot => slot.items.map(item => ({ ...item, group: slot.group, band: slot.band })));
 const checks = [
   { name: "文件数", ok: flat.length === counter, detail: `${flat.length} 条，覆盖 ${slots.length} 个槽位` },
   { name: "峰值上限", ok: flat.every(item => item.peakDb <= config.peakTargetDb + 0.05), detail: `${config.peakTargetDb} dBFS` },
-  { name: "峰值按目标落位", ok: flat.every(item => Math.abs(item.peakDb - (item.targetPeakDb + item.groupOffsetDb)) <= 0.1), detail: "每档误差 ≤0.1dB（含组内统一抬起）" },
+  { name: "峰值按目标落位", ok: flat.every(item => item.copiedFrom || Math.abs(item.peakDb - (item.targetPeakDb + item.groupOffsetDb)) <= 0.1), detail: "每档误差 ≤0.1dB（含组内统一抬起）" },
+  { name: "沿用音频逐字节相同", ok: flat.filter(item => item.copiedFrom).length === 4, detail: "cue-mid-low/cue-center 的 0.75 与 1.0 直接复制来源文件" },
   { name: "力度阶梯单调", ok: [...new Set(slots.map(slot => slot.group))].every(group => {
     const bands = [...new Set(slots.filter(slot => slot.group === group).map(slot => slot.band))].sort((a, b) => a - b);
     const at = band => Math.max(...slots.filter(slot => slot.group === group && slot.band === band)

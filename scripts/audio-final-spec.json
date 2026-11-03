@@ -125,13 +125,13 @@
     {
       "group": "cue-mid-low",
       "band": 0.5,
-      "peakDb": -7,
+      "peakDb": -4,
       "items": [
         {
           "process": "sample-33",
-          "wet": 0.27,
-          "tailExtraSeconds": 0.75,
-          "note": "中低杆中力（未指定，同一素材加长尾）",
+          "wet": 0.35,
+          "tailExtraSeconds": 1.0,
+          "note": "中低杆中力（加响 + 加长尾）",
           "unspecified": true
         }
       ]
@@ -142,11 +142,11 @@
       "peakDb": -4.5,
       "items": [
         {
-          "process": "sample-33",
-          "wet": 0.35,
-          "tailExtraSeconds": 0.95,
-          "note": "中低杆中大力（未指定，同一素材加长尾）",
-          "unspecified": true
+          "copyFrom": {
+            "group": "cue-low",
+            "band": 0.75
+          },
+          "note": "中低杆中大力（直接沿用低杆中大力音频）"
         }
       ]
     },
@@ -156,11 +156,11 @@
       "peakDb": -0.5,
       "items": [
         {
-          "process": "sample-33",
-          "wet": 0.45,
-          "tailExtraSeconds": 1.2,
-          "note": "中低杆大力（未指定，同一素材加长尾）",
-          "unspecified": true
+          "copyFrom": {
+            "group": "cue-low",
+            "band": 1
+          },
+          "note": "中低杆大力（直接沿用低杆大力音频）"
         }
       ]
     },
@@ -193,13 +193,13 @@
     {
       "group": "cue-center",
       "band": 0.5,
-      "peakDb": -7,
+      "peakDb": -2,
       "items": [
         {
           "process": "sample-36",
-          "wet": 0.27,
-          "tailExtraSeconds": 0.75,
-          "note": "中杆中力"
+          "wet": 0.35,
+          "tailExtraSeconds": 1.0,
+          "note": "中杆中力（加响 + 加长尾）"
         }
       ]
     },
@@ -209,10 +209,11 @@
       "peakDb": -4.5,
       "items": [
         {
-          "process": "sample-36",
-          "wet": 0.35,
-          "tailExtraSeconds": 0.95,
-          "note": "中杆中大力"
+          "copyFrom": {
+            "group": "cue-high",
+            "band": 0.75
+          },
+          "note": "中杆中大力（直接沿用中高杆中大力音频）"
         }
       ]
     },
@@ -222,10 +223,11 @@
       "peakDb": -0.5,
       "items": [
         {
-          "process": "sample-36",
-          "wet": 0.45,
-          "tailExtraSeconds": 1.2,
-          "note": "中杆大力"
+          "copyFrom": {
+            "group": "cue-high",
+            "band": 1
+          },
+          "note": "中杆大力（直接沿用中高杆大力音频）"
         }
       ]
     },
