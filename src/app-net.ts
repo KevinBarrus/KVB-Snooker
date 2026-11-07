@@ -43,6 +43,8 @@ interface NetLaunchConfig {
   readonly server: string;
   readonly token: string;
   readonly requestedSeat?: SeatIndex;
+  /** 显示插值延迟（ms），仅开发调参用；默认 100。 */
+  readonly interpolationDelayMs: number;
 }
 
 interface DisplaySource extends Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "getResult" | "predict"> {}
@@ -76,6 +78,8 @@ export interface NetTestHandle {
   readonly readyToStroke: boolean;
   /** 最近约 0.5 秒的渲染帧率，用于区分网络卡顿与渲染帧率不足。 */
   readonly fps: number;
+  /** 快照/插值诊断：到达速率、最大到达间隔与插值缓冲余量（<=0 表示显示会停顿后跳）。 */
+  readonly netStats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number };
 }
 
 declare global {
@@ -104,7 +108,9 @@ function parseConfig(): NetLaunchConfig | null {
   const token = params.get("token")?.trim() || DEFAULT_DEV_TOKEN;
   const seatParam = params.get("seat");
   const requestedSeat = seatParam !== null && isSeatIndex(Number(seatParam)) ? Number(seatParam) as SeatIndex : undefined;
-  return { roomId, server, token, ...(requestedSeat === undefined ? {} : { requestedSeat }) };
+  const interpParam = Number(params.get("interp"));
+  const interpolationDelayMs = Number.isFinite(interpParam) && interpParam >= 0 && interpParam <= 500 ? interpParam : 100;
+  return { roomId, server, token, interpolationDelayMs, ...(requestedSeat === undefined ? {} : { requestedSeat }) };
 }
 
 async function loadSimulator(): Promise<Simulator> {
@@ -145,7 +151,8 @@ class NetHud {
   readonly element = document.createElement("pre");
   private lastSync = -Infinity;
   constructor() { this.element.className = "net-hud"; }
-  sync(nowMs: number, session: NetSessionState, lastError: string | null, fps: number): void {
+  sync(nowMs: number, session: NetSessionState, lastError: string | null, fps: number,
+    stats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number }): void {
     if (nowMs - this.lastSync < 100) return;
     this.lastSync = nowMs;
     const t = session.timing();
@@ -159,6 +166,7 @@ class NetHud {
       `${session.connectionState} · ${session.roomId ?? "—"} · 席位 ${session.seat ?? "—"} · v${session.version} · ${session.phase} · ${Math.round(fps)}fps`,
       `比分 ${score} · 目标球 ${context?.ballOn ?? "—"} · 手中球 ${context?.inHand ?? "—"} · ${session.isLocalTurn() ? "本机球权" : "等待对手"}`,
       `RTT ${session.rttMs === null ? "—" : `${Math.round(session.rttMs)}ms`} · 单程延迟 ${latency.inboundMs}/${latency.outboundMs}ms${jitter}`,
+      `快照 ${stats.snapshotsPerSecond}/s · 最大到达间隔 ${Math.round(stats.maxGapMs)}ms · 插值余量 ${Math.round(stats.marginMs)}ms`,
       `Space→命令 ${delta(t.spaceAtMs, t.commandSentAtMs)} · →Ack ${delta(t.spaceAtMs, t.ackAtMs)} · →投影触球 ${delta(t.spaceAtMs, t.projectedTouchAtMs)} · 动画-投影 ${delta(t.projectedTouchAtMs, t.animationTouchAtMs)} · 首运动-投影 ${delta(t.projectedTouchAtMs, t.firstMotionSnapshotAtMs)} · fired-投影 ${delta(t.projectedTouchAtMs, t.firedEventAtMs)} · 重试 ${t.retries}`
     ];
     if (lastError) lines.push(lastError);
@@ -176,7 +184,7 @@ async function main(): Promise<void> {
   const engine = new B.Engine(canvas, true, { preserveDrawingBuffer: true });
   engine.enableOfflineSupport = false;
   const session = new NetSessionState();
-  const remote = new RemoteView({ interpolationDelayMs: 100 });
+  const remote = new RemoteView({ interpolationDelayMs: config.interpolationDelayMs });
   const hud = new NetHud();
   let client: NetClient | null = null;
   let person: PersonController | null = null;
@@ -189,16 +197,31 @@ async function main(): Promise<void> {
   let fpsValue = 0;
   let scene: B.Scene | undefined;
 
+  let snapWindowStart = performance.now();
+  let snapWindowCount = 0;
+  let snapMaxGapMs = 0;
+  let lastSnapshotArrivalMs = 0;
+  let snapshotsPerSecond = 0;
   const handleMessage = (message: ServerMessage): void => {
     const nowMs = performance.now();
     switch (message.type) {
       case "welcome": session.onWelcome(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
-      case "snapshot":
+      case "snapshot": {
         session.onSnapshot(message, nowMs);
         remote.setClockOffset(session.clockOffsetMs);
         remote.pushSnapshot(message, nowMs);
         if (!snapshotSeen) { snapshotSeen = true; resolveSnapshot(message); }
+        if (lastSnapshotArrivalMs > 0) snapMaxGapMs = Math.max(snapMaxGapMs, nowMs - lastSnapshotArrivalMs);
+        lastSnapshotArrivalMs = nowMs;
+        snapWindowCount++;
+        if (nowMs - snapWindowStart >= 1000) {
+          snapshotsPerSecond = snapWindowCount * 1000 / (nowMs - snapWindowStart);
+          snapWindowStart = nowMs;
+          snapWindowCount = 0;
+          snapMaxGapMs = 0;
+        }
         break;
+      }
       case "event": session.onEvent(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
       case "ack": session.onAck(message, nowMs); break;
       case "pong": session.onPong(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
@@ -229,7 +252,14 @@ async function main(): Promise<void> {
     get shotsBusy() { return launcher?.busy ?? false; },
     get turn() { return session.canLaunch(); },
     get readyToStroke() { return person?.isReadyToStroke() ?? false; },
-    get fps() { return fpsValue; }
+    get fps() { return fpsValue; },
+    get netStats() {
+      return {
+        snapshotsPerSecond,
+        maxGapMs: snapMaxGapMs,
+        marginMs: remote.interpolationStats.marginMs
+      };
+    }
   };
   window.__snkNet = testHandle;
 
@@ -369,7 +399,11 @@ async function main(): Promise<void> {
       viewNoticeDom.sync(viewNotice);
       decision.hidden = !session.canDecide();
       balls.sync();
-      hud.sync(nowMs, session, session.lastError ?? client?.lastError ?? null, fpsValue);
+      hud.sync(nowMs, session, session.lastError ?? client?.lastError ?? null, fpsValue, {
+        snapshotsPerSecond,
+        maxGapMs: snapMaxGapMs,
+        marginMs: remote.interpolationStats.marginMs
+      });
       const nextStatus = session.connectionState !== "ready" ? session.connectionState
         : session.isLocalTurn() ? (shotLauncher.busy ? "击球中" : "本机回合 · W 瞄准 / Space 出杆") : "对手回合 · 自由观察";
       if (nextStatus !== lastStatus) { lastStatus = nextStatus; status.textContent = nextStatus; }

@@ -67,6 +67,8 @@ export class RemoteView {
   private phaseValue: RoomPhase = "ready";
   private offsetMs: number | null = null;
   private checkpointValue: SerialData | null = null;
+  private targetServerMs = 0;
+  private latestServerMs = 0;
   private readonly emptyResult: ShotResult = { nKissed: 0, firstKissIndex: 0, pottedIndices: [], outOfBoundsIndices: [] };
 
   constructor(options: RemoteViewOptions = {}) {
@@ -78,6 +80,10 @@ export class RemoteView {
   get version(): StateVersion { return this.versionValue; }
   get phase(): RoomPhase { return this.phaseValue; }
   get frameCount(): number { return this.frames.length; }
+  /** 插值诊断：目标时刻与最新快照时刻（服务器时钟），余量<=0 表示缓冲被追平、显示会停顿后跳。 */
+  get interpolationStats(): { readonly targetServerMs: number; readonly latestServerMs: number; readonly marginMs: number } {
+    return { targetServerMs: this.targetServerMs, latestServerMs: this.latestServerMs, marginMs: this.latestServerMs - this.targetServerMs };
+  }
 
   /** offset = serverTime - localTime（来自 ping 时钟估计）；null 时按无偏移处理。 */
   setClockOffset(offsetMs: number | null): void {
@@ -115,6 +121,8 @@ export class RemoteView {
     const frames = this.frames;
     if (frames.length === 0) { this.views = []; return; }
     const target = nowMs + (this.offsetMs ?? 0) - this.interpolationDelayMs;
+    this.targetServerMs = target;
+    this.latestServerMs = frames[frames.length - 1].serverTimeMs;
     let before = frames[0];
     let after = frames[frames.length - 1];
     let ratio = 0;
