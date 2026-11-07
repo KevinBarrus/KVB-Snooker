@@ -8,7 +8,15 @@ import { isSegmentSafe } from "./geometry.js";
 import type { GameView } from "./play-area.js";
 import { AI_PROFILES, type AIProfile } from "./profiles.js";
 import { applyChaos, checkPocket } from "./pot-route.js";
-import { sharedRouteCache, type AIRoute } from "./route-cache.js";
+import { sharedRouteCache, type AIRoute, type RouteCache } from "./route-cache.js";
+
+/** 可选注入点：默认保持单机行为；联机服务端为每房间注入独立缓存与随机源（架构 §4.8）。 */
+export interface AIControllerDependencies {
+  /** 路线缓存；缺省共享模块级 sharedRouteCache。 */
+  readonly routeCache?: RouteCache;
+  /** 随机源；缺省使用全局 coreRandom。 */
+  readonly random?: () => number;
+}
 
 // PCOL L2536-2744
 export class AIController {
@@ -16,12 +24,16 @@ export class AIController {
   private readonly ballOnIndices: number[] = [];
   private ballCheckIndex = 0;
   private pocketIndex = 0;
-  private readonly cache = sharedRouteCache;
+  private readonly cache: RouteCache;
+  private readonly random: () => number;
   private isBreakDirty = false;
   private isBreak = false;
   private taskIndex = -1;
 
-  constructor(private readonly profile: AIProfile = AI_PROFILES.NORMAL) {}
+  constructor(private readonly profile: AIProfile = AI_PROFILES.NORMAL, deps: AIControllerDependencies = {}) {
+    this.cache = deps.routeCache ?? sharedRouteCache;
+    this.random = deps.random ?? coreRandom;
+  }
 
   checkRestart(sim: Simulator, ctx: RulesContext): boolean {
     if (this.simEvolution === sim.evolution) return false;
@@ -46,8 +58,8 @@ export class AIController {
     if (this.cache.length === 0) {
       if (++this.taskIndex >= 3) {
         this.taskIndex = -1;
-        const direction = new Vec3(coreRandom(), 0, coreRandom()).normalize();
-        this.cache.next(direction.x, direction.y, direction.z, 0, 0.6 * coreRandom(), 0.05 * coreRandom()).ballBIndex = this.ballOnIndices[0] ?? -1;
+        const direction = new Vec3(this.random(), 0, this.random()).normalize();
+        this.cache.next(direction.x, direction.y, direction.z, 0, 0.6 * this.random(), 0.05 * this.random()).ballBIndex = this.ballOnIndices[0] ?? -1;
         return this.cache.getAtIndex(0);
       }
       this.ballCheckIndex = this.pocketIndex = 0;
@@ -60,7 +72,7 @@ export class AIController {
       const candidate = this.cache.getAtIndex(index);
       if (candidate.priority > maxPriority) { maxPriority = candidate.priority; route = candidate; }
     }
-    if (route && route.pkIndex !== -1 && route.ballBIndex !== -1) applyChaos(route, view, sim, this.profile);
+    if (route && route.pkIndex !== -1 && route.ballBIndex !== -1) applyChaos(route, view, sim, this.profile, this.random);
     return route;
   }
 
@@ -96,7 +108,7 @@ export class AIController {
     const cue = sim.getBallAtIndex(0);
     const isBreak = this.getIsBreak(sim);
     const extension = (isBreak ? 2 : -0.5) * cue.radius;
-    const spread = isBreak ? 0.85 + 0.14 * coreRandom() : 0.99 + 0.009 * coreRandom();
+    const spread = isBreak ? 0.85 + 0.14 * this.random() : 0.99 + 0.009 * this.random();
     const distancePower = isBreak ? 0.4 : 0.6;
     const total = isBreak ? 1 : 5;
     while (this.ballCheckIndex < this.ballOnIndices.length) {
@@ -126,7 +138,7 @@ export class AIController {
       if (isSegmentSafe(cue.position, direction, length + extension,
         cue.radius + Vec3.EPSILON, sim.getBalls(), cue, target)) {
         this.cache.next(direction.x, direction.y, direction.z, 0,
-          0.1 * coreRandom() + length / view.playArea.diagonal * distancePower, 0.1 * coreRandom()).ballBIndex = target.index;
+          0.1 * this.random() + length / view.playArea.diagonal * distancePower, 0.1 * this.random()).ballBIndex = target.index;
         return this.cache.length >= total;
       }
     }

@@ -54,8 +54,9 @@ export function checkPocket(
 }
 
 // PCOL L2710-2744
-export function applyChaos(route: CachedRoute, view: GameView, sim: Simulator, profile: AIProfile): void {
-  if (coreRandom() < 0.05) return;
+export function applyChaos(route: CachedRoute, view: GameView, sim: Simulator, profile: AIProfile,
+  random: () => number = coreRandom): void {
+  if (random() < 0.05) return;
   const cue = sim.getBallAtIndex(0);
   const target = sim.getBallAtIndex(route.ballBIndex);
   const pocket = view.playArea.pockets[route.pkIndex];
@@ -69,9 +70,9 @@ export function applyChaos(route: CachedRoute, view: GameView, sim: Simulator, p
   const cutFactor = 1 / (1 + Math.pow(Math.E, -(distance - 1.8 * cut * cut) / 0.5)) * profile.bcf;
   let aimFactor = Math.min(1, cueDistance / profile.range) * profile.abf;
   aimFactor *= aimFactor;
-  let error = (1 - Math.pow(coreRandom(), profile.chaoticSeed)) * (aimFactor + cutFactor);
+  let error = (1 - Math.pow(random(), profile.chaoticSeed)) * (aimFactor + cutFactor);
   const offset = new Vec3().crossVectors(path, Vec3.UNIT_Y).normalize();
-  if (coreRandom() > 0.5) error *= -1;
+  if (random() > 0.5) error *= -1;
   offset.scale((pocket.radius + target.radius) * error);
   if (route.pkIndex === 2 || route.pkIndex === 3) error *= profile.mpm;
   else if (error < 1) error *= profile.bpm;

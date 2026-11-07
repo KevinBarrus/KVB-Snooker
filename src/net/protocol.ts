@@ -207,24 +207,36 @@ export interface StrokeVarBounds {
 }
 
 export const DEFAULT_STROKE_BOUNDS: StrokeVarBounds = {
-  ballRadius: 0.03125,
-  maxSpeed: 30,
+  ballRadius: 0.02625,
+  maxSpeed: 200,
   minTipRadius: 0.001,
   maxTipRadius: 0.02
 };
 
-/** 返回 null 表示通过；否则返回稳定拒绝码。 */
+/**
+ * 返回 null 表示通过；否则返回稳定拒绝码。
+ * e[0..2] 是皮头触点的世界坐标（不是相对球心的偏移）；调用方还须校验该点确实落在当前母球表面附近。
+ * 合法上限依据 StickController.getStrokeVars：速度 = getTouchSpdWithPower(power) * (3.2 + 6 * power)，满力约 106。
+ */
 export function validateStrokeVars(vars: unknown, bounds: StrokeVarBounds = DEFAULT_STROKE_BOUNDS): RejectReason | null {
   if (!Array.isArray(vars) || vars.length !== 8) return REJECT.INVALID_PARAMS;
   const values = vars as unknown[];
   if (!values.every(value => typeof value === "number" && Number.isFinite(value))) return REJECT.INVALID_PARAMS;
   const [x, y, z, dx, dy, dz, speed, tipRadius] = values as number[];
   const directionLength = Math.hypot(dx, dy, dz);
-  if (directionLength < 0.5 || directionLength > 1.5) return REJECT.INVALID_PARAMS;
+  if (directionLength < 0.9 || directionLength > 1.1) return REJECT.INVALID_PARAMS;
   if (speed <= 0 || speed > bounds.maxSpeed) return REJECT.INVALID_PARAMS;
   if (tipRadius < bounds.minTipRadius || tipRadius > bounds.maxTipRadius) return REJECT.INVALID_PARAMS;
-  const offset = Math.hypot(x, y, z);
-  if (offset < 0.1 * bounds.ballRadius || offset > 2 * bounds.ballRadius) return REJECT.INVALID_PARAMS;
+  if (Math.max(Math.abs(x), Math.abs(y), Math.abs(z)) > 10) return REJECT.INVALID_PARAMS;
+  return null;
+}
+
+/** 触点必须是当前母球表面附近的点；只做防御性校验，不改动物理参数。 */
+export function validateCueContact(vars: readonly number[], cueX: number, cueY: number, cueZ: number,
+  ballRadius: number): RejectReason | null {
+  if (vars.length !== 8) return REJECT.INVALID_PARAMS;
+  const distance = Math.hypot(vars[0] - cueX, vars[1] - cueY, vars[2] - cueZ);
+  if (distance < 0.5 * ballRadius || distance > 1.5 * ballRadius) return REJECT.INVALID_PARAMS;
   return null;
 }
 

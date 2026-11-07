@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": ".cache/net-server",
+    "types": ["node"],
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": [
+    "src/core/**/*.ts",
+    "src/net/protocol.ts",
+    "src/server/**/*.ts"
+  ]
+}
