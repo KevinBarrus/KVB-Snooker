@@ -97,14 +97,8 @@ export class NetShotLauncher implements ShotLauncher {
     this.touchDuration = 0;
     this.motion.reset();
     if (!person) return;
-    if (person.camera.shotView.active) {
-      const target = person.camera.shotView.target;
-      person.camera.shotView.end();
-      person.camera.lookTo(target.x, target.z, false);
-      person.camera.unfollow();
-    } else {
-      person.camera.unfollow();
-    }
+    person.camera.endShotView();
+    person.camera.unfollow();
     if (!stood) person.gotoState0();
   }
 

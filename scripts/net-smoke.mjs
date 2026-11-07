@@ -4,7 +4,7 @@ import { chromium } from "playwright-core";
 import { watchShot, assertShotVisual, shootAcrossStall } from "./net-shot-visual.mjs";
 import {
   CHROME_BIN, LEAD_MS, aimClient, assertSnapshotsEqual, buildServer, closePages, openClient, readNet, recordShot,
-  resolveDecision, shoot, sleep, startServer, stopServer
+  resolveDecision, shoot, sleep, startServer, stopServer, waitFor
 } from "./net-smoke-lib.mjs";
 
 /**
@@ -294,6 +294,52 @@ async function runStall(browser) {
   }
 }
 
+async function runManualCamera(browser) {
+  const server = await startServer();
+  const pages = [];
+  try {
+    const [seat0, seat1] = await Promise.all([
+      openClient(browser, server.info, "s-manual", 0, "manual-seat0"),
+      openClient(browser, server.info, "s-manual", 1, "manual-seat1")
+    ]);
+    pages.push(seat0, seat1);
+    await aimClient(seat0);
+    await shoot(seat0);
+    await waitFor(seat0, () => window.__snkNet.cameraState === 0 &&
+      window.__snkNet.cameraPosition.y > 1.699 && window.__snkNet.shotsBusy,
+      15000, "起身后仍在球运动期间");
+    const before = await readNet(seat0);
+    const canvas = await seat0.locator("canvas").boundingBox();
+    assert.ok(canvas);
+    await seat0.mouse.move(canvas.x + canvas.width * .4, canvas.y + canvas.height * .5);
+    await seat0.mouse.down();
+    await seat0.mouse.move(canvas.x + canvas.width * .7, canvas.y + canvas.height * .5, { steps: 10 });
+    await seat0.mouse.up();
+    await recordShot(pages, 0);
+    await sleep(1500);
+    const after = await readNet(seat0);
+    const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+    const manualDistance = distance(before.cameraTarget, after.cameraTarget);
+    assert.ok(manualDistance > .1, `结算不能拉回手动观察前的焦点：${manualDistance}`);
+    await sleep(1000);
+    const stable = await readNet(seat0);
+    assert.ok(distance(stable.cameraTarget, after.cameraTarget) < .01, "结算后视线保持稳定");
+    assert.equal(stable.snapshot.phase, "deciding");
+    await seat1.getByRole("button", { name: "让对手继续", exact: true }).click();
+    await waitFor(seat0, () => window.__snkNet.turnReady, 15000, "原击球方重新获得球权");
+    await sleep(500);
+    const next = await readNet(seat0);
+    assert.ok(distance(next.cameraTarget, stable.cameraTarget) < .01, "重新获得球权不自动回正视线");
+    await aimClient(seat0);
+    results.push({ name: "manual-camera-retained", manualDistance,
+      settlementDrift: distance(stable.cameraTarget, after.cameraTarget),
+      turnDrift: distance(next.cameraTarget, stable.cameraTarget), readyToStroke: (await readNet(seat0)).readyToStroke });
+  } finally {
+    await closePages(pages);
+    await stopServer(server);
+  }
+}
+
 async function main() {
   buildServer();
   const browser = await chromium.launch({
@@ -305,6 +351,7 @@ async function main() {
     await runBaseline(browser); logResult();
     await runAlignment(browser); logResult();
     await runStall(browser); logResult();
+    await runManualCamera(browser); logResult();
     await runDropAck(browser); logResult();
     await runLatency(browser); logResult();
     await runTwoRooms(browser); logResult();

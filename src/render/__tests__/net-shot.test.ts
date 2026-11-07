@@ -120,6 +120,51 @@ describe("联机球杆与母球共用显示时间线", () => {
     expect(t.launcher.isStruck).toBe(true);
   });
 
+  it.each(["natural", "cue", "object"] as const)("%s：自动观察结束从当前画面交接，不跳回底层旧注视点", mode => {
+    const t = setup();
+    t.person.camera.shotView.mode = mode;
+    t.person.camera.lookTo(-.4, .2, true);
+    t.person.update(.02);
+    t.acknowledge(20);
+    t.frame(20);
+    for (let at = 40; at <= 4000; at += 20) t.frame(at);
+    expect(t.person.camera.stateRatio).toBe(0);
+    const target = t.person.camera.target.clone();
+    t.launcher.finish();
+    for (let i = 0; i < 120; i++) {
+      t.person.update(.02);
+      expect(t.person.camera.target.x).toBeCloseTo(target.x, 8);
+      expect(t.person.camera.target.z).toBeCloseTo(target.z, 8);
+    }
+  });
+
+  it.each(["natural", "cue", "object"] as const)("%s：手动观察后结束出杆不能拉回旧自动焦点", mode => {
+    const t = setup();
+    t.person.camera.shotView.mode = mode;
+    t.acknowledge(20);
+    t.frame(20);
+    for (let at = 40; at <= 4000; at += 20) t.frame(at);
+    t.person.camera.moveLookAt(.7, .4);
+    for (let at = 4020; at <= 7000; at += 20) t.frame(at);
+    expect(t.person.camera.shotView.manual).toBe(true);
+    const position = t.person.camera.position.clone();
+    const target = t.person.camera.target.clone();
+    t.launcher.finish();
+    for (let i = 0; i < 120; i++) t.person.update(.02);
+    expect(t.person.camera.position.x).toBeCloseTo(position.x, 8);
+    expect(t.person.camera.position.z).toBeCloseTo(position.z, 8);
+    expect(t.person.camera.target.x).toBeCloseTo(target.x, 8);
+    expect(t.person.camera.target.z).toBeCloseTo(target.z, 8);
+    expect(t.person.camera.shotView.active).toBe(false);
+    t.person.activate();
+    for (let i = 0; i < 120; i++) t.person.update(.02);
+    expect(t.person.camera.target.x).toBeCloseTo(target.x, 8);
+    expect(t.person.camera.target.z).toBeCloseTo(target.z, 8);
+    t.person.gotoState1();
+    for (let i = 0; i < 120; i++) t.person.update(.02);
+    expect(t.person.isReadyToStroke()).toBe(true);
+  });
+
   it("拒绝出杆不播触球、不解锁出球画面，也不会重复发命令", () => {
     const t = setup();
     t.acknowledge(20, false);
