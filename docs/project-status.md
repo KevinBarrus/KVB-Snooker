@@ -108,4 +108,4 @@
 - 需求见[练球模式球形预设需求](practise.md)，实现、算法参数、练习流程与限制见[练球球形设计](practice-shape-design.md)。本轮完成十个预设球形的确定性生成、菜单启动、全台自由摆球、犯规重摆/复位、常驻复位按钮、清彩与五分点不计分、五分点蓝球复位。
 - 新增 `src/core/practice/**` 以及练习会话选项、复位统计快照、输入锁和比分隐藏；未改动物理、碰撞台面、经典判罚、相机或回放算法。
 - `tests/unit/practice-shapes.spec.ts` 5 项、`tests/unit/practice-shape-game.spec.ts` 5 项通过；`npm run test:practice` 真实浏览器验收通过（菜单启动、自由摆球、犯规弹窗、复位回滚与回放、重新开始重摆、清彩/五分点不计分）。
-- 全部 `npm run test` 与 `npm run typecheck` 结果见提交说明；工作区联机文件由另一开发代理同时修改时，不以彼时全量结果冒充练球单元通过。真实手感、球形比例最终确认与「我的球形」仍未完成。
+- 自动验收：`npm run test` 65 文件 626 项通过；`npm run typecheck`、`npm run build` 通过；`npm run test:practice` 与 `npm run test:controller` 通过。提交 `a6afc02`、`28e3fd9` 已推送。真实手感、球形比例最终确认与「我的球形」仍未完成。

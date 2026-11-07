@@ -83,7 +83,7 @@
 - `tests/unit/practice-shapes.spec.ts`：十种球形的确定性、球数、彩球点位、无出界、无重叠、FrameSetup 合法性、双龙排距与对称性。
 - `tests/unit/practice-shape-game.spec.ts`：练习 + setup、全台/D 区摆球、复位回滚球员统计、五分点目标复位与不计分、非法选项拒绝。
 - `npm run test:practice`：真实浏览器点击菜单启动十个球形、全台自由摆球、犯规弹窗与复位、复位后回放可用、重新开始重摆、清彩与五分点不计分和五分点绿球点母球。
-- `npm run test`、`npm run typecheck`、`npm run build`。
+- 本轮实测：`npm run test` 65 文件 626 项通过；`npm run typecheck`、`npm run build` 通过；`npm run test:practice` 通过（截图写入 `.cache/practice/`，不提交）；`npm run test:controller` 通过。
 
 限制：
 
