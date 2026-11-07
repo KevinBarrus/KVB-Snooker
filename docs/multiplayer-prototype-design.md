@@ -143,7 +143,6 @@ npm run dev:lan
 本轮自动验收是在**同一台机器上用两个独立浏览器页面**模拟两台电脑，没有实际第二台物理机；§10 明确记录这一限制。
 
 ### 9.4 延迟测试配置（仅开发环境）
-
 服务器启动参数，配置值都是**单程**延迟；`welcome.latency` 与 HUD 都会显示 `appliesTo: "one-way-per-direction"`，往返约为入站+出站+处理时间：
 
 | 目的 | 启动参数 |
@@ -154,6 +153,46 @@ npm run dev:lan
 | 确认丢失后同 ID 重试 | 加 `--drop-next-ack`（只丢弃下一条 Ack 一次；客户端用同一 `commandId` 重试，服务器返回原裁决，只出一杆） |
 
 延迟用定时器排队投递，不阻塞物理 tick 或页面渲染；HUD 的 Space→Ack→投影触球→动画触球→首个运动快照→shot-fired 差值用于核对动画与实际触球的关系。`--prepare-lead-ms` 默认 700ms，是“服务器收到意图到权威触球”的提前量；大延迟或低帧率下按实测结果调整并在 HUD 记录偏差。
+
+### 9.5 只有一台电脑时的验收
+
+自动验收（推荐先跑，约 2—4 分钟；脚本会自己编译并启动随机端口服务器，不需要手动起 8787）：
+
+```bash
+# 前置：npm run assets:prepare 已完成；Vite 开发服务在 127.0.0.1:5173 运行
+npm run dev            # 另一个终端
+npm run test:net       # 本终端
+```
+
+通过的标志：逐条打印 `NET_SMOKE_STEP {...}`，最后输出 `NET_SMOKE_RESULTS [...]` 与
+`Net smoke passed: two real browser clients, authoritative shot sync, camera ownership, drop-ack retry, one-way latency, two-room isolation`，退出码 0；截图写入 `.cache/net/`。结果与数字应能对上 §10.2。
+
+人工双窗口核对（自动通过后，用真实手感/视觉再验一遍）：
+
+1. 终端 1：`npm run net:server -- --host 127.0.0.1 --port 8787 --dev-token dev-local`；终端 2：`npm run dev`。
+2. 打开**两个独立浏览器窗口**（两个不同浏览器，或同一浏览器两个独立 profile；不要同一窗口两个标签，键盘焦点会互相干扰）：
+   - A：`http://127.0.0.1:5173/?net=dev1&token=dev-local&seat=0`
+   - B：`http://127.0.0.1:5173/?net=dev1&token=dev-local&seat=1`
+3. 按下面清单核对（每项都应有明确结果，不能只看“页面没报错”）：
+
+| # | 操作 | 通过标准 |
+|---|---|---|
+| 1 | 看两窗左上 HUD | 都是 `ready`、同房间 `dev1`、席位分别为 0/1、版本/阶段一致 |
+| 2 | A 按 `W` | 出现球杆、进入瞄准；B 画面不被接管 |
+| 3 | A 按 `Space` | 两窗同一杆开始运动，最终落点/比分一致；A HUD 有 Space→Ack→投影触球→动画触球→首运动→fired 数字 |
+| 4 | 观察 B 窗口 | 相机位置/朝向全程不被 A 的 ShotView 抢走 |
+| 5 | 一杆结算后 | 两窗比分、球权、目标球、手中球一致 |
+| 6 | 犯规进入决定阶段 | 拥有选择权的窗口出现“自己接手/让对手继续”，点击后可继续下一杆 |
+| 7 | 无权窗口按 `Space` | 不出杆、HUD 版本不变 |
+| 8 | 重启服务器加 `--latency-in-ms 80 --latency-out-ms 80` 再打一杆 | HUD 显示单程 80/80；Ack 明显变慢，但两窗球运动与落点仍一致；动画触球与投影触球差值记录在 HUD |
+| 9 | 重启服务器加 `--drop-next-ack` 再打一杆 | HUD 重试数 ≥1；比分/球位只变化一次（同 ID 重试没有第二杆） |
+| 10 | 记录 | 截图或录屏 + 第 8/9 步的 HUD 数字，作为人工验收证据 |
+
+单机模拟“非 localhost 的局域网路径”：把两个终端改为 `npm run dev:lan` 和
+`npm run net:server -- --host 0.0.0.0 --port 8787 --dev-token dev-local`，用 Vite 打印的 Network 地址
+（如 `http://172.x.x.x:5173/?net=dev1&token=dev-local&seat=0`）在两窗打开。这能验证服务确实绑定了局域网地址；**真正第二台电脑仍需要按 §9.2—§9.3 再验一次**，单机自连不能替代防火墙/NAT 的实机验证。
+
+判定与问题回收：任何一项失败，收集两窗 HUD 文案、浏览器 Console 错误、服务器 stdout 与页面 URL；自动验收失败时把 `.cache/acceptance-run.log` 一起提供。自动验收通过不等于真实双机或真实 GPU 手感已验收。
 
 ## 10. 测试与验收
 
