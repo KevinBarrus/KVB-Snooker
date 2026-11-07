@@ -4,9 +4,17 @@ import { chromium } from "playwright-core";
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN ?? "/usr/bin/google-chrome",
   headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-const timeout = setTimeout(() => void browser.close(), 120000);
+const timeout = setTimeout(
+() => void browser.close(), 120000);
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const clickOptionsButton = async (name, exact = false) => page.evaluate(({ name, exact }) => {
+    const buttons = [...document.querySelectorAll(".game-options button")];
+    const target = buttons.find(button => exact ? button.textContent.trim() === name : button.textContent.includes(name));
+    if (!target) throw new Error(`Missing game-options button: ${name}`);
+    target.click();
+  }, { name, exact });
+
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(process.env.RENDER_URL ?? "http://127.0.0.1:5173");
@@ -36,11 +44,11 @@ try {
     });
     await page.selectOption('select[name="mode"]', "rules-test");
     assert.equal(await page.locator('select[name="difficulty"]').isVisible(), false);
-    await page.getByRole("button", { name: "加载球局", exact: true }).click(); await advance(0);
+    await clickOptionsButton("加载球局", true); await advance(0);
     assert.equal((await snapshot()).balls.filter(ball => ball.active).length, 22);
     assert.deepEqual(await page.locator(".score-container .head").allTextContents(), ["玩家 1", "玩家 2"]);
     await page.selectOption('select[name="test-position"]', "last-red");
-    await page.getByRole("button", { name: "加载球局", exact: true }).click(); await advance(0);
+    await clickOptionsButton("加载球局", true); await advance(0);
     const initial = await snapshot();
     assert.equal(initial.balls.filter(ball => ball.active).length, 8);
     await page.evaluate(() => {
@@ -82,7 +90,7 @@ try {
     state = await advance(60);
     for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
     await page.selectOption('select[name="test-position"]', "colours");
-    await page.getByRole("button", { name: "重置当前球局" }).click(); await advance(0);
+    await clickOptionsButton("重置当前球局"); await advance(0);
     assert.equal(await page.locator('select[name="test-position"]').inputValue(), "last-red");
     assert.deepEqual(await snapshot(), initial);
     assert.equal(await page.evaluate(() => window.rulesRuntime.game.replay.clip.available), false);
@@ -136,7 +144,7 @@ try {
     for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
     assert.equal((await snapshot()).players[1].shootingCount, 1);
     await page.selectOption('select[name="test-position"]', "colours");
-    await page.getByRole("button", { name: "加载球局", exact: true }).click(); await advance(0);
+    await clickOptionsButton("加载球局", true); await advance(0);
     assert.equal((await snapshot()).balls.filter(ball => ball.active).length, 7);
     assert.equal((await snapshot()).context.ballOn, 4);
     await page.evaluate(() => {
@@ -186,12 +194,12 @@ try {
     state = await advance(60);
     for (let i = 0; i < 200 && state.busy; ++i) state = await advance(30);
     await page.selectOption('select[name="mode"]', "practice");
-    await page.getByRole("button", { name: "开始新局" }).click(); await advance(0);
+    await page.locator('.game-options button[type="submit"]').evaluate(button => button.click()); await advance(0);
     assert.equal((await snapshot()).context.ballOn, 65535);
     assert.equal(await page.locator(".rule-test").isVisible(), false);
     await page.selectOption('select[name="mode"]', "rules-test");
     await page.selectOption('select[name="test-position"]', "black-tie");
-    await page.getByRole("button", { name: "加载球局", exact: true }).click(); await advance(0);
+    await clickOptionsButton("加载球局", true); await advance(0);
     const blackInitial = await snapshot();
     assert.deepEqual(blackInitial.players.map(player => player.pts), [0, 7]);
     assert.equal(blackInitial.balls.filter(ball => ball.active).length, 2);
@@ -207,7 +215,7 @@ try {
       const game = window.rulesRuntime.game;
       return [game.session.getScore(0), game.session.getScore(1), game.session.context.playerIndex, game.session.context.inHand];
     }), [7, 7, 1, 2]);
-    await page.getByRole("button", { name: "重置当前球局" }).click(); await advance(0);
+    await clickOptionsButton("重置当前球局"); await advance(0);
     assert.deepEqual(await snapshot(), blackInitial);
     await page.evaluate(() => {
       const { game, simulator } = window.rulesRuntime;
@@ -264,7 +272,7 @@ try {
     assert.deepEqual(await snapshot(), ordinaryFoul);
     assert.equal(await page.locator(".rule-choice").isVisible(), true);
     await page.selectOption('select[name="mode"]', "practice");
-    await page.getByRole("button", { name: "开始新局" }).click(); await advance(0);
+    await page.locator('.game-options button[type="submit"]').evaluate(button => button.click()); await advance(0);
     await page.evaluate(() => {
       const { simulator } = window.rulesRuntime;
       simulator.respotIndexXYZ(0, 0, simulator.spotY, .2);
@@ -274,13 +282,13 @@ try {
     await advance(0); assert.equal(await touching.isVisible(), false);
     await page.selectOption('select[name="mode"]', "single-play");
     for (const expected of [0, 1, 0]) {
-      await page.getByRole("button", { name: "开始新局" }).click(); await advance(0);
+      await page.locator('.game-options button[type="submit"]').evaluate(button => button.click()); await advance(0);
       assert.equal((await snapshot()).context.playerIndex, expected, "Mid-frame restart alternates the opener");
       assert.equal(await page.evaluate(() => window.rulesRuntime.game.opponent.active), expected === 1);
       if (expected === 1) {
         await page.selectOption('select[name="mode"]', "rules-test");
-        await page.getByRole("button", { name: "加载球局", exact: true }).click(); await advance(0);
-        await page.getByRole("button", { name: "重置当前球局" }).click(); await advance(0);
+        await clickOptionsButton("加载球局", true); await advance(0);
+        await clickOptionsButton("重置当前球局"); await advance(0);
         await page.selectOption('select[name="mode"]', "single-play");
       }
     }

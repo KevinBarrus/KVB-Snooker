@@ -12,6 +12,8 @@ import { Gunsight } from "./render/gunsight.js";
 import { PlacementMarkers } from "./render/placement.js";
 import { BrowserGame } from "./app-game.js";
 import { BrowserAudio } from "./app-audio.js";
+import { GameMenu, type MatchLaunchRequest } from "./ui/game-menu.js";
+import { GameMenuDom } from "./ui/game-menu-dom.js";
 
 async function loadSimulator(): Promise<Simulator> {
   const response = await fetch("/assets/physics/table.json");
@@ -54,23 +56,39 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     let lastBallOn = -1;
     const options = document.querySelector<HTMLFormElement>(".game-options");
     audio = new BrowserAudio(game.bus, options ?? document.body);
+    const menuState = new GameMenu({ onPauseSignal: () => {} });
+    const launchFromMenu = (req: MatchLaunchRequest) => {
+      game.setMode(req.mode, req.difficulty, req.mode === "single-play"
+        ? { ruleset: req.ruleset, ...(req.players ? { players: req.players } : {}) } : {});
+    };
+    const menuDom = new GameMenuDom(menuState, launchFromMenu);
+    document.body.append(menuDom.element);
     const newGame = options?.querySelector("button");
     const testTools = options && import.meta.env.DEV && import.meta.env.VITE_RULES_TEST !== "0"
       ? (await import("./devtools/rules-test.js")).mountRulesTest(options, game) : undefined;
     const startGame = (event: Event) => {
       event.preventDefault();
       if (!options) return;
-      if (testTools?.start()) return;
+      if (testTools?.start()) {
+        menuState.syncExternalMatch({ kind: "two-player", mode: "single-play", difficulty: "NORMAL", ruleset: "classic", players: ["USER", "USER"] });
+        menuDom.sync();
+        return;
+      }
       const values = new FormData(options);
       const level = values.get("difficulty");
+      const difficulty = level === "EASY" || level === "HARD" ? level : "NORMAL";
       const mode = values.get("mode") === "single-play" ? "single-play" : "practice";
-      game.setMode(mode, level === "EASY" || level === "HARD" ? level : "NORMAL",
-        mode === "single-play" ? { ruleset: values.get("rules") === "snooker-900" ? "snooker-900" : "classic" } : {});
+      const ruleset = values.get("rules") === "snooker-900" ? "snooker-900" : "classic";
+      if (game.setMode(mode, difficulty, mode === "single-play" ? { ruleset } : {})) {
+        menuState.syncExternalMatch({ kind: mode === "single-play" ? "ai" : "practice", mode, difficulty, ruleset });
+        menuDom.sync();
+      }
     };
     options?.addEventListener("submit", startGame);
     const syncInteraction = () => {
       audio?.sync(game.session, simulator.evolution, game.replay.active);
       testTools?.sync();
+      menuDom.element.hidden = game.replay.active;
       if (game.replay.active) {
         const recorded = game.replay.clip.current?.cue;
         cue.isVisible = recorded?.visible ?? false;
@@ -119,6 +137,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     window.addEventListener("pagehide", () => {
       window.removeEventListener("resize", resize);
       options?.removeEventListener("submit", startGame);
+      menuDom.dispose();
       testTools?.dispose();
       audio?.dispose();
       game.dispose();

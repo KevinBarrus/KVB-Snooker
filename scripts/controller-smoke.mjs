@@ -150,7 +150,7 @@ try {
   await page.keyboard.up("d");
   await page.selectOption('select[name="mode"]', "single-play");
   await page.selectOption('select[name="difficulty"]', "EASY");
-  await page.getByRole("button", { name: "开始新局" }).click();
+  await page.locator('.game-options button[type="submit"]').evaluate(button => button.click());
   await page.locator("canvas").focus(); await page.keyboard.press("w");
   await page.evaluate(async () => {
     const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
