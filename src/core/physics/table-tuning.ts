@@ -11,7 +11,7 @@ export const TABLE_TUNING = {
   ...PCOL_TABLE_TUNING,
   clothSlidingFriction: 0.15,
   clothRollingFriction: 0.012,
-  cushionFriction: 0.18,
+  cushionFriction: 0.25,
   cushionRestitution: 0.94,
   angularRetention: 0.992
 };
