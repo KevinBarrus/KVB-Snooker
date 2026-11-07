@@ -1,5 +1,8 @@
 # 声音第二轮：对照试听与听感改进交接
 
+> 状态：历史声音处理实验交接。当前采集方向为用户先用手机和笔记本实录，再视效果考虑官方录像音轨；本文件旧的自动施工指令不自动生效。运行链路见 [声音设计](audio-v1-design.md)，当前状态见 [项目状态](project-status.md)。
+
+
 日期：2026-10-28。交接对象：接手本任务的 AI 工程师。
 
 ## 1. 任务目标与当前授权边界
@@ -18,7 +21,7 @@
 
 1. 根目录 `AGENTS.md`。
 2. `docs/architecture.md`，尤其分层、声音接口和浏览器编译隔离。
-3. `docs/audio-v1-design.md`、`src/audio/AGENTS.md`、`scripts/AGENTS.md`。
+3. `docs/audio-v1-design.md`、`src/audio/AGENTS.md`；scripts 无独立章程时继承根章程。
 4. `src/audio/sample-mixer.ts`、`calibration.ts`、`browser-backend.ts`、`sample-manifest.ts`、`src/app-audio.ts`。
 5. `scripts/audio-sources.json`、`scripts/prepare-audio-assets.mjs`、`scripts/audio-smoke.mjs`。
 
@@ -153,7 +156,7 @@
 - 原游戏代码和正式播放清单保持不变。
 - 新增非平凡处理逻辑提供小规模有效测试，覆盖短样本、无合适噪声区等边界。
 
-提交遵守根章程：`npm run test`、`npm run typecheck`全绿；若修改scripts或其他模块，同提交更新其AGENTS记录，但任务正文留在本独立文档。Conventional Commits，完成单元后推送；不提交原媒体、试听WAV或合成IR二进制。
+提交遵守根章程：`npm run test`、`npm run typecheck`全绿；若修改 scripts 或其他模块，按根章程更新所属设计与验收；只有职责或约束变化才更新 AGENTS。Conventional Commits，完成单元后推送；不提交原媒体、试听WAV或合成IR二进制。
 
 向用户报告：可点击的试听入口/实际打开方式、样本数量、各版本差别、原文件未改、验证结果、已知局限。没有真实听辨能力就明确说明，不能声称自己已听到改善。
 

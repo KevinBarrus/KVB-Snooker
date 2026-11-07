@@ -1,36 +1,19 @@
-# core/math · 模块章程
+# 数学 · 模块章程
 
-自研三维数学库：`Vec3` / `Matrix3` / `Quaternion`。物理引擎的地基，全项目最底层模块。
+继承[全局章程](../../../AGENTS.md)；本文件只保留职责、工作约束和必读入口。
 
 ## 职责边界
 
-- 做：三个类的全部数值方法与常量，语义与原作逐字节等价（含怪癖，见下）
-- 禁：任何 import（本模块零依赖）；依赖 DOM/Babylon；改公开签名（接口冻结于 `docs/architecture.md` §4.1）；新增原作没有的方法——需要新能力时先回顾原作再议
+- 最底层数值库，零外部依赖；不得引入 DOM、Babylon 或上层模块。
+- 保留别名、零值、奇异矩阵等原作语义；新增能力先查原作证据并更新架构契约。
 
-## 事实来源
+## 修改前必读
 
-- 接口签名：`docs/architecture.md` §4.1 Vector/Matrix/Quaternion
-- 算法语义与原作怪癖：`docs/spec/01-物理内核.md` §3
-- 原作源码（语义有争议时以此为准）：`analysis/1.chunk.js`
-  - Vec3：L8500-8778（原模 12 命名空间 `www.physicsmath` 入口 `Vec3: i(12)`）
-  - Matrix3：L8969-9184（原模 17）
-  - Quaternion：L9633-9835（原模 23）
+- [架构契约](../../../docs/architecture.md)：公开接口和依赖方向。
+- [本模块还原依据](../../../docs/modules/core-math.md)：原作出处与语义约束。
 
-## 必须原样复刻的怪癖（不可"改进"）
+## 测试与文档纪律
 
-1. `Vec3`：`normalize()` 零向量 → 全 0（不清除 NaN）；`scaleVector(s, v)` 参序为标量在前；`almostEquals` 阈值固定 `EPSILON=1e-6`，不得参数化
-2. `Matrix3`：`set(9参)` 落位后 transform 的有效矩阵为参数矩阵的转置；`setInverse` 奇异时仅 `console.warn` 并置 identity
-3. `Quaternion`：`normalize()` 零长度 → 重置为 `(0,0,0,1)`；`integrate(ω, dt)` = `q + ½·dt·(ω⊗q)` 后归一；`integrateQuad` 为对称梯形变体，公式照抄不可重排
-4. `Matrix3.multiply(this)` **自乘别名**：写入先于读取污染后续行（结果见回归测试"原作自乘别名语义"），上层 need 双份时由调用方自行 clone——与原作逐字节一致
+验证已知向量、矩阵和四元数结果，以及原作别名和退化输入语义；不能只验证方法存在。
 
-## 与原作的已登记差异
-
-- `Matrix3.clone()`：原作 L9017-9019 返回数字 9（`fromArray` 返回值泄漏，游戏内无调用点），本实现返回 `Matrix3`。其余方法与原作逐字节等价。
-
-## 测试要求
-
-`tests/unit/math.spec.ts`：常量断言（EPSILON、UNIT 向量）、每个方法的已知值断言、原作回归语义（上述 3 条怪癖各至少 1 例）、`applyQuaternion` 主动旋转验证（X 绕 Y 90° → −Z）。
-
-## 完成定义（DoD）
-
-`npm run test` + `npm run typecheck` 全绿，接口与 `architecture.md` §4.1 完全对齐，方可提交。
+全量检查与提交规则继承全局章程。新证据写模块依据，功能要求写设计，验收写对应记录；仅本文件的职责或约束改变时更新本章程。

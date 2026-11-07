@@ -1,0 +1,101 @@
+# ui：章程迁移前记录
+
+历史存档，采自 2026-11-07 工作区的 `src/ui/AGENTS.md`，包含当时未提交的文档记录。不是现行章程或当前完成证明；旧设计与后来修订可能并存，仅供追溯。现行入口见 [文档导航](../../README.md)。旧文本中的路径以仓库根为参照。
+
+## ui · HUD 表现层章程
+
+## 职责边界
+
+- 每个部件拆为「零 DOM 状态类 + `*Dom` 视图类」：状态类订阅/接受数据，视图类在帧循环里 `sync(state)` 按脏值写 DOM。smoke test 只用状态类，Node 可跑。
+- 访问 core 仅限 `EventBus` 事件 + 装配根注入的只读 `ScoreSource[]`（core `Player` 的结构子集）；不 import game/simulator 实现，不写回核心。
+- DOM 类型只在本目录可见：`src/ui/tsconfig.json` 加 `DOM` lib，根 tsconfig 排除 `src/ui`，core 仍无 DOM 类型面；`npm run typecheck` 两个工程都检查。
+- 力度条 `PowerBar.percent / autoAlpha` 由 controller 直接写入（原作亦为控制器直写 powerUI，事件表无对应事件）。
+
+规则扩展：rule-choice.ts只接收文案与回调，展示普通犯规接手/让对手继续及Miss复位（第二轮取消黑球抽签选择）；不读取或修改核心对象。装配根控制显示和命令验证。
+
+## 文件
+
+| 文件 | 内容 | 原作出处 |
+|---|---|---|
+| hud.ts | `Hud`：事件订阅协调；`HudDom`：挂载四个视图 | L7990-8031、L6233-6234 |
+| score-panel.ts | 记分板 + ball-on 图标 | L12110 模板、L7530-7592 |
+| foul-notice.ts | FOUL 消息框与自动关闭计时 | L8014-8016、L8260-8285、L3212-3268 |
+| power-bar.ts | 力度条 percent/autoAlpha | L1454-1514、L7637-7683 |
+| shortcuts-bar.ts | 快捷键条（ctrl 状态切换的 UI 消费方） | L12122 模板、L5909-5970 |
+| view-notice.ts | 2.2秒观察模式提示 | 用户批准的观察扩展 |
+| replay-controls.ts | 摄像机入口、播放/¼慢放/进度/重播/退出 | L4134、L6481-6584、L12113 |
+
+## 事件映射
+
+| 事件 | HUD 行为 |
+|---|---|
+| `sim/shooting-start` | 记录 playerIndex，ball-on 图标改挂当前玩家组；显示快捷键条 |
+| `game/ball-on-changed` | `ScorePanel` 持有 ballOn（HUD 内唯一一份）并刷新图标；inHand 由 controller 消费，UI 不用 |
+| `game/frame-events` | 以注入的 players 调 `syncResults`（等价原作 `_onModelResponse` 同步记分） |
+| `game/foul` | foulCode≠0 且当前 ballOn≠0 时弹 `FOUL`，正文 `score + ": " + description` |
+| `ctrl/state-change-start` | 隐藏快捷键条 |
+| `ctrl/state-change-end` | 按 `to` 切换按键组（1=AIM 组，其余=STAND 组）并显示 |
+
+## 转写时新发现的怪癖（不可"改进"）
+
+1. 记分板显示分 = 本人 pts − 对方 penalty；单人时左组只显示本人 pts（L7577-7592）。
+2. ball-on 图标只挂在当前击球玩家组，另一组写 0；类名直接拼 mask：`ball-on-icon snooker b-<mask>`（如 practice 的 65535）。
+3. ball-on 缓存初值是 0 而 pts/brk 是 NaN：mask 0 永远不会写出 `b-0` 类名，图标保持模板初始类名（L7547）。
+4. 玩家名统一 `toUpperCase()`；单人时右组 `display:none` 且容器加 `single` 类，左组从不切换显隐（L7562-7575）。
+5. FOUL 消息自动关闭时长 = 1 + 0.08 ×（标题长 + 正文长）秒，上限 15 s；ERROR 类型 → 标题与正文都挂 `error-copy`；原作通用 message 的 INFO/SUCCESS/WARNING 三型无 UI 调用路径，未移植（L8266-8272、L3255-3268）。
+6. 终局（ballOn=0）时原作走结算面板而不弹 FOUL，即使本杆犯规（L8012-8016）。
+7. 快捷键条 `setGroup` 只判 `=== 1`，任何非 AIM 状态值都显示 STAND 组（L5960）；mac 平台把 `Alt` 键帽替换为 `cmd`（L5926-5929）。
+8. 力度条 `autoAlpha === 0` 即整体不可见，alpha 未变时不重写（L1508-1510）。
+
+9. 回放入口在SHOTTING_START即隐藏，不等球运动；原作片段必须>0.5秒才显示入口（L6275、L7776-7790）。本模块只消费装配根同步的available/active状态，不自行判断核心状态。
+
+## 登记差异
+
+- 回放使用独立ReplayControls状态与ReplayControlsDom，不导入controller；按钮使用原生button、进度使用range，具备中文可访问名称。Space/Esc/V由独立输入及面板转发，进度条获焦也能退出；慢放按钮切换¼速，暂不移植原作按住S与C自动袋口镜头。
+
+- 用户批准的观察扩展：ViewNotice/ViewNoticeDom显示装配根传入的中文模式名称，2.2秒自动隐藏，使用role=status；不订阅新增核心事件，不导入controller。
+
+- 原作力度条是挂在球杆上的 Babylon 网格（shader `powerview`，高亮色 H.BLUE、bgAlpha 0.25）；此处改为 DOM 条，颜色与底透明度照抄，位置/形状属美化弹性处理。
+- 原作快捷键条显示还需 gState=READY 且 stateRatio∈{0,1}（L6306-6309）；UI 拿不到 gState，以 `sim/shooting-start` 代理 READY，`state-change-end` 代理 stateRatio 落定。
+- FOUL 抑制读 `ScorePanel` 持有的 ballOn：若 rules 在同一结算中先发 `game/foul` 再发 `game/ball-on-changed`，终局犯规仍会弹出；集成时需保证 ball-on 先发。
+- 消息框的拖拽/钉住、练习与单局结算面板（L6460-6480、L7700-7730）、侧栏菜单未移植。
+
+## 测试
+
+观察扩展单元3：全量305项、typecheck、build通过；Chrome replay覆盖入口时序、按钮、慢放、进度与焦点下Esc退出。
+
+观察扩展单元2新增提示计时测试；全量299项、typecheck、build及Chrome camera专项（文案、隐藏、偏好恢复）通过。
+
+`src/ui/__tests__/smoke.test.ts`：EventBus 派发 `game/foul`、`game/ball-on-changed`、`game/frame-events`、`ctrl/state-change-*`、`sim/shooting-start`，断言状态类字段；不引 DOM / Babylon。
+
+## 完成定义（DoD）
+
+`npm run test`、`npm run typecheck` 全绿；提交并推送。
+
+## 提名面板
+
+nomination.ts接受只读目标文案、可选项、选择值、可操作状态与回调；自动识别不弹窗，手选覆盖自动，出杆后禁用。UI不自行判断目标或读核心对象。
+
+自由球沿用nomination面板，默认项为“不使用自由球”，候选只含非目标球，提示其替代分值；普通犯规选择面板告知接手可选自由球。显示与按钮仍由装配根喂入，不新增UI规则副本。
+
+第二轮：RuleChoiceView.restoreLabel与独立复位回调由装配根提供，无权限时隐藏；UI不推断Miss。中心贴球提示复用FoulNoticeDom，由装配根注入文案与可见性，和犯规消息互斥，不复用犯规事件；2026-10-27改为复用相同计时公式但各自持有计时状态。
+
+贴球提示验收修正：FoulNotice.show接收标题和正文，showFoul复用同一1+0.08×字数、上限15秒公式。FoulNoticeDom默认提供×及英文可访问名称，关闭回调可选；关闭后焦点返回画布。同杆提示由装配根去重，当前贴球仅英文，无中英并排，不引入全站语言切换。
+
+本次验收：383项全量测试、typecheck、build及Chrome规则专项通过；计时/上限/手动关闭后重新展示由单测覆盖，按钮、焦点、同杆不重弹及局面无修改由浏览器覆盖。
+
+统一临时提示关闭：FoulNoticeDom默认显示×并关闭最近sync的状态，HudDom转发关闭通知；ViewNoticeDom也绑定状态提供×，保留2.2秒计时。装配根只恢复输入焦点。犯规与Miss共用组件，关闭不改变规则选择；提名/回放/规则操作面板不自动消失。
+
+统一关闭验收：384项测试、typecheck/build通过，Chrome rules/camera/replay通过。首次并行回放启动加载超时，单独重跑通过；关闭临时消息不会丢失待选规则操作。
+
+## 斯诺克 900 双计时
+
+- match-clock.ts 只消费 MatchClockView 快照：局时向下取整显示分秒，出杆 >5s 显示整数、≤5s 显示十分之一；阶段文案区分摆球/瞄准/球运动/结算/局时结束/超时/终局，决胜单独标注。经典与练习传 null 时整块隐藏。
+- Hud/HudDom 挂载该组件；装配根每帧喂 `session.clock`，UI 不持有权威倒计时、不自行改时间。显示值不参与判罚（罚分用未舍入秒数）。
+
+2026-11-03进度栏：MatchClock新增只读shotRatio/shotWarn/shotUrgent，出杆栏为连续填充条，按浮点秒随帧逐渐收缩；>10秒绿色、3–10秒琥珀、≤3秒红色，三档仅背景色用.45s柔和切换。触球与结算阶段按核心快照保留余量，下一杆才重置；整局仍只显示分秒数字。文案与阶段提示保留，含可访问名称与连续数值；摆球显示计时继续。组件位于比分牌下方，不遮住分数，经典与练习隐藏。
+
+## 游戏主菜单与局内菜单（2026-11-05）
+
+- 设计契约见 `docs/menu-design.md`。拆分为零 DOM 状态类 `game-menu.ts`（`GameMenu`）与视图类 `game-menu-dom.ts`（`GameMenuDom`）。
+- 顶层含 AI 对战、双人对战、练习、我的、操作指南五项；涵盖 AI 模式/难度必选校验、双人创建（1~35 局与自动计算胜场框、底部中央比赛 ID 框含内嵌复制按钮、进入比赛）与加入比赛、自由练习与球形练习（10 种带图片占位框球形 + 我的球形列表框）、局内菜单（按 AI/双人/练习区分选项、右上角 × 关闭、暂停信号预留、重新开始与退出回上一级目录），与底层 3D 渲染完全解耦。

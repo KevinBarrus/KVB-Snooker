@@ -25,58 +25,17 @@ REA 复用原始源码分析 `ev_41ca1d053560e9d34dc5fbdb9e6fc5a183cedd748a40af0
 - 跟杆距离是触球后减速距离，后拉距离另由 Power1.easeOut(power)*0.25 计算。物理触球时按原作循环分片，最多0.02秒一片。
 - 视线/球杆朝向缓存只比较斜率，反方向但同斜率可能不更新；原样保留并测试。
 
-## 已批准的最小接口扩展：PredictionContext（2026-10-24）
+## 辅助线只读快照
 
 扩展前公开契约只返回 `impactV1`、`impactOccured`。原作辅助线还读取以下9个字段，全部已存在于 WorldClient 的内部预测结果。本提案只在 Simulator 边界复制数值，不改物理计算、存档或现有字段，不暴露 b1/b2 刚体引用。
 
-```ts
-readonly p0: Readonly<{ x: number; y: number; z: number }>
-readonly p1: Readonly<{ x: number; y: number; z: number }>
-readonly cue: Readonly<{ x: number; y: number; z: number }>
-readonly cueVSq: number
-readonly p2: Readonly<{ x: number; y: number; z: number }>
-readonly target: Readonly<{ x: number; y: number; z: number }>
-readonly targetVSq: number
-readonly targetNumber: number
-readonly hasImpactTarget: boolean
-```
+字段签名只在 [architecture.md §4.2](architecture.md#42-模拟核心-srccore) 维护；此处不复制第二份接口。
 
-字段仅在对应 `impactOccured` / `hasImpactTarget` 成立时消费，保留原作未命中时旧字段残留的行为。用户已批准三步方案；同步 architecture §4.2、simulator 类型/拷贝实现及测试。验证包括无撞击、球球撞击、库边撞击、快照隔离与预测前后物理/显示状态不变。
+字段仅在对应 `impactOccured` / `hasImpactTarget` 成立时消费，保留原作未命中时旧字段残留的行为。该扩展已经批准；接口变更必须同步 architecture §4.2、simulator 类型/拷贝实现及测试。验证包括无撞击、球球撞击、库边撞击、快照隔离与预测前后物理/显示状态不变。
 
-## 交付单元
 
-1. 相机/球杆数值控制与单测；独立提交推送。
-2. 输入、出杆调度、手中球/AI 与浏览器装配；独立提交推送。
-3. 球杆/瞄准可视化、UI 联动和浏览器验收；独立提交推送。
+## 现行扩展与验收入口
 
-每单元 test、typecheck 全绿；最终另跑 build、render/controller 浏览器测试。原作模型和贴图只进入被 Git 排除的本地资产目录。
+原作跟随与输入语义是还原依据，不撤销用户批准的三模式、AI 自由旁观和点击/拖动改进。观察与本地回放见 [镜头设计](camera-replay-design.md)，手中球的当前交互只在 [摆球设计](cue-ball-placement-design.md) 维护。
 
-## 实施进度（2026-10-24）
-
-- 单元1已推送 e78ee10；单元2已推送 df860b3。
-- 浏览器瞄准触发既有预测循环卡死，源码对照确认是转写漏括号，修正095dc90恢复 PCOL L14728-14733 的距离/迭代退出限制。
-- 单元3已接原作球杆模型/IBL、摆球双标记、现有 HUD 和最小模式入口；完整五段辅助线已于2026-10-24按用户批准方案完成。
-- 当前验收是静态源码对照与本地 Chrome 自动化；未进行原作实机手感盲测或逐像素对照，不宣称 M2 整体通过。
-
-## 辅助线三步验收（2026-10-24）
-
-1. `76d15a8`：9字段只读快照，4项测试；球球/库边/无撞击与隔离/存档/显示状态不变。
-2. `d993f86`：原作五部分几何、图集 UV、渐隐与合法性配色，7项测试。保持碰后母球线的平方项、目标线0.4上限、端帽最小长度和贴球入射线隐藏规则。
-3. app.ts 接线：按快照与 ballOn 变化更新，alpha=0.6×原作力度条显隐因子；摆球、失活隐藏，换局清旧快照。290项测试、typecheck、build、Chrome gunsight/controller/render 全部通过。
-
-浏览器测试曾因 Vite 带时间戳入口与脚本裸路径导入不一致而创建第二份应用，现三套脚本统一导入页面实际入口，并断言仅一个 HUD。修正后重新通过全部浏览器验收，截图与断言对应同一场景。
-
-辅助线截图已目检；未进行原作逐像素或真实 GPU 性能对照。练习模式清彩策略、规则扩展及 UI 美化不在本次范围。
-
-## 起身镜头复核（2026-10-24）
-
-用户要求保持原作逻辑，不采用取消自动跟随的体验改动。REA 本次对 `analysis/1.chunk.js` 重新进行静态分析，保留证据 `ev_5e5e1ba396c71c303fe9f62f48ee774385d944038817c8a62b8e16906eb38a3b`。图覆盖部分缺失且触及语义节点上限，不能作为完整动态调用证明；下面结论来自源代码逐行核对与隔离算法回放。
-
-- L6338-6345 开启母球注视跟随；L4702-4776 只追踪 x/z，增益0.05，保持注视高度；L7660-7667 独立合成身体/头部位置。保留这一行为。
-- L6376-6385 在跟杆结束后等待0.5秒，只请求一次自动起身，随即切换默认更新处理器。此前 ShotController 会在每个后续帧重复调用 gotoState0；以已消耗的 standDelay 阻止重复请求，不增添状态或接口。
-- 新回归测试先复现一次起身被调用181次，再验证修复；另覆盖跟随增益的首两帧数值、横向跟球不改变起身位置轨迹、起身完成后仍跟随直到收尾。
-- 原作弹簧/增益代码与当前实现，按30/60/120/144 FPS给定相同母球轨迹共1770帧，误差0。原作轨道/头部代码在四个方位角共1440帧内，轨道最大误差约9.86e-32、头部误差0。回放脚本与原作片段只留在忽略目录 `.cache/`，常规单测不依赖原作文件。
-
-重复起身通常被状态检查挡住，尚无证据证明它导致用户报告的明显跟随感。此次只修复已确认的转写差异，并校正 spec04 的注视/起身语义；未做同杆同帧率的原作实机对照。
-
-验收：全量293项测试、typecheck、Chrome controller 交互测试通过；未更改 core、render 或冻结接口。
+附加算法语义见 [模块依据](modules/controller.md)，运行与专项命令见 [开发操作](development.md)。原逐步提交、测试数据和起身复核过程移至 [历史记录](history/2026-11-07/controller-design.md)，不再作为当前产品流程。
