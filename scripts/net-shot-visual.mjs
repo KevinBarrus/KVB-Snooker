@@ -1,4 +1,22 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+export async function assertDiagnosticDownload(page) {
+  const downloadReady = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出本杆诊断", exact: true }).click();
+  const download = await downloadReady;
+  const report = JSON.parse(await readFile(await download.path(), "utf8"));
+  assert.equal(report.format, 1);
+  assert.ok(report.shotId);
+  assert.ok(report.summary.motionFrames > 0);
+  assert.ok(report.summary.motionPackets > 1);
+  assert.ok(report.pongs.length > 0);
+  assert.ok(report.frames.every(frame => frame.balls.length === 22 * 4 && frame.camera.length === 6));
+  assert.ok(!("token" in report));
+  assert.ok(!report.truncated);
+  assert.ok((await page.locator(".net-hud").textContent()).includes("插值余量不适用"));
+  return report.summary;
+}
 
 export async function watchShot(page) {
   await page.evaluate(() => {

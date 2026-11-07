@@ -22,6 +22,7 @@ import { NetClient } from "./app-net-client.js";
 import { NetShotLauncher } from "./app-net-shot.js";
 import { NetSessionState, type ShotTimingRecord } from "./net/net-session-state.js";
 import { RemoteView } from "./net/remote-view.js";
+import { NetDiagnostics } from "./app-net-diagnostics.js";
 import {
   type ContextView,
   type LatencyConfig,
@@ -32,7 +33,6 @@ import {
 } from "./net/protocol.js";
 
 interface DisplaySource extends Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "getResult" | "predict"> {}
-
 interface NetSnapshotView {
   readonly seat: SeatIndex | null;
   readonly roomId: string | null;
@@ -46,6 +46,7 @@ export interface NetTestHandle {
   readonly ready: Promise<void>;
   snapshot(): NetSnapshotView | null;
   timing(): ShotTimingRecord;
+  diagnostics(): ReturnType<NetDiagnostics["report"]>;
   readonly latency: LatencyConfig;
   readonly lastError: string | null;
   readonly lastRejectReason: string | null;
@@ -127,7 +128,8 @@ async function main(): Promise<void> {
   engine.enableOfflineSupport = false;
   const session = new NetSessionState();
   const remote = new RemoteView({ interpolationDelayMs: config.interpolationDelayMs });
-  const hud = new NetHud();
+  const diagnostics = new NetDiagnostics(config.interpolationDelayMs);
+  const hud = new NetHud(() => { diagnostics.download(session.seat); canvas.focus(); });
   let client: NetClient | null = null;
   let person: PersonController | null = null;
   let launcher: NetShotLauncher | null = null;
@@ -139,7 +141,6 @@ async function main(): Promise<void> {
   let fpsValue = 0;
   let turnReady = false;
   let scene: B.Scene | undefined;
-
   let snapWindowStart = performance.now();
   let snapWindowCount = 0;
   let snapMaxGapMs = 0;
@@ -147,12 +148,13 @@ async function main(): Promise<void> {
   let snapshotsPerSecond = 0;
   const handleMessage = (message: ServerMessage): void => {
     const nowMs = performance.now();
+    let accepted = true;
     switch (message.type) {
       case "welcome": session.onWelcome(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
       case "snapshot": {
         session.onSnapshot(message, nowMs);
         remote.setClockOffset(session.clockOffsetMs);
-        remote.pushSnapshot(message, nowMs);
+        accepted = remote.pushSnapshot(message, nowMs);
         if (!snapshotSeen) { snapshotSeen = true; resolveSnapshot(message); }
         if (lastSnapshotArrivalMs > 0) snapMaxGapMs = Math.max(snapMaxGapMs, nowMs - lastSnapshotArrivalMs);
         lastSnapshotArrivalMs = nowMs;
@@ -170,8 +172,8 @@ async function main(): Promise<void> {
       case "pong": session.onPong(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
       case "error": session.onServerError(message, nowMs); break;
     }
+    diagnostics.message(message, nowMs, session.clockOffsetMs, accepted);
   };
-
   const testHandle: NetTestHandle = {
     ready,
     snapshot: () => {
@@ -184,6 +186,7 @@ async function main(): Promise<void> {
       };
     },
     timing: () => session.timing(),
+    diagnostics: () => diagnostics.report(),
     get latency() { return session.latencyConfig ?? ZERO_LATENCY; },
     get lastError() { return session.lastError ?? client?.lastError ?? null; },
     get lastRejectReason() { return session.lastRejectReason; },
@@ -352,6 +355,7 @@ async function main(): Promise<void> {
       viewNoticeDom.sync(viewNotice);
       decision.hidden = !session.canDecide();
       balls.sync();
+      diagnostics.capture(nowMs, rawDt * 1000, session, remote, personController.camera);
       hud.sync(nowMs, session, session.lastError ?? client?.lastError ?? null, fpsValue, {
         snapshotsPerSecond,
         maxGapMs: snapMaxGapMs,

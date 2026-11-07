@@ -31,8 +31,17 @@ export function parseConfig(search: string): NetLaunchConfig | null {
 
 export class NetHud {
   readonly element = document.createElement("pre");
+  private readonly text = document.createTextNode("");
+  private readonly downloadButton = document.createElement("button");
   private lastSync = -Infinity;
-  constructor() { this.element.className = "net-hud"; }
+  constructor(download: () => void) {
+    this.element.className = "net-hud";
+    this.downloadButton.type = "button";
+    this.downloadButton.style.pointerEvents = "auto";
+    this.downloadButton.textContent = "导出本杆诊断";
+    this.downloadButton.addEventListener("click", download);
+    this.element.append(this.text, this.downloadButton);
+  }
   sync(nowMs: number, session: NetSessionState, lastError: string | null, fps: number,
     stats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number;
       readonly contactErrorMm: number | null; readonly turnReady: boolean }): void {
@@ -49,12 +58,15 @@ export class NetHud {
       `${session.connectionState} · ${session.roomId ?? "—"} · 席位 ${session.seat ?? "—"} · v${session.version} · ${session.phase} · ${Math.round(fps)}fps`,
       `比分 ${score} · 目标球 ${context?.ballOn ?? "—"} · 手中球 ${context?.inHand ?? "—"} · ${session.isLocalTurn() ? "本机球权" : "等待对手"}`,
       `RTT ${session.rttMs === null ? "—" : `${Math.round(session.rttMs)}ms`} · 单程延迟 ${latency.inboundMs}/${latency.outboundMs}ms${jitter}`,
-      `快照 ${stats.snapshotsPerSecond}/s · 最大到达间隔 ${Math.round(stats.maxGapMs)}ms · 插值余量 ${Math.round(stats.marginMs)}ms` +
+      (session.phase === "simulating"
+        ? `快照 ${stats.snapshotsPerSecond.toFixed(1)}/s · 最大到达间隔 ${Math.round(stats.maxGapMs)}ms · 插值余量 ${Math.round(stats.marginMs)}ms`
+        : "台面静止 · 插值余量不适用") +
         ` · 触点偏差 ${stats.contactErrorMm === null ? "—" : `${stats.contactErrorMm}mm`} · ${stats.turnReady ? "回合就绪" : "回合重置中"}`,
       `Space→命令 ${delta(t.spaceAtMs, t.commandSentAtMs)} · →Ack ${delta(t.spaceAtMs, t.ackAtMs)} · →投影触球 ${delta(t.spaceAtMs, t.projectedTouchAtMs)} · 显示触球-投影 ${delta(t.projectedTouchAtMs, t.animationTouchAtMs)} · 首运动包-投影 ${delta(t.projectedTouchAtMs, t.firstMotionSnapshotAtMs)} · fired-投影 ${delta(t.projectedTouchAtMs, t.firedEventAtMs)} · 重试 ${t.retries}`
     ];
     if (lastError) lines.push(lastError);
     if (session.lastRejectReason) lines.push(`拒绝原因 ${session.lastRejectReason}`);
-    this.element.textContent = lines.join("\n");
+    this.downloadButton.disabled = session.pendingServerShot !== null || session.phase === "simulating";
+    this.text.data = lines.join("\n") + "\n";
   }
 }

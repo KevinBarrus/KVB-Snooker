@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright-core";
-import { watchShot, assertShotVisual, shootAcrossStall } from "./net-shot-visual.mjs";
+import { watchShot, assertShotVisual, shootAcrossStall, assertDiagnosticDownload } from "./net-shot-visual.mjs";
 import {
   CHROME_BIN, LEAD_MS, aimClient, assertSnapshotsEqual, buildServer, closePages, openClient, readNet, recordShot,
   resolveDecision, shoot, sleep, startServer, stopServer, waitFor
@@ -39,6 +39,8 @@ async function runBaseline(browser) {
     await watchShot(seat0);
     await shoot(seat0);
     const motion = await recordShot([seat0, seat1], 0);
+    const diagnostics = await Promise.all(pages.map(assertDiagnosticDownload));
+    console.log("NET_DIAGNOSTICS", JSON.stringify(diagnostics));
     await resolveDecision([seat0, seat1]);
     const final0 = await readNet(seat0);
     const final1 = await readNet(seat1);

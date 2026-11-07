@@ -344,6 +344,7 @@ export interface RoomSession {
 - `RoomSession` 构造接收每房间独立 `MeshBody`（`new RoomSession(roomId, options, mesh)`），并只读暴露 `simulator/session/aiDependencies` 供诊断与测试；权威写入仍只经 `command/tick`。
 - 事件序号与去重缓存按房间独立（每房间 seq 从 1 开始）；拒绝命令也进入每房间 256 条 FIFO 去重缓存，同一 `commandId` 永远返回原裁决。
 - 浏览器开发入口额外提供只读 `window.__snkNet` 测试句柄（仅 DEV、仅联机装配），用于验收读取席位/版本/时序/相机状态，不是公开产品接口。
+- `window.__snkNet.diagnostics()` 返回本杆诊断副本；开发 HUD 可将同一数据下载为 JSON。采集范围为球位快照、原始 pong、显示帧及相机位置，不含开发令牌，不修改报文或权威状态；格式与使用见原型设计 §10.6。
 
 ## 5. 目录结构（骨架）
 
