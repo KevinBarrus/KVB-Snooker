@@ -25,6 +25,13 @@ try {
   }, { count, dt });
   await mkdir(".cache/controller", { recursive: true });
   await page.screenshot({ path: ".cache/controller/stand.png" });
+  const opening = await page.evaluate(async () => {
+    const { game, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return { active: game.controls.inHand.active, origin: scene.getMeshByName("respot-origin").isVisible,
+      preview: scene.getMeshByName("respot-preview").isVisible };
+  });
+  assert.deepEqual(opening, { active: true, origin: true, preview: false },
+    "a new match must open with the cue ball waiting to be placed");
   await page.locator("canvas").focus();
   await page.keyboard.press("w");
   assert.equal((await advance(120)).ready, true);
@@ -57,32 +64,68 @@ try {
   for (let i = 0; i < 100 && state.rounds === 0; ++i) state = await advance(30);
   assert.equal(state.rounds, 1); assert.equal(state.busy, false);
   await page.keyboard.press("p"); await advance(120);
-  assert.equal(await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.controls.inHand.active), true);
-  const projected = await page.evaluate(async () => {
+  const opened = await page.evaluate(async () => {
+    const { game, scene } = await (await import(document.querySelector('script[src*="/app.ts"]').src)).runtime;
+    return { active: game.controls.inHand.active, visible: game.controls.inHand.visible,
+      origin: scene.getMeshByName("respot-origin").isVisible, preview: scene.getMeshByName("respot-preview").isVisible };
+  });
+  assert.deepEqual(opened, { active: true, visible: false, origin: true, preview: false });
+  const project = async points => page.evaluate(async ({ points }) => {
     const { game, scene, engine } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     game.human.camera.lookTo(-1.3, 0, true);
     for (let i = 0; i < 120; ++i) game.update(.0167);
     scene.render();
     const m = scene.getTransformMatrix().m;
-    return [[-1.2, .88, .15], [0, .88, 0]].map(([x, y, z]) => {
+    return points.map(([x, y, z]) => {
       const w = x * m[3] + y * m[7] + z * m[11] + m[15];
       return [(1 + (x * m[0] + y * m[4] + z * m[8] + m[12]) / w) * engine.getRenderWidth() / 2,
         (1 - (x * m[1] + y * m[5] + z * m[9] + m[13]) / w) * engine.getRenderHeight() / 2];
     });
+  }, { points });
+  const dragStart = await page.evaluate(async () => {
+    const { simulator } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    const cue = simulator.getCueBallPosition();
+    return [cue.x, cue.z];
   });
+  let projected = await project([[-1.2, .88, .15], [-1.5, .88, 0]]);
   await page.mouse.move(...projected[0]); await advance(2);
   assert.equal(await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.controls.inHand.valid), true);
+  await page.mouse.down(); await page.mouse.move(projected[0][0] + 40, projected[0][1] + 10, { steps: 2 }); await page.mouse.up();
+  await advance(2);
+  const dragged = await page.evaluate(async () => {
+    const { game, simulator } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    const cue = simulator.getCueBallPosition();
+    return { active: game.controls.inHand.active, cue: [cue.x, cue.z] };
+  });
+  assert.deepEqual(dragged, { active: true, cue: dragStart }, "dragging must only move the view");
+  projected = await project([[-1.2, .88, .15]]);
+  await page.mouse.move(...projected[0]); await advance(2);
+  const candidate = await page.evaluate(async () => {
+    const { game, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return { valid: game.controls.inHand.valid, color: scene.getMeshByName("respot-preview").getVerticesData("color").slice(0, 3),
+      preview: scene.getMeshByName("respot-preview").isVisible };
+  });
+  assert.equal(candidate.valid, true);
+  assert.ok(candidate.color[1] > candidate.color[0]);
+  assert.equal(candidate.preview, true);
   await page.mouse.down(); await page.mouse.up(); await advance(2);
   const placed = await page.evaluate(async () => {
-    const { simulator, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    const { game, simulator, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     const cue = simulator.getCueBallPosition();
-    return { x: cue.x, z: cue.z, displayed: scene.getMeshByName("ball-0").position.asArray(), color: scene.getMeshByName("respot-preview").getVerticesData("color").slice(0, 3) };
+    return { x: cue.x, z: cue.z, displayed: scene.getMeshByName("ball-0").position.asArray(),
+      active: game.controls.inHand.active, origin: scene.getMeshByName("respot-origin").isVisible, preview: scene.getMeshByName("respot-preview").isVisible };
   });
   assert.ok(Math.abs(placed.x + 1.2) < .01 && Math.abs(placed.z - .15) < .01, JSON.stringify(placed));
-  assert.ok(placed.color[1] > placed.color[0]);
   assert.ok(Math.abs(placed.displayed[0] - placed.x) < 1e-5 && Math.abs(placed.displayed[2] - placed.z) < 1e-5);
+  assert.deepEqual({ active: placed.active, origin: placed.origin, preview: placed.preview },
+    { active: false, origin: false, preview: false }, "a placed ball must end placement and hide both markers");
   await page.screenshot({ path: ".cache/controller/placement.png" });
-  await page.mouse.move(...projected[1]); await advance(2);
+  await page.mouse.move(640, 400); await advance(2);
+  assert.equal(await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).scene.getMeshByName("respot-preview").isVisible), false,
+    "ordinary mouse movement after placing must not show a candidate");
+  await page.keyboard.press("p"); await advance(2);
+  projected = await project([[0, .88, 0]]);
+  await page.mouse.move(...projected[0]); await advance(2);
   const denied = await page.evaluate(async () => {
     const { game, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     return { valid: game.controls.inHand.valid, red: scene.getMeshByName("respot-preview").getVerticesData("color")[0] };
@@ -96,6 +139,7 @@ try {
   });
   assert.deepEqual(unchanged, [placed.x, placed.z]);
   await page.keyboard.press("Escape");
+  assert.equal(await page.evaluate(async () => (await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime).game.controls.inHand.active), false);
   await page.keyboard.down("d"); await advance(10);
   await page.locator("canvas").evaluate(canvas => canvas.blur());
   await advance(90);
@@ -107,6 +151,7 @@ try {
   await page.selectOption('select[name="mode"]', "single-play");
   await page.selectOption('select[name="difficulty"]', "EASY");
   await page.getByRole("button", { name: "开始新局" }).click();
+  await page.locator("canvas").focus(); await page.keyboard.press("w");
   await page.evaluate(async () => {
     const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     game.human.camera.resetWithKissDir(0, 1);

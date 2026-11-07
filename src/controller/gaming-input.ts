@@ -16,7 +16,7 @@ export class GamingInput {
   readonly inHand: InHand;
 
   constructor(canvas: HTMLElement, private readonly person: PersonController,
-    private readonly shots: ShotController, private readonly game: InputGame, placement: PlacementCommands) {
+    private readonly shots: ShotController, private readonly game: InputGame, private readonly placement: PlacementCommands) {
     const camera = person.camera;
     const all = 4 | 8 | 16;
     this.inHand = new InHand(camera, placement);
@@ -30,8 +30,7 @@ export class GamingInput {
       "82": { states: all, down: () => { if (!this.inHand.active) camera.resetLookAt(); } },
       "67": { states: 4, down: () => { if (!this.inHand.active) person.stick.clearTip(camera.state === 1); } },
       "80": { states: 4, down: () => this.pickUp() },
-      "13": { states: 4, down: () => { if (this.inHand.active) this.inHand.confirm(); } },
-      "27": { states: 4, down: () => this.inHand.exit() },
+      "27": { states: 4, down: () => this.finishPlacement() },
       "32": { states: 4, down: () => { if (!this.inHand.active && game.canAim()) shots.launch(person); } }
     }, {
       drag: { states: all, run: (dx, dy, modifier) => {
@@ -45,7 +44,7 @@ export class GamingInput {
         else person.strokePower += 5e-4 * delta;
       } },
       move: { states: 4, run: (x, y) => { if (this.inHand.active) this.inHand.move(x, y); } },
-      press: { states: 4, run: (x, y) => { if (this.inHand.active) this.inHand.press(x, y); } }
+      click: { states: 4, run: (x, y) => { if (this.inHand.active) this.inHand.click(x, y); } }
     });
     this.update();
   }
@@ -55,15 +54,24 @@ export class GamingInput {
     this.inHand.exit();
     this.person.gotoState1();
   }
+
   pickUp(): void {
-    if (this.inHand.active) this.inHand.exit();
-    else if (this.game.canPlace() && !this.shots.busy) this.inHand.enter();
+    if (this.inHand.active) { this.finishPlacement(); return; }
+    if (this.game.canPlace() && !this.shots.busy) this.inHand.enter();
   }
+
   update(): void {
     this.input.state = this.game.state();
     this.input.enabled = !this.shots.inputLocked;
     if (!this.game.canPlace()) this.inHand.exit();
     this.inHand.update();
   }
+
   dispose(): void { this.input.dispose(); this.inHand.exit(); }
+
+  private finishPlacement(): void {
+    if (!this.inHand.active) return;
+    if (this.placement.end?.() === false) return;
+    this.inHand.exit();
+  }
 }

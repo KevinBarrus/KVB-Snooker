@@ -45,6 +45,15 @@ export class PersonController {
   isReadyToStroke(): boolean { return this.active && this.camera.state === 1 && this.stick.isReadyToStroke(); }
   getStrokeVars(): Float32Array { return this.stick.getStrokeVars(this.strokePower); }
 
+  /** 母球被摆到新位置后更新瞄准锚点，不改变当前观察方向。 */
+  reanchorCueBall(): void {
+    const cue = this.simulator.getCueBallPosition();
+    this.camera.resetCue(cue);
+    this.stick.resetAimPoint(cue);
+    this.predictionDirty = true;
+    this.prediction = null;
+  }
+
   update(dt: number): void {
     this.camera.update(dt);
     this.stick.syncPerson(this.camera.bodyPosition, this.camera.azimuth, this.camera.stateRatio);

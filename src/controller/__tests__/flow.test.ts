@@ -157,36 +157,83 @@ describe("Controller shot flow", () => {
 });
 
 describe("InHand", () => {
-  it("首击仅初始化位置，脏预览不可放置，合法预览下一次点击才请求放球", () => {
+  it("进入只显示母球原位；鼠标移动后才计算候选；合法点击放球并结束摆球模式", () => {
     const { person } = setup();
     const place = vi.fn(() => true);
-    const mode = new InHand(person.camera, {
-      ray: () => ({ origin: { x: -1.2, y: 2, z: 0 }, direction: { x: 0, y: -1, z: 0 } }),
-      valid: () => true, place
-    });
+    const ray = vi.fn(() => ({ origin: { x: -1.2, y: 2, z: 0 }, direction: { x: 0, y: -1, z: 0 } }));
+    const mode = new InHand(person.camera, { ray, valid: () => true, place });
     mode.enter();
-    expect(mode.press(300, 200)).toBe(false);
-    expect(place).not.toHaveBeenCalled();
+    expect(mode.active).toBe(true);
+    expect(mode.visible).toBe(false);
     mode.update();
+    expect(mode.visible).toBe(false);
+    expect(ray).not.toHaveBeenCalled();
+    mode.move(300, 200);
+    mode.update();
+    expect(mode.visible).toBe(true);
     expect(mode.valid).toBe(true);
     expect(mode.spot).toEqual({ x: -1.2, y: .88, z: 0 });
-    expect(mode.press(300, 200)).toBe(true);
-    mode.move(301, 200);
-    expect(mode.press(301, 200)).toBe(false);
-    mode.exit();
+    expect(mode.click(300, 200)).toBe(true);
+    expect(place).toHaveBeenCalledTimes(1);
+    expect(mode.active).toBe(false);
+    expect(mode.visible).toBe(false);
+    mode.move(320, 200);
+    mode.update();
     expect(mode.visible).toBe(false);
   });
 
-  it("非法区域或背离台面的射线不可放球", () => {
+  it("非法位置或背离台面的射线不放球，并保持摆球模式", () => {
     const { person } = setup();
     const place = vi.fn(() => true);
-    const mode = new InHand(person.camera, {
+    const flat = new InHand(person.camera, {
       ray: () => ({ origin: { x: 0, y: 2, z: 0 }, direction: { x: 1, y: 0, z: 0 } }),
+      valid: () => true, place
+    });
+    flat.enter(); flat.move(0, 0); flat.update();
+    expect(flat.visible).toBe(false);
+    expect(flat.click(0, 0)).toBe(false);
+    flat.exit();
+    const blocked = new InHand(person.camera, {
+      ray: () => ({ origin: { x: 0, y: 2, z: 0 }, direction: { x: 0, y: -1, z: 0 } }),
       valid: () => false, place
     });
-    mode.enter(); mode.move(0, 0); mode.update();
-    expect(mode.valid).toBe(false);
-    expect(mode.press(0, 0)).toBe(false);
+    blocked.enter(); blocked.move(0, 0); blocked.update();
+    expect(blocked.visible).toBe(true);
+    expect(blocked.valid).toBe(false);
+    expect(blocked.click(0, 0)).toBe(false);
+    expect(blocked.active).toBe(true);
     expect(place).not.toHaveBeenCalled();
+  });
+
+  it("点击提交按当前坐标重新拾取，不使用上一帧缓存", () => {
+    const { person } = setup();
+    const place = vi.fn((_point: { x: number; y: number; z: number }) => true);
+    let x = -1.2;
+    const mode = new InHand(person.camera, {
+      ray: () => ({ origin: { x, y: 2, z: 0 }, direction: { x: 0, y: -1, z: 0 } }),
+      valid: () => true, place
+    });
+    mode.enter(); mode.move(300, 200); mode.update();
+    expect(mode.spot.x).toBe(-1.2);
+    x = -1.1;
+    expect(mode.click(316, 208)).toBe(true);
+    expect(place.mock.calls[0][0]).toMatchObject({ x: -1.1, z: 0 });
+  });
+
+  it("每次进入摆球模式聚焦母球一次；同一次进入不重复拉镜头", () => {
+    const { person } = setup();
+    const look = vi.spyOn(person.camera, "lookTo");
+    person.camera.bodyPosition.copyFromFloats(0, 1.7, 0);
+    person.camera.azimuth.setSlope(1, 0);
+    const mode = new InHand(person.camera, {
+      ray: () => ({ origin: { x: 0, y: 2, z: 0 }, direction: { x: 0, y: -1, z: 0 } }),
+      valid: () => true, place: () => true, focus: () => ({ x: -1.04, y: .88, z: 0 })
+    });
+    mode.enter(); mode.update();
+    expect(look).toHaveBeenCalledTimes(1);
+    mode.move(300, 200); mode.update();
+    expect(look).toHaveBeenCalledTimes(1);
+    mode.exit(); mode.enter(); mode.update();
+    expect(look).toHaveBeenCalledTimes(2);
   });
 });

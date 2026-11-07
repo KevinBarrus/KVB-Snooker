@@ -109,8 +109,12 @@ export class BrowserGame {
       state: () => this.pendingShot ? GAME_STATE.SIMULATING : this.session.state,
       canAim: () => {
         if (!this.human.active || !this.canShoot(this.human.playerIndex)) return false;
-        if (this.session.clock?.phase === "placement") {
-          this.viewNotice.show("请按 P 摆球，点击或 Enter 确认；计时继续");
+        if (!simulator.getBallView(0).active) {
+          this.viewNotice.show("母球需要先放到合法位置");
+          return false;
+        }
+        if (this.session.clock?.phase === "placement" && !this.session.confirmPlacement(this.human.playerIndex)) {
+          this.viewNotice.show("母球需要先放到合法位置");
           return false;
         }
         return true;
@@ -122,7 +126,7 @@ export class BrowserGame {
       (x, y) => {
         const bounds = canvas.getBoundingClientRect();
         return scene.createPickingRay(x - bounds.left, y - bounds.top, B.Matrix.Identity(), camera);
-      }, () => { this.human.activate(); this.syncHud(); this.syncRuleChoice(); }, text => this.viewNotice.show(text)));
+      }, () => { this.human.reanchorCueBall(); this.syncHud(); this.syncRuleChoice(); }, text => this.viewNotice.show(text)));
     this.hud = new Hud(() => this.session.players);
     this.hud.attach(this.bus);
     this.replay = new BrowserReplay(camera, canvas, () => this.captureReplay(),
@@ -164,7 +168,9 @@ export class BrowserGame {
     this.touchingNoticeDom.element.classList.add("touching-notice");
     this.touchingNoticeDom.element.setAttribute("role", "status");
     document.body.append(this.touchingNoticeDom.element, this.hudDom.element, this.viewNoticeDom.element, this.ruleChoice.element, this.nomination.element);
-    this.activateTurn(); this.syncHud();
+    this.activateTurn();
+    this.openOpeningPlacement();
+    this.syncHud();
   }
 
   get activePerson(): PersonController { return this.shots.launchingController ?? (this.human.active ? this.human : this.opponent); }
@@ -221,6 +227,11 @@ export class BrowserGame {
     if (this.human.active && this.session.clock?.phase === "placement") this.controls.inHand.enter();
   }
 
+  private openOpeningPlacement(): void {
+    if (!this.human.active || this.session.context.inHand === 0 || this.controls.inHand.active) return;
+    this.controls.inHand.enter();
+  }
+
   private placeForAI(): void {
     const y = this.simulator.spotY;
     const candidates: Array<[number, number]> = [[-1.04, 0]];
@@ -275,7 +286,9 @@ export class BrowserGame {
     this.brain = new AIController(AI_PROFILES[difficulty]);
     this.human.gotoState0(true); this.opponent.gotoState0(true);
     this.hud.foulNotice.close();
-    this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.controls.update();
+    this.activateTurn();
+    if (!options.setup) this.openOpeningPlacement();
+    this.syncHud(); this.syncRuleChoice(); this.controls.update();
     this.canvas.focus();
     return true;
   }

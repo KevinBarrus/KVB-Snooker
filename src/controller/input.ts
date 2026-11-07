@@ -1,3 +1,5 @@
+import { PointerGesture } from "./pointer-gesture.js";
+
 export interface KeyBinding {
   states: number;
   down(): void;
@@ -10,7 +12,7 @@ export interface PointerBinding {
 }
 
 export interface PointerBindings {
-  press?: PointerBinding;
+  click?: PointerBinding;
   move?: PointerBinding;
   drag?: PointerBinding;
   wheel?: { states: number; run(delta: number, modifier: boolean): void };
@@ -19,9 +21,10 @@ export interface PointerBindings {
 // PCOL L3803-4040
 export class Input {
   private readonly keys = new Map<number, KeyBinding & { triggered: boolean }>();
+  private readonly gesture = new PointerGesture();
   private stateValue = 0;
   private enabledValue = true;
-  private pointerId: number | null = null;
+  private capturedPointer: number | null = null;
 
   constructor(private readonly canvas: HTMLElement, bindings: Record<string, KeyBinding>, private readonly pointer: PointerBindings) {
     for (const [codes, binding] of Object.entries(bindings)) {
@@ -32,7 +35,7 @@ export class Input {
     canvas.addEventListener("pointerdown", this.pointerDown);
     canvas.addEventListener("pointermove", this.pointerMove);
     canvas.addEventListener("pointerup", this.pointerUp);
-    canvas.addEventListener("pointercancel", this.pointerUp);
+    canvas.addEventListener("pointercancel", this.pointerCancel);
     canvas.addEventListener("wheel", this.wheel, { passive: false });
     canvas.addEventListener("blur", this.blur);
     window.addEventListener("blur", this.blur);
@@ -42,7 +45,7 @@ export class Input {
   set state(value: number) {
     if (value === this.stateValue) return;
     this.stateValue = value;
-    if (this.enabled) { this.cancelKeys(value); this.releasePointer(); }
+    if (this.enabled) { this.cancelKeys(value); this.cancelGesture(); }
   }
   get enabled(): boolean { return this.enabledValue; }
   set enabled(value: boolean) {
@@ -73,34 +76,61 @@ export class Input {
 
   private pointerDown = (event: PointerEvent): void => {
     this.canvas.focus({ preventScroll: true });
-    if (!this.enabled) return;
-    if (this.pointerId === null && this.pointer.drag && this.pointer.drag.states & this.state) {
-      this.pointerId = event.pointerId;
+    if (!this.enabled || event.button !== 0) return;
+    if (!this.gesture.down(event.pointerId, event.clientX, event.clientY)) return;
+    const { drag } = this.pointer;
+    if (drag && drag.states & this.state) {
+      this.capturedPointer = event.pointerId;
       this.canvas.setPointerCapture(event.pointerId);
     }
-    const binding = this.pointer.press;
-    if (binding && binding.states & this.state) binding.run(event.clientX, event.clientY, event.altKey || event.metaKey);
   };
 
   private pointerMove = (event: PointerEvent): void => {
     if (!this.enabled) return;
-    const { move, drag } = this.pointer;
+    if (this.gesture.active) {
+      const step = this.gesture.move(event.pointerId, event.clientX, event.clientY);
+      if (!step) return;
+      event.preventDefault();
+      if (!step.dragging) return;
+      const { drag } = this.pointer;
+      if (step.dragging && drag && drag.states & this.state) drag.run(step.dx, step.dy, event.altKey || event.metaKey);
+      return;
+    }
+    const { move } = this.pointer;
     if (move && move.states & this.state) {
       event.preventDefault(); move.run(event.clientX, event.clientY, event.altKey || event.metaKey);
     }
-    if (this.pointerId !== null && drag && drag.states & this.state) {
-      event.preventDefault(); drag.run(event.movementX, event.movementY, event.altKey || event.metaKey);
+  };
+
+  private pointerUp = (event: PointerEvent): void => {
+    if (event.button !== 0) return;
+    const { click, move } = this.pointer;
+    const ended = this.gesture.up(event.pointerId);
+    this.releasePointer();
+    if (!this.enabled || !ended) return;
+    if (ended === "click" && click && click.states & this.state) {
+      click.run(event.clientX, event.clientY, event.altKey || event.metaKey);
+    } else if (ended === "drag" && move && move.states & this.state) {
+      move.run(event.clientX, event.clientY, event.altKey || event.metaKey);
     }
   };
 
-  private releasePointer(): void {
-    if (this.pointerId !== null && this.canvas.hasPointerCapture(this.pointerId)) this.canvas.releasePointerCapture(this.pointerId);
-    this.pointerId = null;
+  private pointerCancel = (): void => { this.cancelGesture(); };
+
+  private cancelGesture(): void {
+    this.gesture.cancel();
+    this.releasePointer();
   }
-  private pointerUp = (event: PointerEvent): void => {
-    if (this.pointerId !== null) { event.preventDefault(); this.releasePointer(); }
-  };
-  private blur = (): void => { this.cancelKeys(0); this.releasePointer(); };
+
+  private releasePointer(): void {
+    if (this.capturedPointer !== null && this.canvas.hasPointerCapture(this.capturedPointer)) {
+      this.canvas.releasePointerCapture(this.capturedPointer);
+    }
+    this.capturedPointer = null;
+  }
+
+  private blur = (): void => { this.cancelKeys(0); this.cancelGesture(); };
+
   private wheel = (event: WheelEvent): void => {
     const binding = this.pointer.wheel;
     if (this.enabled && binding && binding.states & this.state) {
@@ -115,7 +145,7 @@ export class Input {
     this.canvas.removeEventListener("pointerdown", this.pointerDown);
     this.canvas.removeEventListener("pointermove", this.pointerMove);
     this.canvas.removeEventListener("pointerup", this.pointerUp);
-    this.canvas.removeEventListener("pointercancel", this.pointerUp);
+    this.canvas.removeEventListener("pointercancel", this.pointerCancel);
     this.canvas.removeEventListener("wheel", this.wheel);
     this.canvas.removeEventListener("blur", this.blur);
     window.removeEventListener("blur", this.blur);

@@ -32,6 +32,7 @@ try {
     await page.evaluate(async ({ mode, dx, dz }) => {
       const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
       if (!game.setMode(mode, "EASY")) throw new Error("Cannot reset while shooting");
+      game.controls.inHand.exit();
       game.human.camera.resetWithKissDir(dx, dz);
       game.human.gotoState1(true);
     }, { mode, dx, dz });
