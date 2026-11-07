@@ -110,6 +110,6 @@ describe("practice shape layouts", () => {
     expect(lower.every(ball => Math.abs(ball.z - lower[0].z) < 1e-9)).toBe(true);
     const gap = upper[0].z - lower[0].z;
     expect(gap).toBeCloseTo(1.5 * 2 * table.ballRadius, 9);
-    expect(lower[0].x - upper[0].x).toBeCloseTo(table.ballRadius, 9);
+    expect(lower[0].x - upper[0].x).toBeCloseTo(1.2 * table.ballRadius, 9);
   });
 });

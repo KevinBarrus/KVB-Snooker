@@ -3,11 +3,13 @@ import {
   MATCH_FRAME_OPTIONS,
   PRESET_SHAPE_ITEMS,
   PROFILE_ITEMS,
+  type CueBallStyle,
   type MainMenuTab,
   type MatchFrameOption,
   type MatchLaunchRequest,
   type MenuDifficulty,
-  type MenuRuleset
+  type MenuRuleset,
+  type PresetShapeId
 } from "./game-menu";
 
 const MAIN_TABS: readonly { readonly id: MainMenuTab; readonly label: string }[] = [
@@ -71,6 +73,11 @@ export class GameMenuDom {
   private readonly inGameTriggerBtn: HTMLButtonElement;
   private readonly inGameModal: HTMLElement;
   private readonly inGameActionsBox: HTMLElement;
+  private readonly shapeStyleDialog: HTMLElement;
+  private readonly shapeStyleLabel: HTMLElement;
+  private readonly exitDialog: HTMLElement;
+  private pendingShape: { readonly id: PresetShapeId; readonly label: string } | null = null;
+  private pendingExit: (() => void) | null = null;
   private inGameActionsKey = "";
 
   constructor(
@@ -254,9 +261,7 @@ export class GameMenuDom {
     this.shapesGridBox.className = "menu-shapes-grid";
     for (const shape of PRESET_SHAPE_ITEMS) {
       const card = this.makeImageCard(shape.label, `shape-${shape.id}`, () => {
-        const req = this.state.startShapePractice(shape.id);
-        this.sync();
-        if (req) this.onLaunchMatch(req);
+        this.openShapeStyleDialog(shape.id, shape.label);
       });
       this.shapesGridBox.append(card);
     }
@@ -312,8 +317,68 @@ export class GameMenuDom {
     this.inGameActionsBox.className = "ingame-menu-actions";
     this.inGameModal.append(closeBtn, this.inGameActionsBox);
 
-    this.element.append(this.mainWrap, this.matchIdPopup, this.inGameTriggerBtn, this.inGameModal);
+    this.shapeStyleDialog = doc.createElement("section");
+    this.shapeStyleDialog.className = "menu-choice-dialog";
+    this.shapeStyleDialog.setAttribute("aria-label", "选择母球样式");
+    this.shapeStyleDialog.hidden = true;
+    const styleTitle = doc.createElement("strong");
+    styleTitle.textContent = "选择母球样式";
+    this.shapeStyleLabel = doc.createElement("p");
+    this.shapeStyleLabel.className = "menu-choice-message";
+    const classicBtn = this.makeButton("menu-seg-btn", "经典母球", () => this.finishShapeStyle("classic"));
+    const redDotBtn = this.makeButton("menu-seg-btn", "红点母球", () => this.finishShapeStyle("red-dot"));
+    const styleCancel = this.makeButton("menu-seg-btn", "取消", () => this.closeShapeStyleDialog());
+    this.shapeStyleDialog.append(styleTitle, this.shapeStyleLabel, classicBtn, redDotBtn, styleCancel);
+
+    this.exitDialog = doc.createElement("section");
+    this.exitDialog.className = "menu-choice-dialog";
+    this.exitDialog.setAttribute("aria-label", "确认退出练习");
+    this.exitDialog.hidden = true;
+    const exitTitle = doc.createElement("strong");
+    exitTitle.textContent = "确认退出练习";
+    const exitMessage = doc.createElement("p");
+    exitMessage.className = "menu-choice-message";
+    exitMessage.textContent = "当前练习进度不会保留。";
+    const exitConfirm = this.makeButton("menu-seg-btn", "确认退出", () => this.finishExit(true));
+    const exitCancel = this.makeButton("menu-seg-btn", "取消", () => this.finishExit(false));
+    this.exitDialog.append(exitTitle, exitMessage, exitConfirm, exitCancel);
+
+    this.element.append(this.mainWrap, this.matchIdPopup, this.shapeStyleDialog, this.exitDialog,
+      this.inGameTriggerBtn, this.inGameModal);
     this.sync();
+  }
+
+  private openShapeStyleDialog(id: PresetShapeId, label: string): void {
+    this.pendingShape = { id, label };
+    this.shapeStyleLabel.textContent = `${label} · 选择母球样式`;
+    this.shapeStyleDialog.hidden = false;
+  }
+
+  private closeShapeStyleDialog(): void {
+    this.pendingShape = null;
+    this.shapeStyleDialog.hidden = true;
+  }
+
+  private finishShapeStyle(style: CueBallStyle): void {
+    const pending = this.pendingShape;
+    if (!pending) return;
+    this.pendingShape = null;
+    this.shapeStyleDialog.hidden = true;
+    const req = this.state.startShapePractice(pending.id, style);
+    this.sync();
+    this.onLaunchMatch(req);
+  }
+
+  private openExitDialog(proceed: () => void): void {
+    this.pendingExit = proceed;
+    this.exitDialog.hidden = false;
+  }
+
+  private finishExit(confirm: boolean): void {
+    const proceed = this.pendingExit;
+    this.pendingExit = null;
+    this.exitDialog.hidden = true;
+    if (confirm && proceed) proceed();
   }
 
   private makeButton(className: string, label: string, onClick: () => void): HTMLButtonElement {
@@ -406,9 +471,13 @@ export class GameMenuDom {
         for (const item of actions) {
           this.inGameActionsBox.append(
             this.makeButton("ingame-action-btn", item.label, () => {
-              const req = this.state.triggerInGameAction(item.id);
-              this.sync();
-              if (req) this.onLaunchMatch(req);
+              const run = (): void => {
+                const req = this.state.triggerInGameAction(item.id);
+                this.sync();
+                if (req) this.onLaunchMatch(req);
+              };
+              if (item.id === "exit" && this.state.activeMatch?.kind === "practice") this.openExitDialog(run);
+              else run();
             })
           );
         }

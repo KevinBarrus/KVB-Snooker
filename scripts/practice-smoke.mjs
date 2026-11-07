@@ -23,7 +23,8 @@ try {
   assert.equal(await page.locator(".hud").count(), 1, "Tests must reuse the page entry module");
 
   const getRuntime = () => page.evaluate(async () => {
-    const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    const { game, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    const originMesh = scene.getMeshByName("respot-origin");
     const active = Array.from({ length: game.simulator.getBallCount() }, (_, index) => game.simulator.getBallView(index))
       .filter(ball => ball.active).length;
     const cue = game.simulator.getCueBallPosition();
@@ -40,7 +41,9 @@ try {
       choiceHidden: document.querySelector(".practice-choice")?.hidden,
       scoreHidden: document.querySelector(".score-container .left")?.style.display === "none",
       replayOpenHidden: document.querySelector(".replay-open")?.hidden,
-      replayOpenDisabled: document.querySelector(".replay-open")?.disabled
+      replayOpenDisabled: document.querySelector(".replay-open")?.disabled,
+      cueBallRedDots: game.cueBallRedDots,
+      origin: originMesh ? { x: originMesh.position.x, z: originMesh.position.z } : null
     };
   });
 
@@ -53,10 +56,11 @@ try {
     return getRuntime();
   };
 
-  const launchShape = async label => {
+  const launchShape = async (label, style = "经典母球") => {
     await page.getByRole("button", { name: "练习", exact: true }).click();
     await page.getByRole("button", { name: "球形练习", exact: true }).click();
     await page.getByRole("button", { name: label, exact: true }).click();
+    await page.getByRole("button", { name: style, exact: true }).click();
     await page.waitForFunction(() => document.querySelector(".game-menu-main")?.hidden, undefined, { timeout: 10000 });
     return advance(2);
   };
@@ -64,17 +68,41 @@ try {
   const leavePractice = async () => {
     await page.locator(".ingame-menu-trigger").click();
     await page.getByRole("button", { name: "退出练习", exact: true }).click();
+    await page.getByRole("button", { name: "确认退出", exact: true }).click();
+    await page.waitForFunction(() => !document.querySelector(".game-menu-main")?.hidden, undefined, { timeout: 10000 });
+  };
+
+  const shootUntilSessionReplaced = async () => {
+    await page.evaluate(async () => {
+      const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+      window.__practiceSession = game.session;
+    });
+    await page.locator("canvas").focus();
+    await page.keyboard.press("w");
+    await advance(120);
+    await page.keyboard.press("Space");
+    let replaced = false;
+    for (let index = 0; index < 200 && !replaced; index++) {
+      await advance(10);
+      replaced = await page.evaluate(async () => {
+        const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+        return game.session !== window.__practiceSession;
+      });
+    }
+    assert.equal(replaced, true, "Five-spot practice must reset automatically after every shot");
+    return advance(2);
   };
 
   await mkdir(".cache/practice", { recursive: true });
 
-  // 1) 经典蛇彩：菜单启动、22 球、全台自由摆球、犯规弹窗与复位回滚
-  let state = await launchShape("经典蛇彩");
+  // 1) 经典蛇彩：菜单启动、红点母球选择、22 球、全台自由摆球、犯规弹窗与复位回滚
+  let state = await launchShape("经典蛇彩", "红点母球");
   assert.equal(state.state, 4);
   assert.equal(state.ballOn, 2);
   assert.equal(state.inHand, 2);
   assert.equal(state.active, 22);
   assert.equal(state.scoreHidden, false);
+  assert.equal(state.cueBallRedDots, true);
   assert.equal(state.restoreHidden, false);
   assert.equal(state.restoreDisabled, true, "No previous shot means restore is disabled");
 
@@ -99,10 +127,26 @@ try {
   assert.equal(state.choiceHidden, true);
   assert.equal(state.restoreDisabled, false, "A restored shot leaves another restore available");
   assert.equal(state.replayOpenHidden, false, "Replay of the restored shot must stay available");
+  const boxes = await page.evaluate(() => {
+    const restore = document.querySelector(".practice-restore").getBoundingClientRect();
+    const replay = document.querySelector(".replay-open").getBoundingClientRect();
+    return { restore: { left: restore.left, top: restore.top, right: restore.right, bottom: restore.bottom },
+      replay: { left: replay.left, top: replay.top, right: replay.right, bottom: replay.bottom } };
+  });
+  assert.ok(boxes.restore.right <= boxes.replay.left || boxes.restore.bottom <= boxes.replay.top ||
+    boxes.replay.right <= boxes.restore.left || boxes.replay.bottom <= boxes.restore.top,
+    "Restore button must not overlap the replay button");
   await page.locator(".practice-restore").click();
   state = await advance(2);
   assert.equal(state.shots, 0);
   await page.screenshot({ path: ".cache/practice/snake.png" });
+
+  // 退出练习必须先确认；取消后仍停留在对局
+  await page.locator(".ingame-menu-trigger").click();
+  await page.getByRole("button", { name: "退出练习", exact: true }).click();
+  assert.equal(await page.locator(".game-menu-main").isHidden(), true, "Exit must wait for confirmation");
+  await page.getByRole("button", { name: "取消", exact: true }).click();
+  assert.equal(await page.locator(".game-menu-main").isHidden(), true, "Cancel keeps the practice running");
 
   // 重新开始 = 重摆回该球形
   await page.locator(".ingame-menu-trigger").click();
@@ -120,6 +164,7 @@ try {
   assert.equal(state.active, 7);
   assert.equal(state.ballOn, 4);
   assert.equal(state.scoreHidden, true, "Clearance practice must not show a score");
+  assert.equal(state.cueBallRedDots, false);
 
   // 3) 五分点：只剩蓝球 + 母球，母球默认绿球点，不计分
   await leavePractice();
@@ -129,22 +174,18 @@ try {
   assert.equal(state.scoreHidden, true);
   assert.ok(Math.abs(state.cue.x + 1.04) < 1e-6 && Math.abs(state.cue.z - .29) < 1e-6,
     "Five-spot cue ball defaults to the green spot");
+  assert.ok(state.origin && Math.abs(state.origin.x - state.cue.x) < 1e-6 && Math.abs(state.origin.z - state.cue.z) < 1e-6,
+    "Placement ring must follow the cue ball instead of the previous mode's default");
 
-  // 4) 五分点犯规弹窗与重摆
-  await page.locator("canvas").focus();
-  await page.keyboard.press("w");
-  await advance(120);
-  await page.keyboard.press("Space");
-  state = await advance(1);
-  for (let index = 0; index < 200 && state.rounds === 0; index++) state = await advance(20);
-  assert.equal(state.rounds, 1);
-  if (!state.choiceHidden) {
-    await page.getByRole("button", { name: "重摆", exact: true }).click();
-    state = await advance(2);
-  }
+  // 4) 五分点：每一杆后自动复位蓝球与母球，不产生犯规弹窗
+  state = await shootUntilSessionReplaced();
   assert.equal(state.choiceHidden, true);
   assert.equal(state.active, 2);
   assert.equal(state.ballOn, 32);
+  assert.equal(state.inHand, 2);
+  assert.equal(state.rounds, 0);
+  assert.ok(Math.abs(state.cue.x + 1.04) < 1e-6 && Math.abs(state.cue.z - .29) < 1e-6);
+  assert.equal(state.cueBallRedDots, false);
   await page.screenshot({ path: ".cache/practice/five-spots.png" });
 
   assert.equal(errors.length, 0, errors.join("\n"));

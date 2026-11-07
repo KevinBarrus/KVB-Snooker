@@ -66,12 +66,12 @@ describe("practice shape session", () => {
     expect(anywhere.placeCueBall(0, simulator.spotY, -.6)).toBe(true);
     expect(anywhere.context.inHand).toBe(1);
 
-    const dArea = new GameSession(simulator, "practice", {
-      setup: makePracticeShapeConfig("x-shape", simulator).setup,
-      practice: { cuePlacement: "d-area" }
-    });
-    expect(dArea.canPlaceCueBall(0, simulator.spotY, -.6)).toBe(false);
-    expect(dArea.canPlaceCueBall(-1.15, simulator.spotY, 0)).toBe(true);
+    for (const id of ["x-shape", "pyramid"] as const) {
+      const config = makePracticeShapeConfig(id, simulator);
+      const dArea = new GameSession(simulator, "practice", { setup: config.setup, practice: config.practice });
+      expect(dArea.canPlaceCueBall(0, simulator.spotY, -.6), id).toBe(false);
+      expect(dArea.canPlaceCueBall(-1.15, simulator.spotY, 0), id).toBe(true);
+    }
   });
 
   it("restores the full player snapshot when the practice resets a shot", () => {

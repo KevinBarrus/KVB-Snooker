@@ -39,7 +39,7 @@ export function makePracticeLayout(id: PracticeShapeId, table: PracticeTable): P
 }
 
 function practiceOptionsFor(id: PracticeShapeId): PracticeOptions {
-  if (id === "x-shape") return { cuePlacement: "d-area" };
+  if (id === "x-shape" || id === "pyramid") return { cuePlacement: "d-area" };
   if (id === "five-spots") {
     return { cuePlacement: "anywhere", respotTargetBallNumber: 5, targetBallOn: 32, score: false };
   }

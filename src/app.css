@@ -120,7 +120,7 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .net-decision { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); display: flex; gap: 8px; padding: 10px 14px; background: #171713ed; }
 .net-decision[hidden] { display: none; }
 
-.practice-controls { position: absolute; left: 20px; bottom: 96px; pointer-events: none; }
+.practice-controls { position: absolute; left: 16px; top: 60px; pointer-events: none; }
 .practice-restore { pointer-events: auto; padding: 9px 14px; border-radius: 7px; background: rgba(18, 20, 17, 0.9); border: 1px solid rgba(229, 214, 157, 0.4); color: #f7e8b4; font-weight: 600; }
 .practice-restore:disabled { opacity: 0.42; cursor: not-allowed; }
 .practice-restore[hidden] { display: none; }
@@ -130,3 +130,9 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .practice-choice button { margin: 4px 8px 0 0; padding: 8px 14px; border-radius: 6px; background: #1e231d; border: 1px solid rgba(255, 255, 255, 0.14); color: #ecefe8; font-weight: 600; }
 .practice-choice button:hover:not(:disabled) { border-color: rgba(229, 214, 157, 0.48); color: #f7e8b4; }
 .practice-choice button:disabled { opacity: 0.42; cursor: not-allowed; }
+
+.menu-choice-dialog { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; display: flex; flex-direction: column; gap: 10px; min-width: 280px; padding: 18px; background: rgba(18, 20, 17, 0.97); border: 1px solid rgba(229, 214, 157, 0.42); border-radius: 12px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.78); pointer-events: auto; }
+.menu-choice-dialog[hidden] { display: none; }
+.menu-choice-dialog strong { color: #f7e8b4; font-size: 16px; }
+.menu-choice-message { margin: 0; color: #b7bcae; font-size: 13px; }
+.menu-choice-dialog .menu-seg-btn { width: 100%; }

@@ -22,6 +22,7 @@ import { RuleChoiceDom } from "./ui/rule-choice.js";
 import { FoulNotice, FoulNoticeDom } from "./ui/foul-notice.js";
 import { NominationDom } from "./ui/nomination.js";
 import { PracticeControlsDom } from "./ui/practice-controls.js";
+import type { CueBallStyle } from "./ui/game-menu.js";
 import type { PracticeShapeId } from "./core/practice/shapes.js";
 
 const TOUCHING_BALL_NAMES = ["cue ball", "red", "yellow", "green", "brown", "blue", "pink", "black"];
@@ -54,6 +55,7 @@ export class BrowserGame {
   private nextOpeningIndex = 0;
   private shapeId: PracticeShapeId | null = null;
   private launchOptions: GameOptions = {};
+  private cueBallStyle: CueBallStyle = "classic";
   private practiceChoicePending = false;
   private practiceChoiceMessage = "";
   private clearanceFinished = false;
@@ -189,6 +191,12 @@ export class BrowserGame {
   }
 
   get activePerson(): PersonController { return this.shots.launchingController ?? (this.human.active ? this.human : this.opponent); }
+
+  get cueBallRedDots(): boolean {
+    return this.session.ruleset === "snooker-900" || this.cueBallStyle === "red-dot";
+  }
+
+  setCueBallStyle(style: CueBallStyle): void { this.cueBallStyle = style; }
 
   get canReset(): boolean { return !this.shots.busy && !this.pendingShot && !this.replay.active; }
 
@@ -353,6 +361,10 @@ export class BrowserGame {
   }
 
   private afterPracticeShot(): void {
+    if (this.shapeId === "five-spots") {
+      this.restartPracticeShape();
+      return;
+    }
     const objectBallsCleared = this.simulator.getBalls().every(ball => ball.index === 0 || !ball.active);
     if (this.shapeId === "clearance" && objectBallsCleared) {
       this.clearanceFinished = true;
@@ -360,10 +372,6 @@ export class BrowserGame {
       this.viewNoticeDom.sync(this.viewNotice);
       this.controls.update();
       this.syncPracticeControls();
-      return;
-    }
-    if (this.shapeId === "five-spots" && !this.simulator.getBallView(0).active) {
-      this.restartPracticeShape();
       return;
     }
     const foulCode = this.session.result.foulCode;

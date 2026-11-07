@@ -14,6 +14,8 @@ export interface PlacementCommands {
 // PCOL L4177-4345
 export class InHand {
   active = false;
+  /** 每次真正进入摆球模式时递增；渲染标记用它识别“新的一次进入”。 */
+  epoch = 0;
   visible = false;
   valid = false;
   readonly spot = { x: 0, y: 0.88, z: 0 };
@@ -26,6 +28,7 @@ export class InHand {
 
   enter(): void {
     if (this.commands.begin?.() === false) return;
+    this.epoch++;
     this.active = true; this.visible = this.valid = false;
     this.mouseX = this.mouseY = NaN; this.dirty = false;
     this.focusPending = true;

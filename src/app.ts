@@ -67,7 +67,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const game = new BrowserGame(simulator, scene, scene.activeCamera, canvas);
     disposeGame = () => game.dispose();
     const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(), getBallView: index => game.getDisplayBallView(index) },
-      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.session.ruleset === "snooker-900" });
+      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.cueBallRedDots });
     const cue = await loadCue(scene, lighting);
     const placement = new PlacementMarkers(scene, atlas, mask);
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
@@ -80,9 +80,11 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       if (req.mode === "practice" && req.shapeId) {
         const shapeId = PRACTICE_SHAPE_IDS[req.shapeId];
         const config = makePracticeShapeConfig(shapeId, simulator);
+        game.setCueBallStyle(req.cueBallStyle ?? "classic");
         game.setMode("practice", "NORMAL", { setup: config.setup, practice: config.practice }, shapeId);
         return;
       }
+      game.setCueBallStyle("classic");
       game.setMode(req.mode, req.difficulty, req.mode === "single-play"
         ? { ruleset: req.ruleset, ...(req.players ? { players: req.players } : {}) } : {});
     };

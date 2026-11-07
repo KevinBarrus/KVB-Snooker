@@ -10,6 +10,7 @@ export class PlacementMarkers {
   private readonly material: B.ShaderMaterial;
   private wasActive = false;
   private angle = 0;
+  private lastEpoch = -1;
 
   constructor(scene: B.Scene, atlas: B.Texture, mask: B.Texture) {
     this.material = createTableMaterial(scene, atlas, mask);
@@ -18,10 +19,13 @@ export class PlacementMarkers {
     this.origin.isVisible = this.preview.isVisible = false;
   }
 
-  sync(cue: Point, state: { active: boolean; visible: boolean; valid: boolean; spot: Point }): void {
-    if (state.active && !this.wasActive) {
+  sync(cue: Point, state: { active: boolean; visible: boolean; valid: boolean; spot: Point; epoch?: number }): void {
+    const newEpoch = state.epoch !== undefined && state.epoch !== this.lastEpoch;
+    if (state.active && (!this.wasActive || newEpoch)) {
       this.origin.position.x = cue.x; this.origin.position.z = cue.z;
     }
+    if (state.active && state.epoch !== undefined) this.lastEpoch = state.epoch;
+    if (!state.active) this.lastEpoch = -1;
     this.wasActive = state.active;
     if (state.active) { this.angle += .06; this.origin.rotation.y = this.angle; }
     tintTablePlane(this.origin, TABLE_COLORS.white, state.active ? .75 : 0);

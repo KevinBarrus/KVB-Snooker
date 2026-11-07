@@ -5,6 +5,7 @@ export type TwoPlayerSubTab = "create" | "join";
 export type PracticeSubTab = "shapes" | "my-shapes";
 export type InGameActionId = "pause" | "restart" | "exit" | "guide";
 export type MenuLocale = "zh" | "en";
+export type CueBallStyle = "classic" | "red-dot";
 
 export const MATCH_FRAME_OPTIONS = [1, 3, 5, 7, 9, 11, 17, 19, 25, 33, 35] as const;
 export type MatchFrameOption = (typeof MATCH_FRAME_OPTIONS)[number];
@@ -40,6 +41,8 @@ export interface MatchLaunchRequest {
   readonly winFrames?: number;
   /** 球形练习：菜单选中的预设球形；自由练习与正式对局不携带。 */
   readonly shapeId?: PresetShapeId;
+  /** 球形练习的母球外观；正式对局由规则决定。 */
+  readonly cueBallStyle?: CueBallStyle;
 }
 
 export interface InGameActionItem {
@@ -225,13 +228,14 @@ export class GameMenu {
     this.createShapeClicked = false;
   }
 
-  startShapePractice(shapeId: PresetShapeId): MatchLaunchRequest {
+  startShapePractice(shapeId: PresetShapeId, cueBallStyle: CueBallStyle = "classic"): MatchLaunchRequest {
     const request: MatchLaunchRequest = {
       kind: "practice",
       mode: "practice",
       difficulty: "NORMAL",
       ruleset: "classic",
-      shapeId
+      shapeId,
+      cueBallStyle
     };
     this.returnDir = { tab: "practice", twoPlayerSub: null, practiceSub: "shapes" };
     this.enterMatchState(request);

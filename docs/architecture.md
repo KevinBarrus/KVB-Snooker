@@ -367,7 +367,7 @@ export interface RoomSession {
 - `Player.snapshot()` / `restore()` 为练习复位提供完整统计快照，不改变正式比赛路径。
 - 五分点通过 `respotTargetBallNumber` 与 `targetBallOn` 在练习结算后把目标球放回标准点并固定目标阶段；`score:false` 时练习结算不累计比分、罚分或 break。
 - `GamingInput` 的 `InputGame` 增加可选 `locked?(): boolean`，供装配根在练习犯规选择弹窗期间锁输入。
-- 表现层合同：`PracticeControlsDom` 承载常驻「复位上一杆」与「重摆/复位」弹窗；`ScorePanel.visible` 控制不计分练习隐藏比分；`GameMenu.startShapePractice(shapeId)` 返回带 `MatchLaunchRequest.shapeId` 的启动请求。
+- 表现层合同：`PracticeControlsDom` 承载常驻「复位上一杆」与「重摆/复位」弹窗；`ScorePanel.visible` 控制不计分练习隐藏比分；`GameMenu.startShapePractice(shapeId, cueBallStyle)` 返回带 `MatchLaunchRequest.shapeId` 与 `cueBallStyle?: "classic" | "red-dot"` 的启动请求，装配根据此选择母球外观，900 对局仍强制红点。练习退出确认、五分点每杆自动重摆属于装配/UI 行为，不改核心规则。
 
 联机房间不启用练习选项；`RoomOptions.frameSetup` 仍是联机开发夹具，不承担练球产品流程。
 
