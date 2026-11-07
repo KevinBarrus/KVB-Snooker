@@ -346,6 +346,28 @@ export interface RoomSession {
 - 浏览器开发入口额外提供只读 `window.__snkNet` 测试句柄（仅 DEV、仅联机装配），用于验收读取席位/版本/时序/相机状态，不是公开产品接口。
 - `window.__snkNet.diagnostics()` 返回本杆诊断副本；开发 HUD 可将同一数据下载为 JSON。采集范围为球位快照、原始 pong、显示帧及相机位置，不含开发令牌，不修改报文或权威状态；格式与使用见原型设计 §10.6。
 
+### 4.9 练球球形（2026-11-08）
+
+需求来源为用户写入的 [练球模式球形预设需求](practise.md)，产品行为、算法与验收见 [练球球形设计](practice-shape-design.md)。范围只到本地练习，不改变物理、相机、回放、经典判罚或正式对局流程。
+
+**依赖边界**
+
+- `src/core/practice/**` 为纯核心：只依赖 `Simulator`、台面网格与 `FrameSetup`，不依赖 DOM、渲染或网络；从真实库边和标准置球点生成 `FrameSetup`，不写屏幕坐标、不使用随机。
+- 菜单与 UI 只传球形 id 和用户意图；装配根把 id 解析为 setup + 练习选项，再调用既有 `GameSession` / `setMode`。UI 不直接改写 World、Body 或规则内部状态。
+
+**练习模式窄接口**
+
+- `GameOptions.practice?: PracticeOptions`，仅练习模式允许，非法构造即拒绝。`PracticeOptions` 为 `{ cuePlacement?: "d-area" | "anywhere"; respotTargetBallNumber?: number; targetBallOn?: number; score?: boolean }`。
+- 练习模式允许 `GameOptions.setup`；`GameSession.reset()` 恢复该布局。默认 `cuePlacement` 为 `"d-area"`，保持练习原有 D 区手中球；`"anywhere"` 使用既有全台合法落点校验。
+- `GameSession.canRestorePreviousShot:boolean` 为只读派生值，表示杆前快照存在且未准备出杆；`practiceScored:boolean` 为只读派生值。
+- `restorePreviousShot` 的练习分支在恢复球位/目标阶段/球权之外，额外恢复 `Player.snapshot()` 的比分、罚分、break、杆数与最高单杆；正式比赛仍保持“只恢复球位、保留已记罚分和累计统计”的既有语义。
+- `Player.snapshot()` / `restore()` 为练习复位提供完整统计快照，不改变正式比赛路径。
+- 五分点通过 `respotTargetBallNumber` 与 `targetBallOn` 在练习结算后把目标球放回标准点并固定目标阶段；`score:false` 时练习结算不累计比分、罚分或 break。
+- `GamingInput` 的 `InputGame` 增加可选 `locked?(): boolean`，供装配根在练习犯规选择弹窗期间锁输入。
+- 表现层合同：`PracticeControlsDom` 承载常驻「复位上一杆」与「重摆/复位」弹窗；`ScorePanel.visible` 控制不计分练习隐藏比分；`GameMenu.startShapePractice(shapeId)` 返回带 `MatchLaunchRequest.shapeId` 的启动请求。
+
+联机房间不启用练习选项；`RoomOptions.frameSetup` 仍是联机开发夹具，不承担练球产品流程。
+
 ## 5. 目录结构（骨架）
 
 ```
@@ -357,10 +379,11 @@ src/
 │   │                        # collision-polygon.ts mesh-body.ts solver.ts island.ts world.ts
 │   ├── simulator/           # shot-result.ts simulator.ts（模50 等价）
 │   ├── rules/               # foul.ts region.ts snooker.ts
+│   ├── practice/            # 练球球形：table-geometry.ts、layout-reds.ts、layout-mixed.ts、shapes.ts
 │   └── ai/                  # route-cache.ts task-pipeline.ts profiles.ts
 ├── render/                  # scene.ts table.ts balls.ts materials.ts light-probes.ts
 ├── controller/              # person-controller.ts stick-controller.ts camera-rig.ts input.ts ai-runner.ts
-├── ui/                      # hud.ts score-panel.ts power-bar.ts
+├── ui/                      # hud.ts score-panel.ts power-bar.ts practice-controls.ts
 ├── audio/                   # mixer.ts hooks.ts
 ├── net/                     # 联机原型：protocol.ts、remote-view.ts、net-session-state.ts（零 DOM）
 ├── server/                  # Node 权威房间：room.ts、room-manager.ts、transport.ts、latency.ts、main.ts

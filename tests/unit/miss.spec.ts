@@ -180,7 +180,8 @@ describe("共用杆前台面恢复与比赛权限", () => {
       expect(sim.serialize()).toEqual(before);
       expect(game.restorePreviousShot(0)).toBe(true);
     }
-    expect(game.players[0].shootingCount).toBe(2);
+    // 2026-11-08 练球球形需求：练习复位完整回滚比分与杆数统计，而不是保留。
+    expect(game.players[0].shootingCount).toBe(0);
     game.reset(); expect(game.restorePreviousShot(0)).toBe(false);
   });
 });

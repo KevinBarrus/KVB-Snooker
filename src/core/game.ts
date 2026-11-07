@@ -1,8 +1,8 @@
 import { BALL_ON, SnookerRef, type RulesContext } from "./rules/snooker.js";
 import type { Simulator } from "./simulator/simulator.js";
 import type { SerialData, StrokeVars } from "./simulator/shot-result.js";
-import { Player } from "./player.js";
-import { copyFrameSetup, type FrameSetup, type GameOptions, type RuleSet } from "./frame-setup.js";
+import { Player, type PlayerSnapshot } from "./player.js";
+import { copyFrameSetup, type FrameSetup, type GameOptions, type PracticeOptions, type RuleSet } from "./frame-setup.js";
 import { availablePoints, isMiss } from "./rules/miss.js";
 import { inferColour, type NominationView } from "./rules/nomination.js";
 import { snookerView } from "./rules/snookered.js";
@@ -25,6 +25,27 @@ interface ShotPosition {
   readonly playerIndex: number;
   readonly scoreGap: number;
   readonly points: number;
+  /** 练习复位用：杆前完整的比分/统计快照；正式比赛恢复时不消费。 */
+  readonly players: readonly PlayerSnapshot[];
+}
+
+function copyPracticeOptions(options: PracticeOptions): PracticeOptions {
+  const placement = options.cuePlacement;
+  if (placement !== undefined && placement !== "d-area" && placement !== "anywhere") {
+    throw new Error("Invalid practice options");
+  }
+  const target = options.respotTargetBallNumber;
+  if (target !== undefined && (!Number.isInteger(target) || target < 1 || target > 7)) {
+    throw new Error("Invalid practice options");
+  }
+  const ballOn = options.targetBallOn;
+  if (ballOn !== undefined && ![2, 4, 8, 16, 32, 64, 128, 252].includes(ballOn)) {
+    throw new Error("Invalid practice options");
+  }
+  if (options.score !== undefined && typeof options.score !== "boolean") {
+    throw new Error("Invalid practice options");
+  }
+  return { ...options };
 }
 
 export interface GameContext extends RulesContext {
@@ -43,6 +64,7 @@ export class GameSession {
   private currentState: GameState = GAME_STATE.NO_GAME;
   private serialData: SerialData | null = null;
   private readonly initialSetup?: FrameSetup;
+  private readonly practiceOptions: PracticeOptions;
   private pendingDecision: TurnDecision | null = null;
   private nominatedIndex: number | null = null;
   private prepared = false;
@@ -52,8 +74,11 @@ export class GameSession {
 
   constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play", options: GameOptions = {}) {
     const types = options.players ?? (mode === "practice" ? ["USER"] : ["USER", "AI"]);
-    if (types.length !== (mode === "practice" ? 1 : 2) || types.some(type => type !== "USER" && type !== "AI") ||
-        (mode === "practice" && options.setup)) throw new Error("Invalid game options");
+    if (types.length !== (mode === "practice" ? 1 : 2) || types.some(type => type !== "USER" && type !== "AI")) {
+      throw new Error("Invalid game options");
+    }
+    if (mode !== "practice" && options.practice) throw new Error("Invalid game options");
+    this.practiceOptions = copyPracticeOptions(options.practice ?? {});
     const opening = options.openingPlayerIndex ?? 0;
     if (!Number.isInteger(opening) || opening < 0 || opening >= types.length) throw new Error("Invalid opening player");
     this.openingIndex = opening;
@@ -76,6 +101,8 @@ export class GameSession {
   get timeUntilExpiry(): number { return this.nine ? this.nine.clock.untilExpiry : Infinity; }
   get shootout(): ShootoutView | null { return this.nine ? this.nine.shootout : null; }
   get decision(): TurnDecision | null { return this.pendingDecision && { ...this.pendingDecision }; }
+  get canRestorePreviousShot(): boolean { return this.previousShot !== null && !this.prepared; }
+  get practiceScored(): boolean { return this.practiceOptions.score !== false; }
   get freeBallAvailable(): boolean { return this.freeBall; }
   get touchingBallIndices(): readonly number[] {
     const cue = this.simulator.getBallAtIndex(0);
@@ -167,6 +194,9 @@ export class GameSession {
       return !this.finished && (this.nine.fullTable ? canPlaceOnTable(this.simulator, x, y, z)
         : this.ref.placeCueBallCheck(x, y, z, this.simulator));
     }
+    if (this.mode === "practice" && this.practiceOptions.cuePlacement === "anywhere") {
+      return !this.finished && canPlaceOnTable(this.simulator, x, y, z);
+    }
     return this.ref.placeCueBallCheck(x, y, z, this.simulator);
   }
 
@@ -217,7 +247,8 @@ export class GameSession {
     }
     this.previousShot = { world: this.simulator.serialize(), ballOn: this.context.ballOn,
       inHand: this.context.inHand, playerIndex, scoreGap: this.mode === "practice" ? 0 : this.getScore(0) - this.getScore(1),
-      points: availablePoints(this.simulator, this.context.ballOn) };
+      points: availablePoints(this.simulator, this.context.ballOn),
+      players: this.players.map(player => player.snapshot()) };
     this.prepared = true;
     return true;
   }
@@ -243,6 +274,9 @@ export class GameSession {
     this.context.ballOn = shot.ballOn;
     this.context.inHand = shot.inHand;
     this.context.playerIndex = shot.playerIndex;
+    if (this.mode === "practice") {
+      shot.players.forEach((snapshot, index) => this.players[index]?.restore(snapshot));
+    }
     delete this.context.nominatedBallIndex;
     delete this.context.freeBallIndex;
     this.nominatedIndex = null;
@@ -268,7 +302,10 @@ export class GameSession {
       return;
     }
     const player = this.players[index];
-    if (this.result.score > 0) {
+    if (this.mode === "practice" && this.practiceOptions.score === false) {
+      player.brk = 0;
+      this.context.playerIndex = (index + 1) % this.players.length;
+    } else if (this.result.score > 0) {
       player.pts += this.result.score;
       player.scoreCount++;
       player.brk += this.result.score;
@@ -291,6 +328,11 @@ export class GameSession {
       const canReplace = shot !== null && isMiss(this.result.foulCode, shot.scoreGap, shot.points,
         this.getScore(0) - this.getScore(1), availablePoints(this.simulator, this.context.ballOn));
       this.pendingDecision = { kind: "foul", playerIndex: this.context.playerIndex, canReplace };
+    }
+    if (this.mode === "practice" && this.practiceOptions.respotTargetBallNumber !== undefined) {
+      const target = this.simulator.getBalls().find(ball => ball.number === this.practiceOptions.respotTargetBallNumber);
+      if (target && !target.active) this.simulator.respotIndexDefault(target.index);
+      if (this.practiceOptions.targetBallOn !== undefined) this.context.ballOn = this.practiceOptions.targetBallOn;
     }
     this.response();
     if (this.pendingDecision?.kind === "foul") {

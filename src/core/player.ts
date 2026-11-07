@@ -1,4 +1,13 @@
 // PCOL L9973-10025
+export interface PlayerSnapshot {
+  readonly pts: number;
+  readonly penalty: number;
+  readonly shootingCount: number;
+  readonly scoreCount: number;
+  readonly currentBreak: number;
+  readonly maxBreak: number;
+}
+
 export class Player {
   pts = 0;
   penalty = 0;
@@ -19,5 +28,20 @@ export class Player {
 
   clearScores(): void {
     this.pts = this.penalty = this.shootingCount = this.scoreCount = this.currentBreak = this.maxBreak = 0;
+  }
+
+  snapshot(): PlayerSnapshot {
+    return { pts: this.pts, penalty: this.penalty, shootingCount: this.shootingCount,
+      scoreCount: this.scoreCount, currentBreak: this.currentBreak, maxBreak: this.maxBreak };
+  }
+
+  /** 练习复位用：完整回滚比分/连击/杆数统计；正式比赛不使用本路径。 */
+  restore(snapshot: PlayerSnapshot): void {
+    this.pts = snapshot.pts;
+    this.penalty = snapshot.penalty;
+    this.shootingCount = snapshot.shootingCount;
+    this.scoreCount = snapshot.scoreCount;
+    this.currentBreak = snapshot.currentBreak;
+    this.maxBreak = snapshot.maxBreak;
   }
 }
