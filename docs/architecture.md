@@ -286,6 +286,55 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 模拟器扩展：`getCushionEvidence():CushionEvidence|null`，`CushionEvidence {readonly contacts:readonly {readonly ballIndex:number;readonly kind:"cushion"|"jaw";readonly x:number;readonly z:number}[]}`。同球/同面首次有效闭合冲量记录位置，sidehard为cushion、sidesoft为jaw，其他面不计；返回副本，reset/restore/新杆清空，predict隔离。RefSimulator可选同结构消费，无反向import。规则策略允许SnookerRef新增protected adjudicate结果钩子，经典仍调用既有adjudicate，900先合并NO_CUSHION再走相同归位/阶段推进。
 
+### 4.8 联机开发原型窄接口（2026-11-07 登记，原型未冻结）
+
+范围：只覆盖首版联机实施计划 D 的第 0—3 单元子集——开发入口的双固定席位、经典规则、真实出杆、服务端权威物理、球运动同步与仅开发环境可用的延迟注入。不登记账号、游客、数据库、长期存档、重连判负、排行榜、高光、语音或完整 900 协议。产品边界与操作见 [联机开发原型设计](multiplayer-prototype-design.md)，完整提案仍是 [协议设计](multiplayer-protocol-design.md)，不得把本节当作正式接口冻结。
+
+**依赖边界**
+
+- `src/server/**` 是 Node 基础设施，只允许依赖 `src/core/**`、`src/net/protocol.ts` 与 Node 内置模块；`core` 不导入 `server`、`net` 或任何网络模块。
+- 浏览器网络适配分为纯状态 `src/net/**`（协议、快照缓冲、插值、客户端状态机）与装配根 `src/app-net*.ts`（建立连接、场景/渲染/控制器装配）。`render/ui/controller/audio` 不导入网络或服务端代码。
+- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；报文版本 `NET_PROTOCOL_VERSION = 1`。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
+- 现有 `GameSession`、`Simulator`、规则与物理是唯一权威；服务端不复制第二套规则，客户端不推进权威物理、不自行结算触球。
+
+**服务端窄接口（`src/server/room.ts`）**
+
+```ts
+export interface RoomOptions {
+  readonly prepareLeadMs: number        // 接受意图到权威触球的固定提前量
+  readonly tickHz: number               // 物理固定步进频率
+  readonly snapshotHz: number           // 运动快照广播频率
+  readonly seed: number                 // 房间随机源种子（AI 隔离预留）
+}
+export interface RoomJoinResult {
+  readonly seat: SeatIndex
+  readonly welcome: WelcomeMessage
+}
+export interface RoomTickResult {
+  readonly snapshot: SnapshotMessage | null
+  readonly events: readonly ServerEventMessage[]
+}
+export interface RoomSession {
+  readonly roomId: string
+  readonly config: MatchConfigView
+  join(connectionId: string, requestedSeat?: SeatIndex): RoomJoinResult | { readonly reason: RejectReason }
+  release(connectionId: string): void
+  command(connectionId: string, message: CommandMessage, nowMs: number): RoomTickResult
+  tick(nowMs: number): RoomTickResult
+  snapshot(nowMs: number): SnapshotMessage
+  close(): void
+}
+```
+
+房间命令只有 `prepare-shot` 与 `decide-turn` 两种；击球意图在服务器校验、冻结并由权威触球时刻施加一次冲量。`RoomSession` 不依赖 `setTimeout` 或真实墙钟，时间由调用方以毫秒单调值传入，便于确定性测试。WebSocket、延迟注入与监听地址属于传输层（`src/server/transport.ts`、`src/server/latency.ts`），不得进入房间裁决。
+
+**隔离与复用登记**
+
+- AI 隔离：`AIController` 增加可选依赖 `{ routeCache?: RouteCache; random?: () => number }`，默认仍共享原模块级缓存与 `coreRandom` 以保持现有单机行为；服务器为每房间注入独立 `RouteCache` 与随机源。该改动不改变 AI 算法、物理或规则。
+- 控制器窄接口：`GamingInput` 只依赖 `ShotLauncher { readonly busy: boolean; readonly inputLocked: boolean; launch(person: PersonController): boolean }`；本地 `ShotController` 与联机出杆动画器都实现该接口，镜头、球杆和输入映射算法不变。
+- 客户端显示源：`src/net/remote-view.ts` 由权威快照生成 `BallView` 结构视图（插值位置与归一化姿态），装配根把它接到现有 `BallRenderer` 与 `PersonController`。瞄准预测只使用本地 `Simulator` 从快照携带的 `SerialData` 检查点恢复后计算，从不写回服务端，也不推进真实回合。
+- 计时：本原型只实现经典规则；`advanceTime`、900 双表与触球截止竞争不在本次登记范围。
+
 ## 5. 目录结构（骨架）
 
 ```
@@ -302,7 +351,10 @@ src/
 ├── controller/              # person-controller.ts stick-controller.ts camera-rig.ts input.ts ai-runner.ts
 ├── ui/                      # hud.ts score-panel.ts power-bar.ts
 ├── audio/                   # mixer.ts hooks.ts
-└── app.ts                   # 装配根
+├── net/                     # 联机原型：protocol.ts、remote-view.ts、net-session-state.ts（零 DOM）
+├── server/                  # Node 权威房间：room.ts、room-manager.ts、transport.ts、latency.ts、main.ts
+├── app-net.ts               # 联机原型装配根（仅开发入口动态加载）
+└── app.ts                   # 本地装配根
 public/assets/physics/table.json
 tests/
 ├── unit/                    # 每模块一文件，常量断言从规格抄

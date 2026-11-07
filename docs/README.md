@@ -34,6 +34,7 @@
 | 声音采集与试听 | [重采样](audio-resampling.md)、[试听交接](audio-v2-listening-handoff.md) | 历史素材方案不自动成为当前运行配置 |
 | 登录与游客 | [账号与游客](accounts-and-guests-design.md) | 不维护比赛结算规则 |
 | 正式双人对局 | [房间与玩家流程](multiplayer-design.md) | [通信协议](multiplayer-protocol-design.md) |
+| 联机开发原型（第 0—3 单元） | [原型工程边界与验收](multiplayer-prototype-design.md) | 架构 §4.8、协议 §1—§5 的窄接口子集 |
 | 暂停、重摆、暂存、掉线 | [比赛生命周期](match-lifecycle-design.md) | [持久化](match-persistence-design.md) |
 | 个人成绩与排行榜 | [统计](stats-design.md) | 持久化的幂等写入 |
 | 收藏与拼接 | [高光](highlights-design.md) | 持久化的对象引用与任务机制 |

@@ -1,6 +1,8 @@
 # 联机通信与状态同步
 
-状态：工程提案，未实现、未冻结报文签名。本文定义协议应保证的语义；开始编码前须将选定的类型、单位和兼容策略登记到 architecture.md。玩家流程见 [双人联机](multiplayer-design.md)，暂停与判负规则见 [生命周期](match-lifecycle-design.md)。
+状态：工程提案，未冻结报文签名。本文定义协议应保证的语义；开始编码前须将选定的类型、单位和兼容策略登记到 architecture.md。玩家流程见 [双人联机](multiplayer-design.md)，暂停与判负规则见 [生命周期](match-lifecycle-design.md)。
+
+2026-11-07 起，第 0—3 单元的开发原型已按 [架构 §4.8](architecture.md#48-联机开发原型窄接口2026-11-07-登记原型未冻结) 登记窄接口并实现子集（见[联机开发原型](multiplayer-prototype-design.md)）。这仍不是本文冻结；正式账号、存档、恢复、排行榜与完整 900 协议不在该原型内。
 
 ## 1. 权威与进程边界
 
