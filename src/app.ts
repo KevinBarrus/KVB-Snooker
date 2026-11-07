@@ -12,8 +12,22 @@ import { Gunsight } from "./render/gunsight.js";
 import { PlacementMarkers } from "./render/placement.js";
 import { BrowserGame } from "./app-game.js";
 import { BrowserAudio } from "./app-audio.js";
-import { GameMenu, type MatchLaunchRequest } from "./ui/game-menu.js";
+import { GameMenu, type MatchLaunchRequest, type PresetShapeId } from "./ui/game-menu.js";
 import { GameMenuDom } from "./ui/game-menu-dom.js";
+import { makePracticeShapeConfig, type PracticeShapeId } from "./core/practice/shapes.js";
+
+const PRACTICE_SHAPE_IDS: Record<PresetShapeId, PracticeShapeId> = {
+  snake: "snake",
+  "s-shape": "s-shape",
+  "t-shape": "t-shape",
+  "y-shape": "y-shape",
+  staple: "staple",
+  "x-shape": "x-shape",
+  pyramid: "pyramid",
+  "double-dragon": "double-dragon",
+  clearance: "clearance",
+  "five-spots": "five-spots"
+};
 
 async function loadSimulator(): Promise<Simulator> {
   const response = await fetch("/assets/physics/table.json");
@@ -63,6 +77,12 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     audio = new BrowserAudio(game.bus, options ?? document.body);
     const menuState = new GameMenu({ onPauseSignal: () => {} });
     const launchFromMenu = (req: MatchLaunchRequest) => {
+      if (req.mode === "practice" && req.shapeId) {
+        const shapeId = PRACTICE_SHAPE_IDS[req.shapeId];
+        const config = makePracticeShapeConfig(shapeId, simulator);
+        game.setMode("practice", "NORMAL", { setup: config.setup, practice: config.practice }, shapeId);
+        return;
+      }
       game.setMode(req.mode, req.difficulty, req.mode === "single-play"
         ? { ruleset: req.ruleset, ...(req.players ? { players: req.players } : {}) } : {});
     };

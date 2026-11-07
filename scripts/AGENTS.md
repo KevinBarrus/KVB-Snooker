@@ -60,3 +60,5 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 复听第二轮修正（2026-10-28）：用户要求 cue-mid-low/cue-center 的 0.75 与 1.0 直接沿用 cue-low/cue-high 同档音频，因此新增 copyFrom 条目——渲染后逐字节复制来源槽位成品，组内不再做统一抬起（否则 0.5 会反超 0.75），并用"沿用音频逐字节相同"检查守住。两组 0.5 档单独加大：湿声 0.35、尾音 +1.0s，峰值按各自素材峰均比放到 −4/−2dB，使 0.5 与 0.75 的峰值接近、能量仍单调（0.5→0.75 的能量跳约 9–10dB，因为换成了本地更厚的大力录音，这是素材决定的，不是参数问题）。
 
 联机开发原型（2026-11-07）：net-smoke.mjs（npm run test:net）用两个真实浏览器页面加真实 Node 房间服务器验收双开发席位击球、同一杆快照逐位一致、对手相机独立、`--drop-next-ack` 同 ID 重试只出一杆、80/80ms 单程延迟下的动画/触球时序与两房间隔离；公共工具在 net-smoke-lib.mjs，脚本自建随机端口服务器，不占用默认 8787，截图与日志只写 .cache。结果与限制见 docs/multiplayer-prototype-design.md §10。
+
+练球球形（2026-11-08）：practice-smoke.mjs（npm run test:practice）在真实浏览器点击菜单启动十个预设球形，验证 22 球/Snake、全台自由摆球、犯规后重摆/复位弹窗、复位后回放仍可用、菜单重新开始重摆、清彩与五分点不计分及五分点母球绿球点。脚本不改核心状态、不替换裁判，截图只写 .cache/practice。需求见 docs/practise.md，实现与验收见 docs/practice-shape-design.md。

@@ -119,3 +119,14 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 @media (max-width: 900px) { .net-hud { max-width: calc(100vw - 32px); font-size: 10px; white-space: pre-wrap; } }
 .net-decision { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); display: flex; gap: 8px; padding: 10px 14px; background: #171713ed; }
 .net-decision[hidden] { display: none; }
+
+.practice-controls { position: absolute; left: 20px; bottom: 96px; pointer-events: none; }
+.practice-restore { pointer-events: auto; padding: 9px 14px; border-radius: 7px; background: rgba(18, 20, 17, 0.9); border: 1px solid rgba(229, 214, 157, 0.4); color: #f7e8b4; font-weight: 600; }
+.practice-restore:disabled { opacity: 0.42; cursor: not-allowed; }
+.practice-restore[hidden] { display: none; }
+.practice-choice { position: fixed; left: 50%; bottom: 170px; transform: translateX(-50%); min-width: 300px; max-width: 440px; padding: 14px; background: rgba(18, 20, 17, 0.95); border: 1px solid rgba(229, 214, 157, 0.36); border-radius: 10px; box-shadow: 0 18px 44px rgba(0, 0, 0, 0.72); pointer-events: auto; }
+.practice-choice[hidden] { display: none; }
+.practice-choice p { margin: 0 0 10px; color: #ecefe8; }
+.practice-choice button { margin: 4px 8px 0 0; padding: 8px 14px; border-radius: 6px; background: #1e231d; border: 1px solid rgba(255, 255, 255, 0.14); color: #ecefe8; font-weight: 600; }
+.practice-choice button:hover:not(:disabled) { border-color: rgba(229, 214, 157, 0.48); color: #f7e8b4; }
+.practice-choice button:disabled { opacity: 0.42; cursor: not-allowed; }

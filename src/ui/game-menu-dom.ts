@@ -254,8 +254,9 @@ export class GameMenuDom {
     this.shapesGridBox.className = "menu-shapes-grid";
     for (const shape of PRESET_SHAPE_ITEMS) {
       const card = this.makeImageCard(shape.label, `shape-${shape.id}`, () => {
-        this.state.clickPresetShape(shape.id);
+        const req = this.state.startShapePractice(shape.id);
         this.sync();
+        if (req) this.onLaunchMatch(req);
       });
       this.shapesGridBox.append(card);
     }

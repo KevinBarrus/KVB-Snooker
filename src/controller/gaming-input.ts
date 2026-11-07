@@ -8,6 +8,8 @@ export interface InputGame {
   canAim(): boolean;
   canPlace(): boolean;
   cycleView?(): void;
+  /** 练习犯规选择等装配根需要暂时锁住输入时返回 true。 */
+  locked?(): boolean;
 }
 
 // PCOL L6130-6230, L4177-4345
@@ -62,7 +64,7 @@ export class GamingInput {
 
   update(): void {
     this.input.state = this.game.state();
-    this.input.enabled = !this.shots.inputLocked;
+    this.input.enabled = !this.shots.inputLocked && !(this.game.locked?.() ?? false);
     if (!this.game.canPlace()) this.inHand.exit();
     this.inHand.update();
   }

@@ -10,16 +10,16 @@ export const MATCH_FRAME_OPTIONS = [1, 3, 5, 7, 9, 11, 17, 19, 25, 33, 35] as co
 export type MatchFrameOption = (typeof MATCH_FRAME_OPTIONS)[number];
 
 export const PRESET_SHAPE_ITEMS = [
-  { id: "snake", label: "蛇彩" },
-  { id: "t-shape", label: "T球形" },
-  { id: "x-shape", label: "X球形" },
+  { id: "snake", label: "经典蛇彩" },
   { id: "s-shape", label: "S球形" },
+  { id: "t-shape", label: "T球形" },
   { id: "y-shape", label: "Y球形" },
-  { id: "twintails", label: "双马尾球形" },
-  { id: "parallel-bars", label: "双杠球形" },
   { id: "staple", label: "订书钉球形" },
-  { id: "five-spots", label: "五分点练习" },
-  { id: "clearance", label: "清彩练习" }
+  { id: "x-shape", label: "X球形" },
+  { id: "pyramid", label: "金字塔散点" },
+  { id: "double-dragon", label: "双龙球形" },
+  { id: "clearance", label: "清彩练习" },
+  { id: "five-spots", label: "五分点练习" }
 ] as const;
 export type PresetShapeId = (typeof PRESET_SHAPE_ITEMS)[number]["id"];
 
@@ -38,6 +38,8 @@ export interface MatchLaunchRequest {
   readonly players?: readonly ["USER", "AI"] | readonly ["USER", "USER"];
   readonly totalFrames?: MatchFrameOption;
   readonly winFrames?: number;
+  /** 球形练习：菜单选中的预设球形；自由练习与正式对局不携带。 */
+  readonly shapeId?: PresetShapeId;
 }
 
 export interface InGameActionItem {
@@ -223,8 +225,17 @@ export class GameMenu {
     this.createShapeClicked = false;
   }
 
-  clickPresetShape(_shapeId: PresetShapeId): void {
-    return;
+  startShapePractice(shapeId: PresetShapeId): MatchLaunchRequest {
+    const request: MatchLaunchRequest = {
+      kind: "practice",
+      mode: "practice",
+      difficulty: "NORMAL",
+      ruleset: "classic",
+      shapeId
+    };
+    this.returnDir = { tab: "practice", twoPlayerSub: null, practiceSub: "shapes" };
+    this.enterMatchState(request);
+    return request;
   }
 
   openMyShapes(): void {

@@ -21,6 +21,8 @@ function makeGroup(): ScoreGroupState {
 
 export class ScorePanel {
   readonly groups: [ScoreGroupState, ScoreGroupState] = [makeGroup(), makeGroup()];
+  /** 清彩/五分点等不计分练习隐藏比分；正式对局保持 true。 */
+  visible = true;
   private playerCountValue = 1;
   private playerIndex = 0;
   private ballOnValue = 0;
@@ -37,7 +39,7 @@ export class ScorePanel {
   resetPlayers(names: readonly string[]): void {
     const [g0, g1] = this.groups;
     g0.head = (names[0] ?? "").toUpperCase();
-    g0.visible = true;
+    g0.visible = this.visible;
     if (names.length > 1) {
       g1.visible = true;
       g1.head = names[1].toUpperCase();

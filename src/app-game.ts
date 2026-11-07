@@ -21,6 +21,8 @@ import type { GameOptions } from "./core/frame-setup.js";
 import { RuleChoiceDom } from "./ui/rule-choice.js";
 import { FoulNotice, FoulNoticeDom } from "./ui/foul-notice.js";
 import { NominationDom } from "./ui/nomination.js";
+import { PracticeControlsDom } from "./ui/practice-controls.js";
+import type { PracticeShapeId } from "./core/practice/shapes.js";
 
 const TOUCHING_BALL_NAMES = ["cue ball", "red", "yellow", "green", "brown", "blue", "pink", "black"];
 const BALL_NAMES = ["母球", "红球", "黄球", "绿球", "棕球", "蓝球", "粉球", "黑球"];
@@ -39,6 +41,7 @@ export class BrowserGame {
   readonly replay: BrowserReplay;
   readonly ruleChoice: RuleChoiceDom;
   readonly nomination: NominationDom;
+  readonly practiceControls: PracticeControlsDom;
   private readonly touchingMessage = new FoulNotice();
   private touchingKey = "";
   readonly touchingNoticeDom = new FoulNoticeDom(document, () => this.canvas.focus());
@@ -49,6 +52,11 @@ export class BrowserGame {
   private pendingShot = false;
   private outSeen = 0;
   private nextOpeningIndex = 0;
+  private shapeId: PracticeShapeId | null = null;
+  private launchOptions: GameOptions = {};
+  private practiceChoicePending = false;
+  private practiceChoiceMessage = "";
+  private clearanceFinished = false;
   private readonly disposeBus: () => void;
 
   constructor(readonly simulator: Simulator, private readonly scene: B.Scene,
@@ -108,6 +116,7 @@ export class BrowserGame {
     this.controls = new GamingInput(canvas, this.human, this.shots, {
       state: () => this.pendingShot ? GAME_STATE.SIMULATING : this.session.state,
       canAim: () => {
+        if (this.practiceChoicePending || this.clearanceFinished) return false;
         if (!this.human.active || !this.canShoot(this.human.playerIndex)) return false;
         if (!simulator.getBallView(0).active) {
           this.viewNotice.show("母球需要先放到合法位置");
@@ -120,7 +129,8 @@ export class BrowserGame {
         return true;
       },
       canPlace: () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0,
-      cycleView: () => this.cycleView()
+      cycleView: () => this.cycleView(),
+      locked: () => this.practiceChoicePending
     }, placementCommands(simulator, () => this.session, () => this.human.playerIndex,
       () => this.human.active && this.canShoot(this.human.playerIndex) && this.session.context.inHand > 0,
       (x, y) => {
@@ -167,7 +177,12 @@ export class BrowserGame {
     });
     this.touchingNoticeDom.element.classList.add("touching-notice");
     this.touchingNoticeDom.element.setAttribute("role", "status");
-    document.body.append(this.touchingNoticeDom.element, this.hudDom.element, this.viewNoticeDom.element, this.ruleChoice.element, this.nomination.element);
+    this.practiceControls = new PracticeControlsDom(
+      () => this.restorePracticeShot(),
+      () => this.restartPracticeShape()
+    );
+    document.body.append(this.touchingNoticeDom.element, this.hudDom.element, this.viewNoticeDom.element,
+      this.ruleChoice.element, this.nomination.element, this.practiceControls.element);
     this.activateTurn();
     this.openOpeningPlacement();
     this.syncHud();
@@ -271,12 +286,18 @@ export class BrowserGame {
     } : null);
   }
 
-  setMode(mode: GameMode, difficulty: keyof typeof AI_PROFILES = "NORMAL", options: GameOptions = {}): boolean {
+  setMode(mode: GameMode, difficulty: keyof typeof AI_PROFILES = "NORMAL", options: GameOptions = {},
+    shapeId: PracticeShapeId | null = null): boolean {
     if (!this.canReset) return false;
     this.controls.inHand.exit();
     this.shots.finish();
     this.human.camera.endShotView();
     this.replay.clear();
+    this.shapeId = shapeId;
+    this.launchOptions = options;
+    this.practiceChoicePending = false;
+    this.practiceChoiceMessage = "";
+    this.clearanceFinished = false;
     const formal = mode === "single-play" && !options.setup;
     this.session = new GameSession(this.simulator, mode, formal
       ? { ...options, openingPlayerIndex: options.openingPlayerIndex ?? this.nextOpeningIndex } : options);
@@ -287,14 +308,15 @@ export class BrowserGame {
     this.human.gotoState0(true); this.opponent.gotoState0(true);
     this.hud.foulNotice.close();
     this.activateTurn();
-    if (!options.setup) this.openOpeningPlacement();
-    this.syncHud(); this.syncRuleChoice(); this.controls.update();
+    if (!options.setup || this.session.mode === "practice") this.openOpeningPlacement();
+    this.syncHud(); this.syncRuleChoice(); this.controls.update(); this.syncPracticeControls();
     this.canvas.focus();
     return true;
   }
 
   private syncHud(): void {
     const { playerIndex, ballOn, inHand } = this.session.context;
+    this.hud.scorePanel.visible = this.session.mode !== "practice" || this.session.practiceScored;
     const allLocal = this.session.players.length === 2 && this.session.players.every(player => player.type === "USER");
     this.hud.resetPlayers(this.session.players.map((player, index) => allLocal ? `玩家 ${index + 1}` : player.type === "USER" ? "PLAYER" : "PCOL AI"));
     this.hud.playerIndex = playerIndex;
@@ -327,6 +349,68 @@ export class BrowserGame {
     const { foulCode, score } = this.session.result;
     if (foulCode) this.bus.emit("game/foul", { foulCode, score, description: getFoulDescription(foulCode) });
     if (missed) this.hud.foulNotice.head = "FOUL AND A MISS";
+    if (this.shapeId !== null) this.afterPracticeShot();
+  }
+
+  private afterPracticeShot(): void {
+    const objectBallsCleared = this.simulator.getBalls().every(ball => ball.index === 0 || !ball.active);
+    if (this.shapeId === "clearance" && objectBallsCleared) {
+      this.clearanceFinished = true;
+      this.viewNotice.show("清彩完成 · 菜单→重新开始可重摆");
+      this.viewNoticeDom.sync(this.viewNotice);
+      this.controls.update();
+      this.syncPracticeControls();
+      return;
+    }
+    if (this.shapeId === "five-spots" && !this.simulator.getBallView(0).active) {
+      this.restartPracticeShape();
+      return;
+    }
+    const foulCode = this.session.result.foulCode;
+    if (foulCode === 0) return;
+    this.practiceChoicePending = true;
+    this.practiceChoiceMessage = `犯规：${getFoulDescription(foulCode)}。选择重摆或复位。`;
+    this.controls.update();
+    this.syncPracticeControls();
+  }
+
+  private get canRestorePracticeShot(): boolean {
+    return this.shapeId !== null && !this.practiceChoicePending && !this.clearanceFinished &&
+      this.session.state === GAME_STATE.READY && this.session.canRestorePreviousShot &&
+      !this.shots.busy && !this.pendingShot && !this.replay.active;
+  }
+
+  private syncPracticeControls(): void {
+    const restoreVisible = this.shapeId !== null;
+    const choice = this.practiceChoicePending
+      ? { message: this.practiceChoiceMessage, canRestore: this.session.canRestorePreviousShot }
+      : null;
+    this.practiceControls.sync(restoreVisible, this.canRestorePracticeShot, choice);
+  }
+
+  private restorePracticeShot(): boolean {
+    if (this.shapeId === null || !this.session.canRestorePreviousShot || this.session.state !== GAME_STATE.READY ||
+        this.shots.busy || this.pendingShot || this.replay.active) return false;
+    if (this.session.restorePreviousShot(this.session.context.playerIndex) === false) return false;
+    this.practiceChoicePending = false;
+    this.practiceChoiceMessage = "";
+    this.controls.inHand.exit();
+    this.shots.finish();
+    this.human.camera.endShotView();
+    this.human.gotoState0(true); this.opponent.gotoState0(true);
+    this.outSeen = 0; this.pendingShot = false;
+    this.touchingKey = ""; this.touchingMessage.close();
+    this.hud.foulNotice.close();
+    this.activateTurn(); this.syncHud(); this.syncRuleChoice(); this.controls.update();
+    this.syncPracticeControls();
+    this.canvas.focus();
+    return true;
+  }
+
+  private restartPracticeShape(): boolean {
+    if (this.shapeId === null) return false;
+    this.practiceChoicePending = false;
+    return this.setMode("practice", this.difficulty, this.launchOptions, this.shapeId);
   }
 
   private handleClockExpiry(): void {
@@ -346,6 +430,7 @@ export class BrowserGame {
     this.human.camera.shotView.smoothing.verticalFov = this.camera.fov;
     this.viewNotice.update(dt); this.viewNoticeDom.sync(this.viewNotice);
     this.syncRuleChoice();
+    this.syncPracticeControls();
     const touching = this.touchingNotice;
     const touchingKey = `${this.session.context.nRounds}:${touching}`;
     if (!touching || this.hud.foulNotice.active) this.touchingMessage.close();
@@ -402,6 +487,7 @@ export class BrowserGame {
     this.hud.detach(); this.hudDom.element.remove(); this.shots.finish();
     this.viewNoticeDom.element.remove();
     this.replay.dispose();
+    this.practiceControls.dispose();
     this.ruleChoice.dispose();
     this.nomination.dispose();
     this.touchingNoticeDom.element.remove();

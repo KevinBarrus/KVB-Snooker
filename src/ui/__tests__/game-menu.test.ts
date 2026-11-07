@@ -153,7 +153,7 @@ describe("ui game menu", () => {
     expect(menu.twoPlayerSub).toBe("join");
   });
 
-  it("练习 · 自由练习与球形练习：10 种预设球形返回空，我的球形展示列表框与未实现提示", () => {
+  it("练习 · 自由练习与球形练习：10 种预设球形可启动，我的球形展示列表框与未实现提示", () => {
     const menu = new GameMenu();
     menu.selectTab("practice");
     const freeReq = menu.startFreePractice();
@@ -179,21 +179,23 @@ describe("ui game menu", () => {
     menu.openShapePractice();
     expect(menu.practiceSub).toBe("shapes");
     expect(PRESET_SHAPE_ITEMS.map(item => item.label)).toEqual([
-      "蛇彩",
-      "T球形",
-      "X球形",
+      "经典蛇彩",
       "S球形",
+      "T球形",
       "Y球形",
-      "双马尾球形",
-      "双杠球形",
       "订书钉球形",
-      "五分点练习",
-      "清彩练习"
+      "X球形",
+      "金字塔散点",
+      "双龙球形",
+      "清彩练习",
+      "五分点练习"
     ]);
     for (const shape of PRESET_SHAPE_ITEMS) {
-      menu.clickPresetShape(shape.id);
-      expect(menu.practiceSub).toBe("shapes");
-      expect(menu.mainMenuOpen).toBe(true);
+      menu.openShapePractice();
+      const req = menu.startShapePractice(shape.id);
+      expect(req.shapeId).toBe(shape.id);
+      expect(req.mode).toBe("practice");
+      expect(menu.mainMenuOpen).toBe(false);
     }
 
     menu.openMyShapes();
