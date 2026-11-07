@@ -66,16 +66,17 @@ describe("联机本杆诊断", () => {
     expect(unbuffered.summary.repeatedFrames).toBeGreaterThan(150);
   });
 
-  it("低 RTT 下仍记录校时偏差造成的负余量，不用平均 FPS 掩盖长帧", () => {
+  it("保留原始校时偏差，但不再污染运动播放；长帧和负余量仍可独立统计", () => {
     const skewed = stream(100, 300);
-    expect(skewed.summary.bufferEmptyFrames).toBeGreaterThan(150);
+    expect(skewed.summary.bufferEmptyFrames).toBe(0);
     expect(skewed.summary.estimatedAgeAtArrivalMs?.min).toBeGreaterThanOrEqual(300);
     const trace = new NetDiagnostics(100);
     trace.message(snapshot(0, "ready", "s1"), 0, 0);
     trace.message(snapshot(1000), 1002, 0);
-    trace.frame(frame(1110, 50, 150));
+    trace.frame(frame(1110, -200, 150));
     trace.message(snapshot(1100), 1102, 0);
     expect(trace.report().summary.framesOver50Ms).toBe(1);
+    expect(trace.report().summary.bufferEmptyFrames).toBe(1);
     expect(trace.report().summary.frameIntervalMs?.max).toBe(150);
   });
 

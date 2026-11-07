@@ -1,9 +1,3 @@
-/**
- * 联机开发原型 ping 时钟同步：offset = serverTime - (clientTime + rtt/2)，取最近样本中位数。
- * 纯状态，零 DOM、零定时器；时间由调用方显式传入。
- * 页面加载或主线程卡顿时 pong 会迟到，产生巨大 RTT 样本；估计优先采用低 RTT 样本的中位数，
- * 避免一次进度条卡顿把服务器时刻投影偏出数百毫秒。
- */
 const DEFAULT_CAPACITY = 9;
 const MAX_ACCEPTABLE_RTT_MS = 2_000;
 const MIN_OUTLIER_WINDOW_MS = 25;
@@ -57,7 +51,7 @@ export class PingClock {
     const minimumRtt = Math.min(...this.samples.map(sample => sample.rttMs));
     const window = Math.max(MIN_OUTLIER_WINDOW_MS, minimumRtt * 4 + 10);
     const trusted = this.samples.filter(sample => sample.rttMs <= window);
-    this.offsetValue = median(trusted.map(sample => sample.offsetMs));
+    this.offsetValue = trusted[trusted.length - 1].offsetMs;
     this.rttValue = median(this.samples.map(sample => sample.rttMs));
   }
 }

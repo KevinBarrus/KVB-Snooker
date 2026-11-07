@@ -1,6 +1,7 @@
 import { Vec3 } from "../core/math/vec3.js";
 import type { BallView, SerialData, ShotResult } from "../core/simulator/shot-result.js";
 import type { RoomPhase, SnapshotBall, SnapshotMessage, StateVersion } from "./protocol.js";
+import { PlaybackClock } from "./playback-clock.js";
 
 export interface RemoteViewOptions {
   /** 渲染延迟；约两个快照间隔（20Hz 时 100ms）。 */
@@ -60,6 +61,9 @@ export class RemoteView {
   private checkpointValue: SerialData | null = null;
   private targetServerMs = 0;
   private latestServerMs = 0;
+  private latestArrivalMs = 0;
+  private readonly playback = new PlaybackClock();
+  private idleFloorMs = -Infinity;
   private readonly emptyResult: ShotResult = { nKissed: 0, firstKissIndex: 0, pottedIndices: [], outOfBoundsIndices: [] };
 
   constructor(options: RemoteViewOptions = {}) {
@@ -83,20 +87,24 @@ export class RemoteView {
 
   /** 接收入站快照；返回 false 表示过期/乱序被丢弃。 */
   pushSnapshot(snapshot: SnapshotMessage, nowMs: number): boolean {
-    void nowMs;
     const latest = this.frames[this.frames.length - 1];
     if (latest) {
       if (snapshot.version < latest.version) return false;
       if (snapshot.version === latest.version && snapshot.serverTimeMs <= latest.serverTimeMs) return false;
-      const discontinuous = snapshot.serverTimeMs <= latest.serverTimeMs ||
+      const discontinuous = snapshot.serverTimeMs < latest.serverTimeMs ||
         snapshot.version > latest.version + MAX_INTERPOLATABLE_VERSION_JUMP;
-      if (discontinuous) this.frames = [];
+      if (discontinuous) { this.frames = []; this.playback.reset(); this.idleFloorMs = -Infinity; }
       else if (latest.phase === "ready" && snapshot.phase === "simulating" &&
           latest.touchAtServerMs !== null && latest.touchAtServerMs >= latest.serverTimeMs &&
           latest.touchAtServerMs < snapshot.serverTimeMs) {
         this.frames.push({ ...latest, phase: "simulating", serverTimeMs: latest.touchAtServerMs });
       }
     }
+    if (snapshot.pendingShot && snapshot.pendingShot.touchAtServerMs !== latest?.touchAtServerMs) {
+      this.playback.reset();
+      this.idleFloorMs = -Infinity;
+    }
+    this.latestArrivalMs = nowMs;
     this.versionValue = snapshot.version;
     this.phaseValue = snapshot.phase;
     this.frames.push({
@@ -116,7 +124,17 @@ export class RemoteView {
   update(nowMs: number): void {
     const frames = this.frames;
     if (frames.length === 0) { this.views = []; return; }
-    const target = nowMs + (this.offsetMs ?? 0) - this.interpolationDelayMs;
+    const latest = frames[frames.length - 1];
+    const playing = latest.phase === "simulating" || latest.touchAtServerMs !== null ||
+      (this.playback.active && this.targetServerMs < latest.serverTimeMs);
+    let target: number;
+    if (playing) {
+      target = this.playback.update(nowMs, latest.serverTimeMs, this.latestArrivalMs,
+        this.interpolationDelayMs, latest.touchAtServerMs === null ? latest.serverTimeMs : Infinity);
+    } else {
+      if (this.playback.active) { this.idleFloorMs = this.targetServerMs; this.playback.reset(); }
+      target = Math.max(this.idleFloorMs, nowMs + (this.offsetMs ?? 0) - this.interpolationDelayMs);
+    }
     this.targetServerMs = target;
     this.latestServerMs = frames[frames.length - 1].serverTimeMs;
     let before = frames[0];
@@ -184,6 +202,11 @@ export class RemoteView {
     this.versionValue = -1;
     this.phaseValue = "ready";
     this.checkpointValue = null;
+    this.playback.reset();
+    this.idleFloorMs = -Infinity;
+    this.targetServerMs = 0;
+    this.latestServerMs = 0;
+    this.latestArrivalMs = 0;
   }
 
   private interpolate(before: RemoteFrame, after: RemoteFrame, ratio: number): BallView[] {

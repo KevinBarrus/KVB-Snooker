@@ -10,12 +10,12 @@ describe("PingClock", () => {
     expect(clock.project(5_000)).toBe(1_050);
   });
 
-  it("取最近样本中位数以抵抗抖动", () => {
+  it("偏移跟随最新低 RTT 样本，不滞后于旧样本中位数", () => {
     const clock = new PingClock();
     clock.add(10_000, 1_000, 1_100);
     clock.add(10_200, 2_000, 2_100);
     clock.add(9_900, 3_000, 3_100);
-    expect(clock.offsetMs).toBe(8_150);
+    expect(clock.offsetMs).toBe(6_850);
   });
 
   it("低 RTT 样本优先，剔除主线程卡顿造成的迟到样本", () => {
@@ -42,5 +42,18 @@ describe("PingClock", () => {
     expect(clock.offsetMs).toBe(9_000);
     clock.add(10_100, 1_100, 1_102);
     expect(clock.offsetMs).toBe(8_999);
+  });
+
+  it("连续漂移和秒级跳变不再积压九个旧偏移样本", () => {
+    const clock = new PingClock();
+    for (let i = 0; i < 12; i++) {
+      const sent = i * 1000;
+      const offset = 5000 - i * 83 + (i >= 8 ? 1600 : 0);
+      clock.add(sent + 2 + offset, sent, sent + 4);
+      expect(clock.offsetMs).toBe(offset);
+    }
+    const before = clock.offsetMs;
+    clock.add(20000, 12000, 13000);
+    expect(clock.offsetMs).toBe(before);
   });
 });

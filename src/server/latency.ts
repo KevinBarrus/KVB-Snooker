@@ -1,4 +1,5 @@
 import type { LatencyConfig } from "../net/protocol.js";
+import { serverNowMs } from "./clock.js";
 
 export interface DevLatencyOptions {
   readonly inboundMs: number;
@@ -50,8 +51,8 @@ export class DevLatency {
    * 房间只用投递时刻作为权威 nowMs，接收时刻仅供日志/测量（否则入站延迟会吃掉 prepareLead）。
    */
   scheduleInbound(deliver: (receivedAtMs: number, deliveredAtMs: number) => void): void {
-    const receivedAtMs = Date.now();
-    this.schedule(this.delay(this.inboundMs), () => deliver(receivedAtMs, Date.now()));
+    const receivedAtMs = serverNowMs();
+    this.schedule(this.delay(this.inboundMs), () => deliver(receivedAtMs, serverNowMs()));
   }
 
   /** 出站消息：按单程延迟投递。 */

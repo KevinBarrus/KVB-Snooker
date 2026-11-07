@@ -56,7 +56,7 @@ function setup(interpolationDelayMs = 100) {
     launcher.update(at, remote.interpolationStats.targetServerMs);
     person.update(Math.min(dt, .25));
   };
-  const move = () => remote.pushSnapshot(snapshot(750, .2, "simulating"), 750);
+  const move = (at = 750) => remote.pushSnapshot(snapshot(at, .2, "simulating"), at);
   return { session, person, launcher, remote, frame, acknowledge, move, commands, snapshot };
 }
 
@@ -65,13 +65,14 @@ describe("联机球杆与母球共用显示时间线", () => {
     const t = setup(delay);
     t.acknowledge(20);
     t.frame(20);
-    t.move();
+    if (delay > 0) t.move();
     t.frame(699 + delay);
     expect(t.launcher.isStruck).toBe(false);
     expect(t.remote.getCueBallPosition().x).toBe(0);
     expect(t.person.stick.leadingSpace).toBeLessThan(0);
     const contact = t.person.stick.kissPoint.clone();
     const direction = t.person.stick.kissDir.clone();
+    if (delay === 0) t.move(710);
     t.frame(710 + delay);
     expect(t.remote.getCueBallPosition().x).toBeGreaterThan(0);
     expect(t.launcher.isStruck).toBe(true);
@@ -90,6 +91,24 @@ describe("联机球杆与母球共用显示时间线", () => {
     expect(t.person.stick.leadingSpace).toBeGreaterThanOrEqual(0);
     expect(t.session.timing().animationTouchAtMs).toBe(900);
     expect(t.commands).toHaveLength(1);
+  });
+
+  it("校时前跳或回拨不能让球杆提前触球，球杆与球位继续共用连续时间", () => {
+    const t = setup();
+    t.acknowledge(20);
+    t.frame(20);
+    t.remote.setClockOffset(1600);
+    t.frame(700);
+    expect(t.launcher.isStruck).toBe(false);
+    expect(t.remote.getCueBallPosition().x).toBe(0);
+    t.move();
+    t.remote.setClockOffset(-1600);
+    t.frame(799);
+    expect(t.launcher.isStruck).toBe(false);
+    t.frame(810);
+    expect(t.launcher.isStruck).toBe(true);
+    expect(t.remote.getCueBallPosition().x).toBeGreaterThan(0);
+    expect(t.person.stick.leadingSpace).toBeGreaterThanOrEqual(0);
   });
 
   it("一帧跨过触球时刻，球杆与母球一起追赶且记录实际观察帧", () => {

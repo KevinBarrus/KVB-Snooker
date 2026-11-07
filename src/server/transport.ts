@@ -10,6 +10,7 @@ import { DevLatency, type DevLatencyOptions } from "./latency.js";
 import { RoomManager } from "./room-manager.js";
 import { RoomSession } from "./room.js";
 import { acceptUpgrade, WebSocketConnection } from "./websocket.js";
+import { serverNowMs } from "./clock.js";
 
 export interface DevServerRoomOptions {
   readonly prepareLeadMs: number;
@@ -145,7 +146,7 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
       sendError(connection, REJECT.BAD_PROTOCOL, "ping 报文结构非法");
       return;
     }
-    send(connection, { type: "pong", id: record.id, clientTimeMs: record.clientTimeMs, serverTimeMs: Date.now() });
+    send(connection, { type: "pong", id: record.id, clientTimeMs: record.clientTimeMs, serverTimeMs: serverNowMs() });
   }
 
   function handleCommand(connection: ClientConnection, message: ClientMessage, nowMs: number): void {
@@ -207,7 +208,7 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
 
   const tickMs = Math.max(1, Math.floor(1000 / options.room.tickHz));
   const tickTimer = setInterval(() => {
-    const nowMs = Date.now();
+    const nowMs = serverNowMs();
     for (const entry of roomManager.tick(nowMs)) {
       for (const event of entry.result.events) broadcast(entry.room, event);
       if (entry.result.snapshot) broadcast(entry.room, entry.result.snapshot);

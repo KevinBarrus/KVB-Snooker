@@ -328,12 +328,15 @@ export interface RoomSession {
 
 房间命令只有 `prepare-shot` 与 `decide-turn` 两种；击球意图在服务器校验、冻结并由权威触球时刻施加一次冲量。`RoomSession` 不依赖 `setTimeout` 或真实墙钟，时间由调用方以毫秒单调值传入，便于确定性测试。WebSocket、延迟注入与监听地址属于传输层（`src/server/transport.ts`、`src/server/latency.ts`），不得进入房间裁决。
 
+服务器传输统一通过 `src/server/clock.ts` 的 `serverNowMs()` 取得进程单调毫秒时间（Node `performance.timeOrigin + performance.now()`）。命令投递、pong、物理tick及快照使用同一时基；系统墙钟只可用于日志/持久化日期，不能驱动本原型对局。报文仍是数字毫秒，不改变协议版本。
+
 **隔离与复用登记**
 
 - AI 隔离：`AIController` 增加可选依赖 `{ routeCache?: RouteCache; random?: () => number }`，默认仍共享原模块级缓存与 `coreRandom` 以保持现有单机行为；服务器为每房间注入独立 `RouteCache` 与随机源。该改动不改变 AI 算法、物理或规则。
 - 控制器窄接口：`GamingInput` 只依赖 `ShotLauncher { readonly busy: boolean; readonly inputLocked: boolean; launch(person: PersonController): boolean }`；本地 `ShotController` 与联机出杆动画器都实现该接口，镜头、球杆和输入映射算法不变。
 - 客户端显示源：`src/net/remote-view.ts` 由权威快照生成 `BallView` 结构视图（插值位置与归一化姿态），装配根把它接到现有 `BallRenderer` 与 `PersonController`。瞄准预测只使用本地 `Simulator` 从快照携带的 `SerialData` 检查点恢复后计算，从不写回服务端，也不推进真实回合。
 - 联机显示时序：`RemoteView.interpolationStats.targetServerMs` 为本帧显示时间，装配传给 `NetShotLauncher.update(nowMs, displayServerMs)`；球位和球杆共用它，晚到动画追赶而非重启。`nowMs` 只记录真实观察帧时间。原 `ShotLauncher` 与单机控制器接口不变，报文版本不变。DEV 测试句柄 `shotVisual` 只读暴露显示母球位置、球杆前送距离、触球阶段和显示时间，供逐帧回归；不是产品 API。
+- 运动播放时间与ping校时分离：`RemoteView.pushSnapshot(snapshot, nowMs)` 的本地到达时刻参与缓冲控制，内部 `PlaybackClock` 在准备/运动/结算显示期间维持单调游标。`setClockOffset` 保留供静止阶段投影及兼容调用，不能在运动中直接跳动游标。参数与恢复边界只在原型设计 §5 维护，不增加对核心的依赖。
 - 计时：本原型只实现经典规则；`advanceTime`、900 双表与触球截止竞争不在本次登记范围。
 
 **实现偏差登记（2026-11-07，原型内部扩展，语义不变）**
