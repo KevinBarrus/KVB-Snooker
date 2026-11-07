@@ -80,6 +80,10 @@ export interface NetTestHandle {
   readonly fps: number;
   /** 快照/插值诊断：到达速率、最大到达间隔与插值缓冲余量（<=0 表示显示会停顿后跳）。 */
   readonly netStats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number };
+  /** 回合已就绪（出杆收尾完成且显示追上最新权威快照，可以瞄准/出杆）。 */
+  readonly turnReady: boolean;
+  /** 最近一杆客户端触点相对最新权威母球中心的径向偏差（mm），正常≈0。 */
+  readonly contactErrorMm: number | null;
 }
 
 declare global {
@@ -152,7 +156,8 @@ class NetHud {
   private lastSync = -Infinity;
   constructor() { this.element.className = "net-hud"; }
   sync(nowMs: number, session: NetSessionState, lastError: string | null, fps: number,
-    stats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number }): void {
+    stats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number;
+      readonly contactErrorMm: number | null; readonly turnReady: boolean }): void {
     if (nowMs - this.lastSync < 100) return;
     this.lastSync = nowMs;
     const t = session.timing();
@@ -166,7 +171,8 @@ class NetHud {
       `${session.connectionState} · ${session.roomId ?? "—"} · 席位 ${session.seat ?? "—"} · v${session.version} · ${session.phase} · ${Math.round(fps)}fps`,
       `比分 ${score} · 目标球 ${context?.ballOn ?? "—"} · 手中球 ${context?.inHand ?? "—"} · ${session.isLocalTurn() ? "本机球权" : "等待对手"}`,
       `RTT ${session.rttMs === null ? "—" : `${Math.round(session.rttMs)}ms`} · 单程延迟 ${latency.inboundMs}/${latency.outboundMs}ms${jitter}`,
-      `快照 ${stats.snapshotsPerSecond}/s · 最大到达间隔 ${Math.round(stats.maxGapMs)}ms · 插值余量 ${Math.round(stats.marginMs)}ms`,
+      `快照 ${stats.snapshotsPerSecond}/s · 最大到达间隔 ${Math.round(stats.maxGapMs)}ms · 插值余量 ${Math.round(stats.marginMs)}ms` +
+        ` · 触点偏差 ${stats.contactErrorMm === null ? "—" : `${stats.contactErrorMm}mm`} · ${stats.turnReady ? "回合就绪" : "回合重置中"}`,
       `Space→命令 ${delta(t.spaceAtMs, t.commandSentAtMs)} · →Ack ${delta(t.spaceAtMs, t.ackAtMs)} · →投影触球 ${delta(t.spaceAtMs, t.projectedTouchAtMs)} · 动画-投影 ${delta(t.projectedTouchAtMs, t.animationTouchAtMs)} · 首运动-投影 ${delta(t.projectedTouchAtMs, t.firstMotionSnapshotAtMs)} · fired-投影 ${delta(t.projectedTouchAtMs, t.firedEventAtMs)} · 重试 ${t.retries}`
     ];
     if (lastError) lines.push(lastError);
@@ -195,6 +201,7 @@ async function main(): Promise<void> {
   const firstSnapshot = new Promise<SnapshotMessage>(resolve => { resolveSnapshot = resolve; });
   let snapshotSeen = false;
   let fpsValue = 0;
+  let turnReady = false;
   let scene: B.Scene | undefined;
 
   let snapWindowStart = performance.now();
@@ -259,7 +266,9 @@ async function main(): Promise<void> {
         maxGapMs: snapMaxGapMs,
         marginMs: remote.interpolationStats.marginMs
       };
-    }
+    },
+    get turnReady() { return turnReady; },
+    get contactErrorMm() { return launcher?.contactErrorMm ?? null; }
   };
   window.__snkNet = testHandle;
 
@@ -337,9 +346,9 @@ async function main(): Promise<void> {
     const controls = new GamingInput(canvas, personController, shotLauncher, {
       state: () => {
         if (session.connectionState !== "ready") return 0;
-        return session.canLaunch() ? GAME_STATE.READY : GAME_STATE.SIMULATING;
+        return session.canLaunch() && turnReady ? GAME_STATE.READY : GAME_STATE.SIMULATING;
       },
-      canAim: () => session.canLaunch() && !shotLauncher.busy && remote.getBallView(0).active,
+      canAim: () => session.canLaunch() && turnReady && !shotLauncher.busy && remote.getBallView(0).active,
       canPlace: () => false,
       cycleView
     }, NO_PLACEMENT);
@@ -350,7 +359,8 @@ async function main(): Promise<void> {
     let lastPrediction: PredictionContext | null = null;
     let lastBallOn = -1;
     let lastStatus = "";
-    let wasLocalTurn = false;
+    let wasCanLaunch = false;
+    let turnResetPending = false;
     let previousFrameAtMs = performance.now();
     let fpsFrames = 0;
     let fpsWindowStart = previousFrameAtMs;
@@ -371,13 +381,22 @@ async function main(): Promise<void> {
       remote.update(nowMs);
       personController.camera.shotView.smoothing.aspect = scene!.getEngine().getAspectRatio(camera);
       personController.camera.shotView.smoothing.verticalFov = camera.fov;
-      personController.active = session.canLaunch();
-      // 球位只由权威快照更新；轮到本机时把瞄准锚点重新对准当前母球，避免用上一杆的位置出杆。
-      if (personController.active && !wasLocalTurn) personController.reanchorCueBall();
-      wasLocalTurn = personController.active;
+      const canLaunch = session.canLaunch();
+      if (canLaunch && !wasCanLaunch) turnResetPending = true;
+      if (!canLaunch) { turnReady = false; turnResetPending = false; }
+      wasCanLaunch = canLaunch;
+      // 先让出杆动画器收尾（结束 shotView/起身），再做回合重置，避免“先跳回击球视角再起身”。
       shotLauncher.update(rawDt, nowMs);
+      // 回合重置必须等显示追上最新权威快照（插值余量<=0）：用滞后 100ms+ 的插值母球位置
+      // 会算出偏心触点（意外侧塞），也会让相机锚点/视角跳回旧位置。
+      if (turnResetPending && !shotLauncher.busy && remote.interpolationStats.marginMs <= 0) {
+        personController.activate();
+        turnResetPending = false;
+        turnReady = true;
+      }
+      personController.active = turnReady;
       personController.update(dt);
-      if (session.canLaunch() && personController.camera.state === 1) personController.updatePrediction();
+      if (turnReady && personController.camera.state === 1) personController.updatePrediction();
       camera.position.copyFrom(personController.camera.position);
       camera.lockedTarget = personController.camera.target;
       cue.isVisible = personController.camera.stateRatio > 0;
@@ -402,7 +421,9 @@ async function main(): Promise<void> {
       hud.sync(nowMs, session, session.lastError ?? client?.lastError ?? null, fpsValue, {
         snapshotsPerSecond,
         maxGapMs: snapMaxGapMs,
-        marginMs: remote.interpolationStats.marginMs
+        marginMs: remote.interpolationStats.marginMs,
+        contactErrorMm: shotLauncher.contactErrorMm,
+        turnReady
       });
       const nextStatus = session.connectionState !== "ready" ? session.connectionState
         : session.isLocalTurn() ? (shotLauncher.busy ? "击球中" : "本机回合 · W 瞄准 / Space 出杆") : "对手回合 · 自由观察";

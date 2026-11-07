@@ -5,6 +5,7 @@
  */
 import type { PersonController } from "./controller/person-controller.js";
 import type { ShotLauncher } from "./controller/shot-controller.js";
+import { STICK_SPECS } from "./controller/stick-controller.js";
 import { TipMotion } from "./controller/tip-motion.js";
 import type { CommandMessage } from "./net/protocol.js";
 import type { NetSessionState } from "./net/net-session-state.js";
@@ -19,15 +20,20 @@ export interface NetShotDeps {
 const MAX_SPEED_UP = 3;
 /** 最多放慢到 0.2 倍，避免异常提前量把出杆拖成慢动作。 */
 const MIN_SPEED_UP = 0.2;
+/** 与本地 ShotController 一致：球杆动作结束后约 0.5 秒开始起身，不等待全部球停下。 */
+const STAND_DELAY_SECONDS = 0.5;
 
 export class NetShotLauncher implements ShotLauncher {
   readonly motion = new TipMotion();
   private actor: PersonController | null = null;
   private started = false;
   private struck = false;
+  private stood = false;
+  private standDelay = -1;
   private animationSpeed = 1;
   private touchDuration = 0;
   private elapsed = 0;
+  private contactErrorValue: number | null = null;
 
   constructor(private readonly deps: NetShotDeps) {}
 
@@ -35,23 +41,29 @@ export class NetShotLauncher implements ShotLauncher {
   get inputLocked(): boolean { return this.actor !== null && !this.struck; }
   get isStruck(): boolean { return this.struck; }
   get launchingController(): PersonController | null { return this.actor; }
+  /** 最近一杆客户端触点相对“最新权威母球中心”的径向偏差（mm）；正常应接近 0，正负偏差会变成意外塞。 */
+  get contactErrorMm(): number | null { return this.contactErrorValue; }
 
   launch(person: PersonController): boolean {
     if (this.busy || !person.isReadyToStroke() || !this.motion.isReady()) return false;
-    const command = this.deps.session.beginShot(person.getStrokeVars(), this.deps.now());
+    const vars = person.getStrokeVars();
+    const command = this.deps.session.beginShot(vars, this.deps.now());
     if (!command) return false;
     this.actor = person;
     this.started = false;
     this.struck = false;
+    this.stood = false;
+    this.standDelay = -1;
     this.animationSpeed = 1;
     this.touchDuration = 0;
     this.elapsed = 0;
     this.motion.reset();
+    this.contactErrorValue = this.measureContactError(vars, person);
     this.deps.send(command);
     return true;
   }
 
-  /** 每帧调用：等待确认 → 按投影触球时刻缩放 dt 播放后拉/出杆 → 结算后收尾。 */
+  /** 每帧调用：等待确认 → 按投影触球时刻缩放 dt 播放后拉/出杆 → 球杆动作结束 0.5s 后起身 → 结算后收尾。 */
   update(dt: number, nowMs: number): void {
     const person = this.actor;
     if (!person) return;
@@ -64,25 +76,36 @@ export class NetShotLauncher implements ShotLauncher {
       this.beginAnimation(person, nowMs);
       return;
     }
-    if (!this.motion.needsUpdate) return;
-    // 帧内动画时间与真实 dt 线性对应：先记录帧初状态，触球跨帧时换算精确真实时刻。
-    const frameStartElapsed = this.elapsed;
-    const animationDelta = dt * this.animationSpeed;
-    let remaining = animationDelta;
-    while (remaining > 0 && this.motion.needsUpdate) {
-      const step = this.motion.tick(remaining);
-      remaining -= step;
-      this.elapsed += step;
-      this.motion.updateLength(person.simulator.getCueBallPosition(), person.radius);
-      person.stick.leadingSpace = this.motion.length;
-      if (step <= 0) break;
+    if (this.motion.needsUpdate) {
+      // 帧内动画时间与真实 dt 线性对应：先记录帧初状态，触球跨帧时换算精确真实时刻。
+      const frameStartElapsed = this.elapsed;
+      const animationDelta = dt * this.animationSpeed;
+      let remaining = animationDelta;
+      while (remaining > 0 && this.motion.needsUpdate) {
+        const step = this.motion.tick(remaining);
+        remaining -= step;
+        this.elapsed += step;
+        this.motion.updateLength(person.simulator.getCueBallPosition(), person.radius);
+        person.stick.leadingSpace = this.motion.length;
+        if (step <= 0) break;
+      }
+      if (!this.struck && this.touchDuration > 0 && frameStartElapsed < this.touchDuration &&
+          frameStartElapsed + animationDelta >= this.touchDuration) {
+        this.struck = true;
+        person.camera.shotView.struck = true;
+        const crossingMs = (this.touchDuration - frameStartElapsed) / this.animationSpeed * 1_000;
+        this.deps.session.noteAnimationTouch(nowMs - dt * 1_000 + crossingMs);
+      }
     }
-    if (!this.struck && this.touchDuration > 0 && frameStartElapsed < this.touchDuration &&
-        frameStartElapsed + animationDelta >= this.touchDuration) {
-      this.struck = true;
-      person.camera.shotView.struck = true;
-      const crossingMs = (this.touchDuration - frameStartElapsed) / this.animationSpeed * 1_000;
-      this.deps.session.noteAnimationTouch(nowMs - dt * 1_000 + crossingMs);
+    // 本地 ShotController 用 standDelay 在球杆动作结束后起身；联机版此前要等全部球停下才起身，
+    // 造成“停很久、然后突然回到击球视角再起身”。这里复刻 0.5s 延迟。
+    if (!this.motion.needsUpdate && this.struck && !this.stood) {
+      if (this.standDelay < 0) this.standDelay = STAND_DELAY_SECONDS;
+      this.standDelay -= dt;
+      if (this.standDelay <= 0) {
+        this.stood = true;
+        person.gotoState0();
+      }
     }
   }
 
@@ -91,13 +114,22 @@ export class NetShotLauncher implements ShotLauncher {
     this.actor = null;
     this.started = false;
     this.struck = false;
+    this.stood = false;
+    this.standDelay = -1;
     this.elapsed = 0;
     this.touchDuration = 0;
     this.motion.reset();
     if (!person) return;
-    person.camera.endShotView();
-    person.camera.unfollow();
-    person.gotoState0();
+    if (person.camera.shotView.active) {
+      // 平滑接管视线：endShotView 内部的 instant lookTo 会让画面“跳回击球视角”。
+      const target = person.camera.shotView.target;
+      person.camera.shotView.end();
+      person.camera.lookTo(target.x, target.z, false);
+      person.camera.unfollow();
+    } else {
+      person.camera.unfollow();
+    }
+    if (!this.stood) person.gotoState0();
   }
 
   private beginAnimation(person: PersonController, nowMs: number): void {
@@ -119,5 +151,16 @@ export class NetShotLauncher implements ShotLauncher {
     }
     const speed = touchDuration / remainingSeconds;
     this.animationSpeed = speed > MAX_SPEED_UP ? 1 : Math.max(MIN_SPEED_UP, speed);
+  }
+
+  /**
+   * 对照最新权威母球中心检查触点是否落在球杆皮头应有的球面上：
+   * 合法触点距球心约为 母球半径 + 皮头半径，偏差即意外塞的来源。
+   */
+  private measureContactError(vars: Float32Array, person: PersonController): number | null {
+    const cue = this.deps.session.latestSnapshot?.balls[0];
+    if (!cue) return null;
+    const distance = Math.hypot(vars[0] - cue.x, vars[1] - cue.y, vars[2] - cue.z);
+    return Math.round((distance - (person.radius + STICK_SPECS.tipRadius)) * 10_000) / 10;
   }
 }

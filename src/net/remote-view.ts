@@ -165,6 +165,13 @@ export class RemoteView {
     return { ...this.emptyResult, pottedIndices: [], outOfBoundsIndices: [] };
   }
 
+  /** 最新权威快照中的母球位置（不做插值）；用于回合开始重置瞄准锚点，避免用滞后位置算出偏心触点。 */
+  latestCueBallPosition(): { readonly x: number; readonly y: number; readonly z: number } | null {
+    const latest = this.frames[this.frames.length - 1];
+    const cue = latest?.balls[0];
+    return cue ? { x: cue.x, y: cue.y, z: cue.z } : null;
+  }
+
   /** 最近一次稳定阶段的检查点（用于本地 Simulator.restore 后 predict）。 */
   getCheckpoint(): SerialData | null {
     return this.checkpointValue === null ? null : copySerialData(this.checkpointValue);

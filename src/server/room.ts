@@ -215,7 +215,9 @@ export class RoomSession {
     const bounds = { ...DEFAULT_STROKE_BOUNDS, ballRadius: this.simulator.ballRadius };
     const invalidVars = validateStrokeVars(action.vars, bounds);
     if (invalidVars) return this.cachedReject(message, invalidVars, nowMs);
-    if (!this.ensureCueBallActive()) return this.cachedReject(message, REJECT.CUE_BALL_INACTIVE, nowMs);
+    // 手中球母球应在结算/决定阶段由服务器放到合法位置并随 ready 快照下发；
+    // 这里不再临时改位，否则客户端基于旧位置算出的触点会偏移（意外侧塞）或被误拒。
+    if (!this.simulator.getBallAtIndex(0).active) return this.cachedReject(message, REJECT.CUE_BALL_INACTIVE, nowMs);
     const cue = this.simulator.getCueBallPosition();
     const invalidContact = validateCueContact(action.vars, cue.x, cue.y, cue.z, this.simulator.ballRadius);
     if (invalidContact) return this.cachedReject(message, invalidContact, nowMs);
@@ -245,6 +247,8 @@ export class RoomSession {
     if (!decision || decision.playerIndex !== seat) return this.cachedReject(message, REJECT.NOT_YOUR_TURN, nowMs);
     const next: SeatIndex = action.takeOver ? seat : seat === 0 ? 1 : 0;
     if (!session.chooseNextPlayer(seat, next)) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
+    // 决定完成、状态回到 READY 后立刻把手中球放到合法位置，让客户端在 ready 快照里拿到最终母球位置。
+    this.ensureCueBallActive();
     this.version++;
     const ack: AckMessage = {
       type: "ack", commandId: message.commandId, accepted: true, stateVersion: this.version,
@@ -295,6 +299,8 @@ export class RoomSession {
       potted: [...result.pottedIndices], outOfBounds: [...result.outOfBoundsIndices],
       settledAtServerMs: nowMs
     }, nowMs));
+    // 直接回到 READY（无待选择）时，把手中球母球放到合法位置；DECIDING 留给 decide-turn 后处理。
+    if (this.session.state === GAME_STATE.READY) this.ensureCueBallActive();
   }
 
   private ensureCueBallActive(): boolean {

@@ -147,6 +147,12 @@ export function defaultFrameSetup(active: (index: number) => boolean = () => tru
   return { balls, ballOn: 2, inHand: 2, playerIndex: 0, scores: [0, 0] };
 }
 
+/** 只有母球在 (0, 0.3) 并朝 -z 直冲中袋的局面：用于验证母球摔袋后的手中球放置与 ready 快照时机。 */
+export function cuePotSetup(): FrameSetup {
+  const setup = defaultFrameSetup(index => index === 0);
+  return { ...setup, inHand: 0, balls: setup.balls.map(ball => ball.index === 0 ? { ...ball, x: 0, z: 0.3 } : ball) };
+}
+
 export function makeReferenceSession(ballSet: readonly number[], frameSetup?: FrameSetup): GameSession {
   const sim = new Simulator(makePocketTable(), { ...DEFAULT_SCENE, ballSet: [...ballSet] });
   return new GameSession(sim, "single-play", {

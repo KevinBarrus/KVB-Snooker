@@ -74,6 +74,7 @@
 - 单元 1：窄接口登记在[架构 §4.8](architecture.md#48-联机开发原型窄接口2026-11-07-登记原型未冻结)，共享报文类型 `src/net/protocol.ts`（v1），工程边界/运行/验收见[联机开发原型设计](multiplayer-prototype-design.md)。`RoomTickResult.ack`、`RoomOptions.latency/frameSetup`、`join` 的 `nowMs`、每房间独立事件序号等偏差已登记，仍是原型接口不是冻结产品 API。
 - 单元 2：Node 服务端装配真实 `Simulator`+`GameSession`（`src/server/room*.ts`、`table.ts`、`room-manager.ts`），每房间独立 `MeshBody`/`Simulator`。隔离审计发现并修复 `sharedRouteCache` 与 `coreRandom` 的 AI 串扰（`AIController` 可选注入，默认单机行为不变）；两房间交替推进与单独推进的 `sim.serialize()` 逐位一致。测试：`npx vitest run tests/server` 4 文件 26 项通过。
 - 单元 3：服务端命令/版本/去重/唯一权威触球/固定步长物理/快照检查点 + 零依赖 WebSocket + 仅开发单程延迟注入；浏览器 `src/net/**` 纯状态与 `src/app-net*.ts` 装配根，出杆只发意图、动画按服务器 `touchAtServerMs` 对齐、球运动只来自快照。验收脚本 `npm run test:net`（两个真实浏览器页面 + 真实服务器）通过：双席位同一杆运动、对手相机独立、无权端按 Space 不改变版本、`--drop-next-ack` 同 ID 重试只出一杆、80/80ms 单程延迟下动画与权威触球偏差 0ms、两房间交替推进互不污染。实测数字与限制见原型设计 §10—§11。
+- 2026-11-07 后续修正（用户单机双窗口实机报告后）：联机装配的回合就绪改为“出杆收尾 + 插值余量≤0（显示追上权威快照）后 reset”，复刻本地 0.5s 起身延迟和平滑 shotView 收尾；服务器手中球放置移到结算/决定阶段；HUD 增加 `触点偏差`（以母球半径+皮头半径为基准）与 `turnReady` 诊断。修复后 headless 触点偏差实测 0mm，`npm run test` 588 项与 `npm run test:net` 全部通过。限制见原型设计 §10.3、§11。
 - 全量：`npm run test` 58 文件 588 项通过、`npm run typecheck` 通过、`npm run build` 通过。本机既有 `test:rules` 失败与 `test:gunsight` 未重跑见单元 0 记录。
 - 未完成/未验证：真实两台物理电脑的人工联机（自动验收是同机双页面；WSL2 NAT 步骤见原型设计 §9.3）、真实 GPU/60fps 下的动画手感与 `prepareLeadMs=700` 联合标定、正式账号/游客/数据库/存档/重连判负/排行榜/高光/语音、完整联机 900。开发席位与开发令牌不是正式鉴权。
 

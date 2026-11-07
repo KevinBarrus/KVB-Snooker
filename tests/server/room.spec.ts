@@ -5,7 +5,7 @@ import type { FrameSetup } from "../../src/core/frame-setup.js";
 import { NET_PROTOCOL_VERSION, REJECT, type RejectReason, type WelcomeMessage } from "../../src/net/protocol.js";
 import type { RoomJoinOutcome, RoomJoinResult, RoomSession } from "../../src/server/room.js";
 import {
-  TEST_ROOM_ID, decideCommand, defaultFrameSetup, eventsOfType, joinSeats, makeReferenceSession,
+  TEST_ROOM_ID, cuePotSetup, decideCommand, defaultFrameSetup, eventsOfType, joinSeats, makeReferenceSession,
   makeStrokeVarsFor, makeTestRoom, prepareCommand, runTicks
 } from "./helpers.js";
 
@@ -229,17 +229,38 @@ describe("服务端权威房间（联机原型 §3—§6 / 架构 §4.8）", () 
       .toBe(REJECT.WRONG_PHASE);
   });
 
-  it("母球失活时用核心 placeCueBall 合法放置；无手中球时拒绝", () => {
-    const inHandRoom = makeTestRoom({ frameSetup: defaultFrameSetup() });
-    const { c0 } = joinSeats(inHandRoom);
-    const vars = makeStrokeVarsFor(inHandRoom.simulator, { dx: 0, dz: -1, speed: 5 });
-    inHandRoom.simulator.resetBallPosition(inHandRoom.simulator.getBallAtIndex(0), null);
-    expect(inHandRoom.simulator.getBallAtIndex(0).active).toBe(false);
-    const prepared = inHandRoom.command(c0, prepareCommand("respot", 0, vars), 1000);
-    expect(prepared.ack?.accepted).toBe(true);
-    expect(inHandRoom.simulator.getBallAtIndex(0).active).toBe(true);
-    expect(prepared.snapshot?.balls[0].active).toBe(true);
+  it("母球摔袋后：核心先复位母球；决定完成后服务器再合法放置并下发 ready 快照", () => {
+    const room = makeTestRoom({ frameSetup: cuePotSetup() });
+    const { c0, c1 } = joinSeats(room);
+    const potVars = makeStrokeVarsFor(room.simulator, { dx: 0, dz: -1, speed: 12 });
+    expect(room.command(c0, prepareCommand("cue-pot", 0, potVars), 1000).ack?.accepted).toBe(true);
+    room.tick(1700);
+    const run = runTicks(room, 1700);
+    expect(eventsOfType(run.events, "shot-settled")).toHaveLength(1);
+    expect(room.session.result.foulCode).toBe(9); // POTTING_CUE_BALL | MISS_TARGET
+    expect(room.session.context.inHand).toBe(2);
+    expect(room.session.state).toBe(GAME_STATE.DECIDING);
+    expect(room.session.decision?.playerIndex).toBe(1);
+    // 核心规则会把母球复位到默认点（active），手中球由玩家/服务器再合法移动。
+    expect(room.simulator.getBallAtIndex(0).active).toBe(true);
 
+    // 模拟极端情况：决定阶段母球仍失活；决定完成后服务器必须先用核心 placeCueBall 放置，再下发 ready 快照。
+    room.simulator.resetBallPosition(room.simulator.getBallAtIndex(0), null);
+    expect(room.simulator.getBallAtIndex(0).active).toBe(false);
+    const decided = room.command(c1, decideCommand("place-after-decide", room.stateVersion, true), 5000);
+    expect(decided.ack?.accepted).toBe(true);
+    expect(room.simulator.getBallAtIndex(0).active).toBe(true);
+    const cue = room.simulator.getCueBallPosition();
+    expect(room.session.canPlaceCueBall(cue.x, cue.y, cue.z)).toBe(true);
+    expect(room.session.state).toBe(GAME_STATE.READY);
+    expect(decided.snapshot?.balls[0].active).toBe(true);
+
+    // 下一杆使用已放置好的母球位置，prepare-shot 直接接受且不再临时改位。
+    const nextVars = makeStrokeVarsFor(room.simulator, { dx: 1, dz: 0.1, speed: 5 });
+    const prepared = room.command(c1, prepareCommand("after-place", room.stateVersion, nextVars), 5100);
+    expect(prepared.ack?.accepted).toBe(true);
+
+    // 无手中球且母球失活：明确拒绝，不偷偷改位也不改版本。
     const noInHandSetup = { ...defaultFrameSetup(), inHand: 0 as const };
     const noInHandRoom = makeTestRoom({ frameSetup: noInHandSetup });
     joinSeats(noInHandRoom, 0);

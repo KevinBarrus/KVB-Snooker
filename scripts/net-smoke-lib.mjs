@@ -99,6 +99,11 @@ async function waitFor(page, predicate, timeoutMs, label) {
 }
 
 async function aimClient(page) {
+  // 回合就绪（出杆收尾 + 显示追上权威快照）前输入会被忽略，先等就绪再按 W。
+  await waitFor(page, () => {
+    const net = window.__snkNet;
+    return net !== undefined && net.turnReady && net.turn;
+  }, 20000, "回合就绪");
   await page.locator("canvas").focus();
   await page.keyboard.press("w");
   await waitFor(page, () => {
