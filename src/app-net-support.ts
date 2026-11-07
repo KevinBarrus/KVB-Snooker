@@ -58,4 +58,3 @@ export class NetHud {
     this.element.textContent = lines.join("\n");
   }
 }
-
