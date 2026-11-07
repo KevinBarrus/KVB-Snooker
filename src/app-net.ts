@@ -1,8 +1,3 @@
-/**
- * 联机开发原型浏览器装配根（仅开发入口 `?net=<roomId>` 动态加载）。
- * 职责：连接/席位、场景与球渲染、本地席位 PersonController、真实输入路径、开发 HUD。
- * 权威物理只在服务器：本文件不推进 Simulator，不产生本地结算/声音；本地 Simulator 仅用于从检查点 predict。
- */
 import * as B from "babylonjs/es6.js";
 import { MeshBody, type CollisionMeshData } from "./core/physics/mesh-body.js";
 import { Simulator } from "./core/simulator/simulator.js";
@@ -22,14 +17,12 @@ import { GamingInput } from "./controller/gaming-input.js";
 import { isShotViewMode } from "./controller/shot-view.js";
 import { ViewNotice, ViewNoticeDom } from "./ui/view-notice.js";
 import type { PlacementCommands } from "./controller/in-hand.js";
+import { NetHud, parseConfig } from "./app-net-support.js";
 import { NetClient } from "./app-net-client.js";
 import { NetShotLauncher } from "./app-net-shot.js";
 import { NetSessionState, type ShotTimingRecord } from "./net/net-session-state.js";
 import { RemoteView } from "./net/remote-view.js";
 import {
-  DEFAULT_DEV_TOKEN,
-  DEFAULT_NET_PORT,
-  isSeatIndex,
   type ContextView,
   type LatencyConfig,
   type RoomPhase,
@@ -37,15 +30,6 @@ import {
   type ServerMessage,
   type SnapshotMessage
 } from "./net/protocol.js";
-
-interface NetLaunchConfig {
-  readonly roomId: string;
-  readonly server: string;
-  readonly token: string;
-  readonly requestedSeat?: SeatIndex;
-  /** 显示插值延迟（ms），仅开发调参用；默认 100。 */
-  readonly interpolationDelayMs: number;
-}
 
 interface DisplaySource extends Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "getResult" | "predict"> {}
 
@@ -58,7 +42,6 @@ interface NetSnapshotView {
   readonly balls: readonly { index: number; number: number; active: boolean; x: number; y: number; z: number }[];
 }
 
-/** 只读测试句柄；生产构建不加载本文件，因此不可用。 */
 export interface NetTestHandle {
   readonly ready: Promise<void>;
   snapshot(): NetSnapshotView | null;
@@ -72,18 +55,18 @@ export interface NetTestHandle {
   readonly cameraPosition: { readonly x: number; readonly y: number; readonly z: number };
   readonly cameraTarget: { readonly x: number; readonly y: number; readonly z: number };
   readonly shotsBusy: boolean;
-  /** 本地席位是否可发起击球（稳定阶段 + 本地球权 + 无未完成意图）。 */
   readonly turn: boolean;
-  /** 本地出杆前置条件：瞄准镜头到位且球杆可出杆（供验收定位问题）。 */
   readonly readyToStroke: boolean;
-  /** 最近约 0.5 秒的渲染帧率，用于区分网络卡顿与渲染帧率不足。 */
   readonly fps: number;
-  /** 快照/插值诊断：到达速率、最大到达间隔与插值缓冲余量（<=0 表示显示会停顿后跳）。 */
   readonly netStats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number };
-  /** 回合已就绪（出杆收尾完成且显示追上最新权威快照，可以瞄准/出杆）。 */
   readonly turnReady: boolean;
-  /** 最近一杆客户端触点相对最新权威母球中心的径向偏差（mm），正常≈0。 */
   readonly contactErrorMm: number | null;
+  readonly shotVisual: {
+    readonly cuePosition: { readonly x: number; readonly y: number; readonly z: number };
+    readonly leadingSpace: number;
+    readonly struck: boolean;
+    readonly displayServerMs: number;
+  };
 }
 
 declare global {
@@ -100,22 +83,6 @@ const NO_PLACEMENT: PlacementCommands = {
   end: () => false
 };
 const DIGEST = "04acfb245368bc1762cdcdf94f0bb81ab82dd82f785af661a4f63d3de9ccbbc9";
-
-function parseConfig(): NetLaunchConfig | null {
-  const params = new URLSearchParams(location.search);
-  const roomId = params.get("net")?.trim();
-  if (!roomId) return null;
-  const rawServer = params.get("server")?.trim();
-  const server = !rawServer ? `ws://${location.hostname}:${DEFAULT_NET_PORT}/net`
-    : /^wss?:\/\//i.test(rawServer) ? rawServer
-      : `ws://${/:\d+/.test(rawServer) ? rawServer : `${rawServer}:${DEFAULT_NET_PORT}`}/net`;
-  const token = params.get("token")?.trim() || DEFAULT_DEV_TOKEN;
-  const seatParam = params.get("seat");
-  const requestedSeat = seatParam !== null && isSeatIndex(Number(seatParam)) ? Number(seatParam) as SeatIndex : undefined;
-  const interpParam = Number(params.get("interp"));
-  const interpolationDelayMs = Number.isFinite(interpParam) && interpParam >= 0 && interpParam <= 500 ? interpParam : 100;
-  return { roomId, server, token, interpolationDelayMs, ...(requestedSeat === undefined ? {} : { requestedSeat }) };
-}
 
 async function loadSimulator(): Promise<Simulator> {
   const response = await fetch("/assets/physics/table.json");
@@ -135,7 +102,6 @@ function createDisplaySource(remote: RemoteView, simulator: Simulator): DisplayS
     getBallView: index => remote.getBallView(index),
     getCueBallPosition: () => remote.getCueBallPosition(),
     getResult: () => remote.getResult(),
-    // 只读预测：从权威检查点恢复本地模拟器后计算，不推进、不写回服务端。
     predict: (vars, maxDist) => {
       const checkpoint = remote.getCheckpoint();
       if (checkpoint) simulator.restore(checkpoint);
@@ -151,38 +117,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-class NetHud {
-  readonly element = document.createElement("pre");
-  private lastSync = -Infinity;
-  constructor() { this.element.className = "net-hud"; }
-  sync(nowMs: number, session: NetSessionState, lastError: string | null, fps: number,
-    stats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number;
-      readonly contactErrorMm: number | null; readonly turnReady: boolean }): void {
-    if (nowMs - this.lastSync < 100) return;
-    this.lastSync = nowMs;
-    const t = session.timing();
-    const latency = session.latencyConfig ?? ZERO_LATENCY;
-    const delta = (from: number | null, to: number | null) =>
-      from === null || to === null ? "—" : `${Math.round(to - from)}ms`;
-    const jitter = latency.jitterMs > 0 ? ` ±${latency.jitterMs}` : "";
-    const context = session.context;
-    const score = context ? `${context.scores[0]} : ${context.scores[1]}` : "—";
-    const lines = [
-      `${session.connectionState} · ${session.roomId ?? "—"} · 席位 ${session.seat ?? "—"} · v${session.version} · ${session.phase} · ${Math.round(fps)}fps`,
-      `比分 ${score} · 目标球 ${context?.ballOn ?? "—"} · 手中球 ${context?.inHand ?? "—"} · ${session.isLocalTurn() ? "本机球权" : "等待对手"}`,
-      `RTT ${session.rttMs === null ? "—" : `${Math.round(session.rttMs)}ms`} · 单程延迟 ${latency.inboundMs}/${latency.outboundMs}ms${jitter}`,
-      `快照 ${stats.snapshotsPerSecond}/s · 最大到达间隔 ${Math.round(stats.maxGapMs)}ms · 插值余量 ${Math.round(stats.marginMs)}ms` +
-        ` · 触点偏差 ${stats.contactErrorMm === null ? "—" : `${stats.contactErrorMm}mm`} · ${stats.turnReady ? "回合就绪" : "回合重置中"}`,
-      `Space→命令 ${delta(t.spaceAtMs, t.commandSentAtMs)} · →Ack ${delta(t.spaceAtMs, t.ackAtMs)} · →投影触球 ${delta(t.spaceAtMs, t.projectedTouchAtMs)} · 动画-投影 ${delta(t.projectedTouchAtMs, t.animationTouchAtMs)} · 首运动-投影 ${delta(t.projectedTouchAtMs, t.firstMotionSnapshotAtMs)} · fired-投影 ${delta(t.projectedTouchAtMs, t.firedEventAtMs)} · 重试 ${t.retries}`
-    ];
-    if (lastError) lines.push(lastError);
-    if (session.lastRejectReason) lines.push(`拒绝原因 ${session.lastRejectReason}`);
-    this.element.textContent = lines.join("\n");
-  }
-}
-
 async function main(): Promise<void> {
-  const config = parseConfig();
+  const config = parseConfig(location.search);
   if (!config) throw new Error("联机入口需要 ?net=<roomId>");
   const canvas = document.querySelector("canvas");
   const status = document.querySelector("output");
@@ -268,7 +204,11 @@ async function main(): Promise<void> {
       };
     },
     get turnReady() { return turnReady; },
-    get contactErrorMm() { return launcher?.contactErrorMm ?? null; }
+    get contactErrorMm() { return launcher?.contactErrorMm ?? null; },
+    get shotVisual() {
+      return { cuePosition: remote.getCueBallPosition(), leadingSpace: person?.stick.leadingSpace ?? 0,
+        struck: launcher?.isStruck ?? false, displayServerMs: remote.interpolationStats.targetServerMs };
+    }
   };
   window.__snkNet = testHandle;
 
@@ -309,7 +249,6 @@ async function main(): Promise<void> {
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
     const viewNotice = new ViewNotice();
     const viewNoticeDom = new ViewNoticeDom(document, () => canvas.focus());
-    // 犯规/选择阶段的最简 decide-turn：只有拥有选择权的本地席位看到两个按钮。
     const decision = document.createElement("div");
     decision.className = "net-decision";
     decision.hidden = true;
@@ -366,8 +305,6 @@ async function main(): Promise<void> {
     let fpsWindowStart = previousFrameAtMs;
     engine.runRenderLoop(() => {
       const nowMs = performance.now();
-      // 出杆动画按真实经过时间对齐投影触球时刻；engine.getDeltaTime() 是性能监视器的瞬时帧时，
-      // 低帧率或卡顿下与真实间隔偏差明显，不能用于时序测量。
       const rawDt = (nowMs - previousFrameAtMs) / 1000;
       previousFrameAtMs = nowMs;
       const dt = Math.min(rawDt, 0.25);
@@ -385,10 +322,7 @@ async function main(): Promise<void> {
       if (canLaunch && !wasCanLaunch) turnResetPending = true;
       if (!canLaunch) { turnReady = false; turnResetPending = false; }
       wasCanLaunch = canLaunch;
-      // 先让出杆动画器收尾（结束 shotView/起身），再做回合重置，避免“先跳回击球视角再起身”。
-      shotLauncher.update(rawDt, nowMs);
-      // 回合重置必须等显示追上最新权威快照（插值余量<=0）：用滞后 100ms+ 的插值母球位置
-      // 会算出偏心触点（意外侧塞），也会让相机锚点/视角跳回旧位置。
+      shotLauncher.update(nowMs, remote.interpolationStats.targetServerMs);
       if (turnResetPending && !shotLauncher.busy && remote.interpolationStats.marginMs <= 0) {
         personController.activate();
         turnResetPending = false;
@@ -409,7 +343,7 @@ async function main(): Promise<void> {
         gunsight.syncPrediction(prediction, ballOn);
         lastPrediction = prediction; lastBallOn = ballOn;
       }
-      // 与本地装配一致：瞄准线只在相机基本趴下后才淡入，并在后拉时淡出（PCOL L7651-7655）。
+      // PCOL L7651-7655
       const aimRatio = (1 - (shotLauncher.busy ? shotLauncher.motion.pullbackProgress : 0)) * personController.camera.renderedRatio;
       const aimAlpha = personController.active && aimRatio > 0.8 ? (aimRatio - 0.8) / 0.2 : 0;
       gunsight.alpha = prediction && personController.camera.state === 1 ? 0.6 * aimAlpha : 0;

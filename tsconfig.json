@@ -26,6 +26,7 @@
     "src/app-net.ts",
     "src/app-net-client.ts",
     "src/app-net-shot.ts",
+    "src/app-net-support.ts",
     "src/audio/browser-backend.ts",
     "src/app-audio.ts"
   ]

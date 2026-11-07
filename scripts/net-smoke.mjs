@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright-core";
+import { watchShot, assertShotVisual, shootAcrossStall } from "./net-shot-visual.mjs";
 import {
   CHROME_BIN, LEAD_MS, aimClient, assertSnapshotsEqual, buildServer, closePages, openClient, readNet, recordShot,
   resolveDecision, shoot, sleep, startServer, stopServer
@@ -35,6 +36,7 @@ async function runBaseline(browser) {
     await aimClient(seat0);
     const aimed = await readNet(seat0);
     assert.equal(aimed.turn, true, "席位 0 应轮到本机");
+    await watchShot(seat0);
     await shoot(seat0);
     const motion = await recordShot([seat0, seat1], 0);
     await resolveDecision([seat0, seat1]);
@@ -42,6 +44,7 @@ async function runBaseline(browser) {
     const final1 = await readNet(seat1);
     assertSnapshotsEqual(final0.snapshot, final1.snapshot, "baseline 两端结算快照");
 
+    const visual = await assertShotVisual(seat0);
     const t = final0.timing;
     for (const key of ["spaceAtMs", "commandSentAtMs", "ackAtMs", "projectedTouchAtMs",
       "animationTouchAtMs", "firstMotionSnapshotAtMs", "firedEventAtMs"]) {
@@ -93,11 +96,11 @@ async function runBaseline(browser) {
 
     results.push({
       name: "baseline", room, leadMs: LEAD_MS,
-      timing: t, animationMinusProjectedMs: Math.round(animationDelta),
+      timing: t, visual, animationMinusProjectedMs: Math.round(animationDelta),
       versionBefore, versionAfter: final0.snapshot.version,
       commonVersions: commonVersions.length, cameraDelta,
       players: final0.snapshot.context.playerIndex,
-      note: "default 700ms lead; headless software WebGL fps limited, animation deviation recorded not hidden"
+      note: "actual rendered frames checked; animation timestamp is observed frame time"
     });
     await mkdir(".cache/net", { recursive: true });
     await seat0.screenshot({ path: ".cache/net/baseline-seat0.png" });
@@ -109,7 +112,6 @@ async function runBaseline(browser) {
   }
 }
 
-/** 在足够大的 prepareLead 下验证动画触球与权威触球对齐（headless 软件渲染帧率很低，默认 700ms 可能不足）。 */
 async function runAlignment(browser) {
   const leadMs = 1600;
   const server = await startServer([], leadMs);
@@ -121,16 +123,19 @@ async function runAlignment(browser) {
     ]);
     pages.push(seat0, seat1);
     await aimClient(seat0);
+    await watchShot(seat0);
     await shoot(seat0);
     const motion = await recordShot([seat0, seat1], 0);
     const final0 = await readNet(seat0);
     const final1 = await readNet(seat1);
     assertSnapshotsEqual(final0.snapshot, final1.snapshot, "alignment 两端结算快照");
+    const visual = await assertShotVisual(seat0);
     const t = final0.timing;
     const delta = t.animationTouchAtMs - t.projectedTouchAtMs;
-    assert.ok(Math.abs(delta) <= 250, `动画触球应落在权威触球窗口内：偏差 ${Math.round(delta)}ms`);
+    assert.ok(t.animationTouchAtMs <= visual.firstMotionAtMs,
+      "实际显示触球帧不能晚于母球首次运动帧");
     assert.ok(t.firstMotionSnapshotAtMs - t.projectedTouchAtMs <= 400);
-    results.push({ name: "alignment", leadMs, animationMinusProjectedMs: Math.round(delta),
+    results.push({ name: "alignment", leadMs, visual, animationMinusProjectedMs: Math.round(delta),
       spaceToProjectedMs: Math.round(t.projectedTouchAtMs - t.spaceAtMs),
       commonVersions: [...motion.samples[0].keys()].filter(version => motion.samples[1].has(version)).length });
   } finally {
@@ -152,6 +157,7 @@ async function runDropAck(browser) {
     const initial = await readNet(seat0);
     const versionBefore = initial.snapshot.version;
     await aimClient(seat0);
+    await watchShot(seat0);
     await shoot(seat0);
     const motion = await recordShot([seat0], 0);
     const final = await readNet(seat0);
@@ -159,7 +165,8 @@ async function runDropAck(browser) {
     assert.equal(final.snapshot.version - versionBefore, 3,
       `重复命令只能产生一次实际击球（版本增量应恰为 3：${final.snapshot.version} - ${versionBefore}）`);
     assert.notEqual(final.timing.shotId, null);
-    results.push({ name: "drop-ack", versionBefore, versionAfter: final.snapshot.version,
+    const visual = await assertShotVisual(seat0);
+    results.push({ name: "drop-ack", visual, versionBefore, versionAfter: final.snapshot.version,
       retries: final.timing.retries, commonVersions: motion.samples[0].size });
     return final;
   } finally {
@@ -185,25 +192,27 @@ async function runLatency(browser) {
     assert.equal(initial.latency.outboundMs, 80);
     assert.equal(initial.latency.appliesTo, "one-way-per-direction", "配置必须声明是单程延迟");
     await aimClient(seat0);
+    await watchShot(seat0);
     await shoot(seat0);
     const motion = await recordShot([seat0, seat1], 0);
     const final0 = await readNet(seat0);
     const final1 = await readNet(seat1);
     assertSnapshotsEqual(final0.snapshot, final1.snapshot, "latency 两端结算快照");
+    const visual = await assertShotVisual(seat0);
     const t = final0.timing;
     assert.ok(t.ackAtMs - t.spaceAtMs >= 130, `往返延迟应体现（Ack-Space=${Math.round(t.ackAtMs - t.spaceAtMs)}ms）`);
     assert.ok(t.projectedTouchAtMs - t.spaceAtMs >= leadMs + 40,
       `投影触球应包含入站单程延迟（${Math.round(t.projectedTouchAtMs - t.spaceAtMs)}ms < ${leadMs + 40}ms）`);
     const latencyAnimationDelta = t.animationTouchAtMs - t.projectedTouchAtMs;
-    assert.ok(Math.abs(latencyAnimationDelta) <= 250,
-      `延迟注入下动画仍应对齐权威触球：偏差 ${Math.round(latencyAnimationDelta)}ms`);
+    assert.ok(t.animationTouchAtMs <= visual.firstMotionAtMs,
+      "延迟注入下实际显示触球帧不能晚于母球首次运动帧");
     assert.ok(t.firstMotionSnapshotAtMs - t.projectedTouchAtMs >= 30,
       `首个运动快照应晚于投影触球约一个出站单程（${Math.round(t.firstMotionSnapshotAtMs - t.projectedTouchAtMs)}ms）`);
     assert.ok(t.firstMotionSnapshotAtMs - t.projectedTouchAtMs <= 400, "出站延迟不应阻塞物理");
     assert.ok(t.retries === 0);
     const commonVersions = [...motion.samples[0].keys()].filter(version => motion.samples[1].has(version));
     assert.ok(commonVersions.length >= 2, "延迟下两端仍应共享同一杆快照版本");
-    results.push({ name: "latency", leadMs, timing: t, commonVersions: commonVersions.length,
+    results.push({ name: "latency", leadMs, timing: t, visual, commonVersions: commonVersions.length,
       animationMinusProjectedMs: Math.round(latencyAnimationDelta),
       rttMs: Math.round(t.ackAtMs - t.spaceAtMs) });
     return { t, commonVersions };
@@ -261,6 +270,30 @@ async function runTwoRooms(browser) {
   }
 }
 
+async function runStall(browser) {
+  const server = await startServer();
+  const pages = [];
+  try {
+    const [seat0, seat1] = await Promise.all([
+      openClient(browser, server.info, "s-stall", 0, "stall-seat0"),
+      openClient(browser, server.info, "s-stall", 1, "stall-seat1")
+    ]);
+    pages.push(seat0, seat1);
+    await aimClient(seat0);
+    await watchShot(seat0);
+    await shootAcrossStall(seat0, 1100);
+    await recordShot(pages, 0);
+    const visual = await assertShotVisual(seat0);
+    const final0 = await readNet(seat0);
+    const final1 = await readNet(seat1);
+    assertSnapshotsEqual(final0.snapshot, final1.snapshot, "长帧之后两端结算");
+    results.push({ name: "late-animation-start", stallMs: 1100, visual, timing: final0.timing });
+  } finally {
+    await closePages(pages);
+    await stopServer(server);
+  }
+}
+
 async function main() {
   buildServer();
   const browser = await chromium.launch({
@@ -271,6 +304,7 @@ async function main() {
     const logResult = () => console.log(`NET_SMOKE_STEP ${JSON.stringify(results[results.length - 1])}`);
     await runBaseline(browser); logResult();
     await runAlignment(browser); logResult();
+    await runStall(browser); logResult();
     await runDropAck(browser); logResult();
     await runLatency(browser); logResult();
     await runTwoRooms(browser); logResult();

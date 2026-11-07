@@ -333,6 +333,7 @@ export interface RoomSession {
 - AI 隔离：`AIController` 增加可选依赖 `{ routeCache?: RouteCache; random?: () => number }`，默认仍共享原模块级缓存与 `coreRandom` 以保持现有单机行为；服务器为每房间注入独立 `RouteCache` 与随机源。该改动不改变 AI 算法、物理或规则。
 - 控制器窄接口：`GamingInput` 只依赖 `ShotLauncher { readonly busy: boolean; readonly inputLocked: boolean; launch(person: PersonController): boolean }`；本地 `ShotController` 与联机出杆动画器都实现该接口，镜头、球杆和输入映射算法不变。
 - 客户端显示源：`src/net/remote-view.ts` 由权威快照生成 `BallView` 结构视图（插值位置与归一化姿态），装配根把它接到现有 `BallRenderer` 与 `PersonController`。瞄准预测只使用本地 `Simulator` 从快照携带的 `SerialData` 检查点恢复后计算，从不写回服务端，也不推进真实回合。
+- 联机显示时序：`RemoteView.interpolationStats.targetServerMs` 为本帧显示时间，装配传给 `NetShotLauncher.update(nowMs, displayServerMs)`；球位和球杆共用它，晚到动画追赶而非重启。`nowMs` 只记录真实观察帧时间。原 `ShotLauncher` 与单机控制器接口不变，报文版本不变。DEV 测试句柄 `shotVisual` 只读暴露显示母球位置、球杆前送距离、触球阶段和显示时间，供逐帧回归；不是产品 API。
 - 计时：本原型只实现经典规则；`advanceTime`、900 双表与触球截止竞争不在本次登记范围。
 
 **实现偏差登记（2026-11-07，原型内部扩展，语义不变）**

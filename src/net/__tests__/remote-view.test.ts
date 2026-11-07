@@ -42,14 +42,16 @@ describe("RemoteView 版本与缓冲", () => {
     expect(view.pushSnapshot(snapshot(5, 5_010, positions([ball(0, 0, 1, 0.9, 0)])), 120)).toBe(true);
   });
 
-  it("阶段变化时清空旧帧，绝不混合不同回合", () => {
+  it("阶段变化按显示时间切换，绝不混合不同回合", () => {
     const view = makeView();
     view.pushSnapshot(snapshot(1, 1_000, positions([ball(0, 0, 0, 0.9, 0)]), { phase: "simulating" }), 100);
     view.pushSnapshot(snapshot(1, 1_050, positions([ball(0, 0, 1, 0.9, 0)]), { phase: "simulating" }), 110);
     expect(view.frameCount).toBe(2);
     view.pushSnapshot(snapshot(2, 1_100, positions([ball(0, 0, 9, 0.9, 0)]), { phase: "ready" }), 120);
-    expect(view.frameCount).toBe(1);
+    expect(view.frameCount).toBe(3);
     view.update(1_160);
+    expect(view.getBallView(0).renderPosition.x).toBe(1);
+    view.update(1_200);
     expect(view.getBallView(0).renderPosition.x).toBe(9);
   });
 });

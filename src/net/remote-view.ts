@@ -1,13 +1,3 @@
-/**
- * 联机开发原型显示源：由权威快照生成只读 BallView 结构视图并做位置/姿态插值（架构 §4.8）。
- * 纯模块：零 DOM、零物理。渲染与控制器只读取这里输出的显示数据，不接触服务端 World/Body。
- *
- * 插值策略：
- * - 渲染目标时刻 = 本地 now + 时钟偏移 - 固定插值延迟（默认约两个快照间隔）。
- * - 只在相邻快照之间线性插值位置、归一化 nlerp 四元数；不跨阶段（不同回合/结算归位）混合。
- * - 首端早于最早快照时取最早帧，尾端晚于最新快照时保持最新帧（不外推），避免制造权威假象。
- * - 版本单调：旧 version 快照被丢弃，绝不用旧快照覆盖新快照。
- */
 import { Vec3 } from "../core/math/vec3.js";
 import type { BallView, SerialData, ShotResult } from "../core/simulator/shot-result.js";
 import type { RoomPhase, SnapshotBall, SnapshotMessage, StateVersion } from "./protocol.js";
@@ -25,6 +15,7 @@ interface RemoteFrame {
   readonly version: StateVersion;
   readonly serverTimeMs: number;
   readonly phase: RoomPhase;
+  readonly touchAtServerMs: number | null;
   readonly balls: readonly SnapshotBall[];
 }
 
@@ -98,9 +89,13 @@ export class RemoteView {
       if (snapshot.version < latest.version) return false;
       if (snapshot.version === latest.version && snapshot.serverTimeMs <= latest.serverTimeMs) return false;
       const discontinuous = snapshot.serverTimeMs <= latest.serverTimeMs ||
-        (snapshot.version > latest.version + MAX_INTERPOLATABLE_VERSION_JUMP) ||
-        snapshot.phase !== latest.phase;
+        snapshot.version > latest.version + MAX_INTERPOLATABLE_VERSION_JUMP;
       if (discontinuous) this.frames = [];
+      else if (latest.phase === "ready" && snapshot.phase === "simulating" &&
+          latest.touchAtServerMs !== null && latest.touchAtServerMs >= latest.serverTimeMs &&
+          latest.touchAtServerMs < snapshot.serverTimeMs) {
+        this.frames.push({ ...latest, phase: "simulating", serverTimeMs: latest.touchAtServerMs });
+      }
     }
     this.versionValue = snapshot.version;
     this.phaseValue = snapshot.phase;
@@ -108,6 +103,7 @@ export class RemoteView {
       version: snapshot.version,
       serverTimeMs: snapshot.serverTimeMs,
       phase: snapshot.phase,
+      touchAtServerMs: snapshot.pendingShot?.touchAtServerMs ?? null,
       balls: snapshot.balls
     });
     if (this.frames.length > this.maxFrames) this.frames.splice(0, this.frames.length - this.maxFrames);
@@ -141,6 +137,11 @@ export class RemoteView {
           break;
         }
       }
+    }
+    if (before.phase !== after.phase) {
+      if (target >= after.serverTimeMs) before = after;
+      else after = before;
+      ratio = 0;
     }
     this.views = this.interpolate(before, after, Math.min(1, Math.max(0, ratio)));
   }
