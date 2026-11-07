@@ -39,7 +39,7 @@ export interface BallLighting {
   brdf: B.BaseTexture;
 }
 
-type Appearance = { number: number } | { diffuse: B.Texture; glossy: B.Texture };
+type Appearance = { number: number; dots?: boolean } | { diffuse: B.Texture; glossy: B.Texture };
 
 // PCOL L443-466, L1228-1239, L10450-10525
 class IblMaterial extends B.ShaderMaterial {
@@ -48,19 +48,25 @@ class IblMaterial extends B.ShaderMaterial {
   constructor(scene: B.Scene, private readonly lighting: BallLighting, appearance: Appearance) {
     registerShaders();
     const cue = "diffuse" in appearance;
+    const dots = !cue && appearance.dots === true;
     const color = cue ? [1, 1, 1] as const : BALL_COLORS[appearance.number];
     if (!color) throw new Error("Unknown ball number");
-    super(cue ? "cue-material" : `ball-material-${appearance.number}`, scene, "pcolBall", {
+    super(cue ? "cue-material" : `ball-material-${appearance.number}${dots ? "-dots" : ""}`, scene, "pcolBall", {
       attributes: cue ? ["position", "normal", "uv"] : ["position", "normal"],
       uniforms: ["world", "viewProjection", "vEyePosition", "vDiffuseColor", "vReflectivity", "vLightProbeInfos",
         "vLodFallOff", "vAABB", "vAoInfos", "vDynamicRatios"],
       samplers: ["aoSampler", "radSampler", "environmentBrdfSampler", ...Array.from({ length: 8 }, (_, i) => `iradSampler${i}`)],
       defines: ["NORMAL", "DIFFUSEDIRECTUV 0", "REFLECTIVITYROUGHNESSDIRECTUV 0", "RADIANCE", "IRRADIANCE", "USEPARALLAXCORRECTION",
         ...(cue ? ["UV1", "DIFFUSE", "REFLECTIVITYROUGHNESS", "USERADIANCELODROUGHNESS"] : ["AO", "AODIRECTUV 10", "DYAO"]),
+        ...(dots ? ["CUE_DOTS"] : []),
         "USELODFALLOFF", "ENVIRONMENTBRDF", "TONEMAPPINGMODE 2", "PBR", "USEPHYSICALLIGHTFALLOFF",
         ...(scene.getEngine().getCaps().textureLOD ? ["LODBASEDMICROSURFACE"] : [])].map(value => `#define ${value}`)
     });
     this.setColor4("vDiffuseColor", new B.Color4(...color, 1));
+    if (dots) {
+      this.setColor3("vDotColor", new B.Color3(0.55, 0.012, 0.015));
+      this.setFloat("vDotEnabled", 1);
+    }
     this.setVector4("vReflectivity", new B.Vector4(0.04, 0.04, 0.04, cue ? 1 : 0.1));
     this.setVector4("vLightProbeInfos", new B.Vector4(lighting.radiance.getSize().width, cue ? 0.12 : 1, 1, 0));
     this.setVector4("vLodFallOff", cue ? new B.Vector4(1.5, 8.5, 2, 1.5) : new B.Vector4(1.5, 1.5, 5, 2));
@@ -98,7 +104,7 @@ class IblMaterial extends B.ShaderMaterial {
 }
 
 export class BallMaterial extends IblMaterial {
-  constructor(scene: B.Scene, number: number, lighting: BallLighting) { super(scene, lighting, { number }); }
+  constructor(scene: B.Scene, number: number, lighting: BallLighting, dots = false) { super(scene, lighting, { number, dots }); }
 }
 
 export class CueMaterial extends IblMaterial {

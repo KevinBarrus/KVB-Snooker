@@ -15,6 +15,11 @@ varying vec3 vPositionW;
 #ifdef NORMAL
 varying vec3 vNormalW;
 #endif
+#ifdef CUE_DOTS
+varying vec3 vDotNormal;
+uniform vec3 vDotColor;
+uniform float vDotEnabled;
+#endif
 #ifdef VERTEXCOLOR
 varying vec4 vColor;
 #endif
@@ -104,6 +109,12 @@ vec3 normalW=normalize(vNormalW)*-vEyePosition.w;
 vec3 normalW=normalize(cross(dFdx(vPositionW),dFdy(vPositionW)))*-vEyePosition.w;
 #endif
 vec3 surfaceAlbedo=vDiffuseColor.rgb;
+#ifdef CUE_DOTS
+vec3 dotNormal=normalize(vDotNormal);
+float dotAmount=max(max(abs(dotNormal.x),abs(dotNormal.y)),abs(dotNormal.z));
+float dotMask=smoothstep(0.9846,0.9856,dotAmount)*vDotEnabled;
+surfaceAlbedo=mix(surfaceAlbedo,vDotColor,dotMask);
+#endif
 float alpha=vDiffuseColor.a;
 #ifdef DIFFUSE
 vec4 baseDiffuseTexture=texture2D(diffuseSampler,vDiffuseUV);

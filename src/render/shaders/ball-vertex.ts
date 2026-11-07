@@ -33,6 +33,9 @@ varying vec3 vPositionW;
 #ifdef NORMAL
 varying vec3 vNormalW;
 #endif
+#ifdef CUE_DOTS
+varying vec3 vDotNormal;
+#endif
 #ifdef VERTEXCOLOR
 varying vec4 vColor;
 #endif
@@ -48,6 +51,9 @@ vec4 worldPos=finalWorld*vec4(position,1.0);
 vPositionW=vec3(worldPos);
 #ifdef NORMAL
 vNormalW=normalize(vec3(finalWorld*vec4(normal,0.0)));
+#endif
+#ifdef CUE_DOTS
+vDotNormal=normal;
 #endif
 #ifndef UV1
 vec2 uv=vec2(0.,0.);

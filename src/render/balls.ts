@@ -10,11 +10,11 @@ export class BallRenderer {
   private readonly shadows: BallShadows;
 
   constructor(
-    scene: B.Scene,
+    private readonly scene: B.Scene,
     private readonly simulator: Pick<Simulator, "getBallCount" | "getBallView">,
     radius: number,
     private readonly tableHeight: number,
-    lighting: BallLighting,
+    private readonly lighting: BallLighting,
     atlas: B.Texture,
     mask: B.Texture,
     private readonly options: { readonly redDots?: () => boolean } = {}
@@ -36,42 +36,20 @@ export class BallRenderer {
       }
       mesh.material = material;
       mesh.rotationQuaternion = B.Quaternion.Identity();
-      if (number === 0) this.addRedDots(scene, mesh, radius);
       this.meshes.push(mesh);
     }
     this.sync();
   }
 
-  private readonly dotMeshes: B.Mesh[] = [];
-  private dotMaterial: B.StandardMaterial | null = null;
+  private dotCueMaterial: BallMaterial | null = null;
 
-  private addRedDots(scene: B.Scene, cue: B.Mesh, radius: number): void {
-    const material = new B.StandardMaterial("cue-red-dots", scene);
-    material.diffuseColor = new B.Color3(0, 0, 0);
-    material.emissiveColor = new B.Color3(0.62, 0.015, 0.015);
-    material.specularColor = new B.Color3(0, 0, 0);
-    material.disableLighting = true;
-    material.backFaceCulling = false;
-    this.dotMaterial = material;
-    const offset = radius * 1.0005;
-    const axies: ReadonlyArray<readonly [number, number, number, number, number, number]> = [
-      [1, 0, 0, 0, Math.PI / 2, 0], [-1, 0, 0, 0, -Math.PI / 2, 0],
-      [0, 1, 0, -Math.PI / 2, 0, 0], [0, -1, 0, Math.PI / 2, 0, 0],
-      [0, 0, 1, 0, 0, 0], [0, 0, -1, 0, Math.PI, 0]
-    ];
-    for (const [x, y, z, rx, ry, rz] of axies) {
-      const dot = B.Mesh.CreateDisc(`cue-red-dot-${this.dotMeshes.length}`, radius * 0.17, 24, scene, false);
-      dot.material = material;
-      dot.parent = cue;
-      dot.position.copyFromFloats(x * offset, y * offset, z * offset);
-      dot.rotation.copyFromFloats(rx, ry, rz);
-      this.dotMeshes.push(dot);
-    }
+  private dottedCue(): BallMaterial {
+    return this.dotCueMaterial ??= new BallMaterial(this.scene, 0, this.lighting, true);
   }
 
   sync(): void {
     const showDots = this.options.redDots?.() ?? false;
-    for (const dot of this.dotMeshes) dot.isVisible = showDots && this.simulator.getBallView(0).active;
+    this.meshes[0].material = showDots ? this.dottedCue() : this.materials.get(0)!;
     for (let index = 0; index < this.meshes.length; ++index) {
       const mesh = this.meshes[index];
       const ball = this.simulator.getBallView(index);
@@ -91,8 +69,7 @@ export class BallRenderer {
   }
 
   dispose(): void {
-    for (const dot of this.dotMeshes) dot.dispose();
-    this.dotMaterial?.dispose();
+    this.dotCueMaterial?.dispose();
     for (const mesh of this.meshes) mesh.dispose();
     for (const material of this.materials.values()) material.dispose();
     this.shadows.dispose();
