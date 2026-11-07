@@ -58,3 +58,5 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 安装（2026-10-28）：audio-final-set.mjs --install（npm run audio:install）把成品复制到 public/assets/audio 并写播放清单（offset 0、gain 1，电平已烘焙），同时把构建清单存为 provenance.json；安装前把旧的准备产物备份到 .cache/audio-prepared-backup，不删除 local-audio，也不改 audio-sources.json。npm run audio:final 仅重建到 .cache/audio-final。
 
 复听第二轮修正（2026-10-28）：用户要求 cue-mid-low/cue-center 的 0.75 与 1.0 直接沿用 cue-low/cue-high 同档音频，因此新增 copyFrom 条目——渲染后逐字节复制来源槽位成品，组内不再做统一抬起（否则 0.5 会反超 0.75），并用"沿用音频逐字节相同"检查守住。两组 0.5 档单独加大：湿声 0.35、尾音 +1.0s，峰值按各自素材峰均比放到 −4/−2dB，使 0.5 与 0.75 的峰值接近、能量仍单调（0.5→0.75 的能量跳约 9–10dB，因为换成了本地更厚的大力录音，这是素材决定的，不是参数问题）。
+
+联机开发原型（2026-11-07）：net-smoke.mjs（npm run test:net）用两个真实浏览器页面加真实 Node 房间服务器验收双开发席位击球、同一杆快照逐位一致、对手相机独立、`--drop-next-ack` 同 ID 重试只出一杆、80/80ms 单程延迟下的动画/触球时序与两房间隔离；公共工具在 net-smoke-lib.mjs，脚本自建随机端口服务器，不占用默认 8787，截图与日志只写 .cache。结果与限制见 docs/multiplayer-prototype-design.md §10。

@@ -12,7 +12,7 @@
 | 900 | 有核心及浏览器实现；不能仅凭旧测试称整体完成，差异见下表 |
 | 音效 | 已有真实播放链路；采集方向先用手机与笔记本实录，不满意时再考虑官方录像音轨；旧试听任务不自动继续 |
 | 正式联机、账号、长期存档、排行榜、高光库 | 产品设计已分章；协议和持久化为工程提案，未实现 |
-| 联机开发原型（第 0—3 单元） | 单元 0 基线已整理并推送；单元 1 窄接口已登记（架构 §4.8）；单元 2—3 实施完成后在此更新实测结果与限制 |
+| 联机开发原型（第 0—3 单元） | 2026-11-07 完成开发原型：Node 权威房间 + 两开发席位 + 真实击球/触球同步 + 单程延迟注入；单机双页面自动验收通过。正式联机、账号、持久化与完整 900 仍未实现；限制与实测见[原型设计](multiplayer-prototype-design.md) §10—§11 |
 | 语音 | 独立工程提案，不能视为已可通话 |
 
 2026-11-07 联机原型施工：工作区原有的菜单、900 专项脚本、母球材质与用户物理调参已按独立单元核对并提交推送，不再以“未提交工作区”形式存在。菜单把旧 `.game-options` 开发表单移出可视区，Chrome 专项改为在 DOM 上触发同一表单按钮；开发预设界面尚未接回新菜单，属于本轮记录的限制，不是已完成功能。`test:rules` 的失败在整理前 HEAD 上同样存在（见下文差异），不计入本轮菜单或联机改动引入的回归。
@@ -66,5 +66,15 @@
 - 自动基线：`npm run test` 50 个测试文件、524 项通过；`npm run typecheck` 通过；`npm run build` 通过。
 - 浏览器基线：`npm run test:controller` 通过；`npm run test:900` 通过；`npm run test:rules` 在 `scripts/rules-test-smoke.mjs` 的既有断言处失败（红球进袋同时母球摔袋的判罚计数），与整理前 HEAD 的已知失败一致，本轮未修复也不以此声称回归通过。`test:render`、`test:gunsight`、`test:camera`、`test:camera:ai`、`test:replay`、`test:audio` 本轮未重跑。
 - 未验证限制：库边摩擦与母球红点的视觉/手感；菜单真实点击流程（脚本仍走开发表单入口）；新菜单下旧开发预设表单不可见。
+
+## 单元 1—3 联机原型记录（2026-11-07）
+
+本轮按用户指令只完成 KVB-Snooker 联机开发的第 0—3 单元；实施计划的后续单元（B 完整整场基础、C 身份与服务基础、E 完整生命周期、F/G/H）仍未实施，不因本原型的存在而宣称完成。
+
+- 单元 1：窄接口登记在[架构 §4.8](architecture.md#48-联机开发原型窄接口2026-11-07-登记原型未冻结)，共享报文类型 `src/net/protocol.ts`（v1），工程边界/运行/验收见[联机开发原型设计](multiplayer-prototype-design.md)。`RoomTickResult.ack`、`RoomOptions.latency/frameSetup`、`join` 的 `nowMs`、每房间独立事件序号等偏差已登记，仍是原型接口不是冻结产品 API。
+- 单元 2：Node 服务端装配真实 `Simulator`+`GameSession`（`src/server/room*.ts`、`table.ts`、`room-manager.ts`），每房间独立 `MeshBody`/`Simulator`。隔离审计发现并修复 `sharedRouteCache` 与 `coreRandom` 的 AI 串扰（`AIController` 可选注入，默认单机行为不变）；两房间交替推进与单独推进的 `sim.serialize()` 逐位一致。测试：`npx vitest run tests/server` 4 文件 26 项通过。
+- 单元 3：服务端命令/版本/去重/唯一权威触球/固定步长物理/快照检查点 + 零依赖 WebSocket + 仅开发单程延迟注入；浏览器 `src/net/**` 纯状态与 `src/app-net*.ts` 装配根，出杆只发意图、动画按服务器 `touchAtServerMs` 对齐、球运动只来自快照。验收脚本 `npm run test:net`（两个真实浏览器页面 + 真实服务器）通过：双席位同一杆运动、对手相机独立、无权端按 Space 不改变版本、`--drop-next-ack` 同 ID 重试只出一杆、80/80ms 单程延迟下动画与权威触球偏差 0ms、两房间交替推进互不污染。实测数字与限制见原型设计 §10—§11。
+- 全量：`npm run test` 58 文件 588 项通过、`npm run typecheck` 通过、`npm run build` 通过。本机既有 `test:rules` 失败与 `test:gunsight` 未重跑见单元 0 记录。
+- 未完成/未验证：真实两台物理电脑的人工联机（自动验收是同机双页面；WSL2 NAT 步骤见原型设计 §9.3）、真实 GPU/60fps 下的动画手感与 `prepareLeadMs=700` 联合标定、正式账号/游客/数据库/存档/重连判负/排行榜/高光/语音、完整联机 900。开发席位与开发令牌不是正式鉴权。
 
 后续每个实现单元在这里更新完成状态和待决项；详细验证结果可以留在所属设计的验收记录，不在所有 AGENTS.md 重复抄测试数量。

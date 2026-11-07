@@ -80,17 +80,18 @@
 
 ## 7. 房间隔离（单元 2）
 
-已知模块级状态候选与结论（实测后补证据）：
+2026-11-07 用真实 Simulator/GameSession 审计并修复，证据测试在 `tests/server/isolation.spec.ts`：
 
-| 候选 | 风险 | 隔离方式 |
+| 候选 | 审计结论 | 隔离方式 |
 |---|---|---|
-| `coreRandom` 全局随机源 | 两房间用 AI 时交替消耗随机序列 | 房间独立随机源，AI 可选注入；USER-only 原型的物理路径不消费它 |
-| `sharedRouteCache` 模块级 AI 路线缓存 | 两房间 AI 交替会互相覆盖路线 | 每房间独立 `RouteCache` 注入 `AIController` |
-| `TABLE_TUNING` 可变导出对象 | 运行期若被改写会串到所有房间 | 只读使用；服务端记录物理表摘要与调参快照作为房间版本 |
-| `region.sections`、重力缓存、求解器临时向量 | 静态/同步临时数据 | 单线程同步使用，无跨房间可观察状态 |
-| 物理台面 assets | 每房间各自 MeshBody/Simulator | 每房间独立加载，不共享可变世界 |
+| `sharedRouteCache` 模块级 AI 路线缓存 | 会串扰：默认 `AIController` 共享缓存，另一房间控制器 `checkRestart` 会清空本房间路线 | 每房间注入独立 `RouteCache`；默认参数保持单机共享行为 |
+| `coreRandom` 全局随机源 | 会串扰：两个默认 AI 控制器交替搜索时共享序列，后跑者路线改变（seed 42 稳定复现） | `AIController(profile, { routeCache?, random? })` 可选注入；服务器每房间独立 `SeededRandom` |
+| `TABLE_TUNING` 可变导出对象 | 运行期没有被改写；但它是可变模块级对象，若运行期改写会影响之后创建的所有 `MeshBody` | 服务端只读使用；启动时记录台面摘要，不提供运行期调参入口 |
+| `Body.serialize` 随机兜底 | 物理步进与球体序列化不消费 `coreRandom`，只有 `serializable=false` 的 Body 兜底路径消费 | 不构成 USER-only 房间风险；AI 房间已用独立随机源 |
+| 重力方向缓存、`region.sections`、求解器模块级临时向量 | 只读或同步调用内使用，无跨房间可观察状态 | 无需隔离 |
+| 物理台面 | 每房间独立 `MeshBody`/`Simulator`，只共享已校验的只读 JSON | room-manager 每房间构造 |
 
-验收必须用真实 Simulator 对比：两个房间按“交替推进”与“各自单独推进”的序列化状态与结果一致；AI 隔离修复前后各跑一次并记录。不能以“创建两个 GameSession”代替隔离验证。
+最终验证：两个真实房间按“交替推进”与“各自单独推进”的 `sim.serialize()` 逐位一致；每房间版本与事件序号独立（各自从 1 开始）；修复后的两个 AI 控制器交替 step 与各自单独 step 路线完全相同。不能只以“创建两个 GameSession”宣称并发安全。
 
 ## 8. 开发席位与安全边界
 
@@ -100,23 +101,94 @@
 
 ## 9. 运行与双机操作
 
-（服务器与客户端实现完成后在此写入实际命令、端口与验证步骤；不得用占位端口冒充已验收。）
+### 9.1 第一次准备（机器 A）
+
+```bash
+npm install
+npm run assets:prepare      # 校验并复制物理台面/贴图到 public/assets（本机必需，产物不提交）
+```
+
+### 9.2 启动服务器与开发网页（机器 A）
+
+```bash
+# 终端 1：权威房间服务器。双机测试必须显式监听 0.0.0.0。
+npm run net:server -- --host 0.0.0.0 --port 8787 --dev-token dev-local
+# 终端 2：网页开发服务。dev:lan 让 Vite 监听 0.0.0.0，终端会打印 Network URL。
+npm run dev:lan
+```
+
+- 服务器启动后打印台面摘要、延迟配置、`NET_SERVER_READY {...}` 与（`0.0.0.0` 时）局域网 `ws://<A-IP>:8787` 地址；只用于可信开发机，禁止暴露公网。
+- 端口：网页 `5173`，联机服务器 `8787`。如被占用可用 `--port` 改服务器端口；客户端 URL 需相应带 `server=ws://<A-IP>:<端口>/net`。
+
+### 9.3 两台电脑加入同一房间
+
+两台机器打开同一房间码（`net` 参数相同）即进入同一房间；不指定 `seat` 时按加入顺序分配 0/1，也可以显式指定：
+
+| 机器 | URL |
+|---|---|
+| A（本机） | `http://127.0.0.1:5173/?net=dev1&token=dev-local` |
+| B（另一台） | `http://<A 的局域网 IP>:5173/?net=dev1&token=dev-local` |
+| 显式座位 | 末尾加 `&seat=0` 或 `&seat=1` |
+
+- B 不能使用 `localhost`/`127.0.0.1`，必须填 A 的局域网 IP（例如 `192.168.1.50`）。页面从 A 的 IP 加载时会自动把服务器地址缺省为 `ws://<同一 IP>:8787/net`；如端口不同，加 `&server=ws://<A-IP>:8787/net`。
+- 进入后画布左上 HUD 显示连接状态、房间、席位、版本与延迟配置。`W` 瞄准，`Space` 出杆；对方出杆时本机自由观察，不会抢走相机。
+- 经典犯规后由拥有选择权的一页看到“自己接手 / 让对手继续”；本原型只实现这两项最简选择。
+- 取消测试：`Ctrl+C` 关闭服务器或关闭页面即可；房间在最后一条连接断开后销毁，无持久化。
+
+**WSL2 注意事项**：如果 A 的开发服务器与联机服务器都跑在 WSL2 内，WSL2 默认是 NAT 网络，局域网其他电脑不能直接访问 WSL 端口。可选做法：
+1. 在 Windows 上做端口转发到 WSL 地址（每次 WSL 重启后地址可能变化）：
+   `netsh interface portproxy add v4tov4 listenport=5173 listenaddress=0.0.0.0 connectport=5173 connectaddress=<WSL-IP>`，8787 同理；并为 5173/8787 添加入站防火墙规则。
+2. 或在 `.wslconfig` 启用 `networkingMode=mirrored` 后重启 WSL，使 WSL 服务直接出现在 Windows 主机网络上。
+3. 或把服务器/Vite 直接跑在 Windows 侧的 Node（仓库路径用 `\\wsl$\...`），避免 NAT。
+本轮自动验收是在**同一台机器上用两个独立浏览器页面**模拟两台电脑，没有实际第二台物理机；§10 明确记录这一限制。
+
+### 9.4 延迟测试配置（仅开发环境）
+
+服务器启动参数，配置值都是**单程**延迟；`welcome.latency` 与 HUD 都会显示 `appliesTo: "one-way-per-direction"`，往返约为入站+出站+处理时间：
+
+| 目的 | 启动参数 |
+|---|---|
+| 无额外延迟 | 默认（不传延迟参数） |
+| 固定延迟 | `--latency-in-ms 80 --latency-out-ms 80`（单程各 80ms） |
+| 波动延迟 | 再加 `--latency-jitter-ms 30`（每个方向加 0–30ms 抖动） |
+| 确认丢失后同 ID 重试 | 加 `--drop-next-ack`（只丢弃下一条 Ack 一次；客户端用同一 `commandId` 重试，服务器返回原裁决，只出一杆） |
+
+延迟用定时器排队投递，不阻塞物理 tick 或页面渲染；HUD 的 Space→Ack→投影触球→动画触球→首个运动快照→shot-fired 差值用于核对动画与实际触球的关系。`--prepare-lead-ms` 默认 700ms，是“服务器收到意图到权威触球”的提前量；大延迟或低帧率下按实测结果调整并在 HUD 记录偏差。
 
 ## 10. 测试与验收
 
-自动测试：
+### 10.1 单元 2 与服务端自动测试
 
-- 协议校验：非法击球参数、非法报文、非两席位、坏令牌拒绝。
-- 房间：版本、去重、同 ID 换参数、越权席位、过期版本、阶段错误、重复执行不产生第二次冲量；两房间交替推进隔离。
-- 运动：快照插值、检查点恢复预测、版本单调。
-- 传输：两 WebSocket 客户端收到同一杆事件与一致快照；延迟注入只改变到达时间，不改变房间结果；确认丢失后同 ID 重试只出杆一次。
-- 浏览器：两个独立页面（两个席位）连接同一服务器，各自出杆，双方看到同一杆运动；帧率/延迟注入下的时序测量记录在案。
+- `npx vitest run tests/server`：4 个文件、26 项通过（房间 10、隔离 9、传输 4、传输时序 3）。
+- `npm run test`：58 个测试文件、588 项通过（含服务端与客户端新增单测）；`npm run typecheck` 5 个工程通过；`npm run build` 通过。
+- 单元 2 隔离证据见 §7；房间/命令/去重/版本/参数/越权/过期阶段/两房间交错由 `tests/server/room.spec.ts` 与 `isolation.spec.ts` 覆盖。
+- 传输：`tests/server/transport.spec.ts` 用两个真实 WebSocket 客户端验证 welcome/快照/同一杆事件、重复同 ID 只出一杆、两个房间独立；`transport-timing.spec.ts` 验证 `--drop-next-ack` 同 ID 重试与入站延迟不吃掉 `prepareLeadMs`（`touchAtServerMs - ack.serverTimeMs === prepareLeadMs`）。
+- `npm run net:server -- --port 0` 冒烟：启动、`NET_SERVER_READY`、`/health`、SIGINT 优雅退出 0；台面缺失/摘要不符给出明确错误。
 
-人工验收：用户按 §9 在两台电脑上完成，不把单页面运行成功当作联机成功。本轮不宣称达到正式联机产品质量。
+### 10.2 单元 3 双客户端联机验收（2026-11-07，自动）
+
+`node scripts/net-smoke.mjs`（两个独立浏览器页面 + 真实 Node 房间服务器；脚本自建随机端口服务器，不依赖用户的 8787）：
+
+| 场景 | 实测结果（最终验收运行；同一脚本重复运行帧率会有波动） |
+|---|---|
+| 双席位真实击球（默认 lead 700ms） | 两页均 ready、席位 0/1；seat0 一杆真实执行：Space 7700.8ms → Ack 7754.7ms（RTT 7.6ms）→ 投影触球 8406.35ms → `shot-fired` 8430.5ms（+24.2ms）→ 首个运动快照 8491.9ms（+85.5ms）；两端结算 version/context/balls 逐位一致；共同快照 4 个版本；双方均观察到 simulating 阶段 |
+| 对手相机独立 | seat1 相机 position/target 位移 0；seat1 在 seat0 出杆期间 `shotId=null`、不产生命令 |
+| 球权与非法操作 | 犯规后 deciding 由 seat1 点“自己接手”；之后 seat1 turn=true、seat0 turn=false；seat0 按 Space 不改变权威版本/时序；一次击球推进版本恰为 prepare/fire/settle 三次（+ decide 一次 = 4） |
+| 动画与权威触球对齐（lead 1600ms） | 动画触球 − 投影触球 = **0ms**。默认 700ms 在同机多次运行中多数为 0ms，但当 headless 软件渲染掉到约 3–4fps 时曾测得动画晚 470ms；此时客户端按设计照常播放并记录偏差，不伪造触球 |
+| 确认丢失同 ID 重试 | `--drop-next-ack` 下 retries=1，版本从 0 到 3（prepare+fire+settle），**只产生一次实际击球**；两端快照逐位一致 |
+| 单程延迟注入 | `--latency-in-ms 80 --latency-out-ms 80`、lead 1600ms：Ack−Space=170ms（往返≈2×80+处理）；投影触球−Space=1681.75ms（入站 80+lead 1600）；动画触球与投影触球偏差 **0ms**；首个运动快照比投影触球晚 143.5ms，`shot-fired` 晚 100.75ms（出站 80ms+快照/事件节拍）；retries=0；两端共同快照 4 个版本 |
+| 两房间隔离（同服务器） | 房间 A 出杆推进到版本 2 时房间 B 版本与球位不变；B 出杆后 A 的版本/球位不变；两房间各自独立结束（各 version 3） |
+
+同一台机器上两个页面只是“模拟两台电脑”；**没有实际第二台物理机的人工验收**，WSL2 NAT 下的双机步骤见 §9.3 且需用户按步骤自测。真实 GPU/60fps 下的动画手感同样待人工确认。
 
 ## 11. 限制与后续
 
 - 无账号、游客、房间创建/加入 UI、准备状态、整场局数、暂停、重连判负、数据库、排行榜、高光、语音。
 - 只实现经典规则；900 双表、触球截止竞争与完整 900 联机留待实施计划后续单元。
-- 联机原型不提供鼠标摆球与手动提名；服务器用核心合法路径代替，Miss/自由球选择仅提供最简 `decide-turn`。
+- 联机原型不提供鼠标摆球与手动提名；服务器用核心 `placeCueBall` 合法放置代替，彩球目标依赖核心从方向推断（推断失败时拒绝出杆）。Miss/自由球没有网络命令，犯规后只提供最简 `decide-turn`（自己接手/让对手继续）。
+- `ballOn=252` 的自动提名只覆盖常见直线方向；客户端不提供手动选球面板。
+- 删除房间只在最后一条连接断开时发生；无重连恢复、无命令持久化。拒绝命令也进入每房间 256 条 FIFO 去重缓存，客户端重同步后应使用新 `commandId`。
+- 事件序号与去重缓存按房间独立（每房间 seq 从 1 开始），不是全局序号。
+- 延迟注入是开发故障模拟：`--drop-next-ack` 只丢服务器下一条 Ack 一次，不模拟乱序/丢帧/重连；配置值按单程表述。
+- `prepareLeadMs` 默认 700ms 依据客户端约 300—600ms 球杆动画加余量；headless 软件 WebGL 帧率不足时动画会晚于权威触球（记录偏差，不冒充对齐）；真实 GPU 下的对齐与手感由用户人工验收。
 - 协议仍是原型窄接口；冻结前必须完成协议设计 §8 的弱网、乱序、接管与恢复实验。

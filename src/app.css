@@ -114,3 +114,8 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .ingame-menu-actions { display: flex; flex-direction: column; gap: 10px; }
 .ingame-action-btn { width: 100%; padding: 10px 16px; border-radius: 7px; background: #1e231d; border: 1px solid rgba(255, 255, 255, 0.14); color: #ecefe8; font-weight: 600; }
 .ingame-action-btn:hover { border-color: rgba(229, 214, 157, 0.48); color: #f7e8b4; }
+
+.net-hud { position: absolute; top: 16px; left: 16px; margin: 0; padding: 10px 14px; background: #171713e6; color: #d5d9ce; font: 11px/1.7 ui-monospace, monospace; pointer-events: none; white-space: pre; }
+@media (max-width: 900px) { .net-hud { max-width: calc(100vw - 32px); font-size: 10px; white-space: pre-wrap; } }
+.net-decision { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); display: flex; gap: 8px; padding: 10px 14px; background: #171713ed; }
+.net-decision[hidden] { display: none; }

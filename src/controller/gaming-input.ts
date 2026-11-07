@@ -1,7 +1,7 @@
 import { Input } from "./input.js";
 import { InHand, type PlacementCommands } from "./in-hand.js";
 import type { PersonController } from "./person-controller.js";
-import type { ShotController } from "./shot-controller.js";
+import type { ShotLauncher } from "./shot-controller.js";
 
 export interface InputGame {
   state(): number;
@@ -16,7 +16,7 @@ export class GamingInput {
   readonly inHand: InHand;
 
   constructor(canvas: HTMLElement, private readonly person: PersonController,
-    private readonly shots: ShotController, private readonly game: InputGame, private readonly placement: PlacementCommands) {
+    private readonly shots: ShotLauncher, private readonly game: InputGame, private readonly placement: PlacementCommands) {
     const camera = person.camera;
     const all = 4 | 8 | 16;
     this.inHand = new InHand(camera, placement);

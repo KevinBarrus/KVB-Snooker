@@ -10,8 +10,15 @@ export interface ShotCommands {
   advanceTime?(dt: number): boolean;
 }
 
+/** 装配根可替换的出杆入口：本地 ShotController 与联机出杆动画器共用。 */
+export interface ShotLauncher {
+  readonly busy: boolean;
+  readonly inputLocked: boolean;
+  launch(person: PersonController): boolean;
+}
+
 // PCOL L6338-6423
-export class ShotController {
+export class ShotController implements ShotLauncher {
   readonly motion = new TipMotion();
   private actor: PersonController | null = null;
   private strokeDelay = -1;

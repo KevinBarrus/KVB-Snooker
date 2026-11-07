@@ -23,6 +23,9 @@
     "src/app-game.ts",
     "src/app-placement.ts",
     "src/app-replay.ts",
+    "src/app-net.ts",
+    "src/app-net-client.ts",
+    "src/app-net-shot.ts",
     "src/audio/browser-backend.ts",
     "src/app-audio.ts"
   ]

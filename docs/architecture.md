@@ -335,6 +335,15 @@ export interface RoomSession {
 - 客户端显示源：`src/net/remote-view.ts` 由权威快照生成 `BallView` 结构视图（插值位置与归一化姿态），装配根把它接到现有 `BallRenderer` 与 `PersonController`。瞄准预测只使用本地 `Simulator` 从快照携带的 `SerialData` 检查点恢复后计算，从不写回服务端，也不推进真实回合。
 - 计时：本原型只实现经典规则；`advanceTime`、900 双表与触球截止竞争不在本次登记范围。
 
+**实现偏差登记（2026-11-07，原型内部扩展，语义不变）**
+
+- `RoomTickResult` 增加可选 `ack: AckMessage`：拒绝命令没有事件，传输层需要直接回传确认。
+- `RoomOptions` 增加可选 `latency`（`welcome.latency` 来源，延迟注入仍在传输层）与 `frameSetup`（测试/开发夹具；正式流程不传）。
+- `join(connectionId, requestedSeat?, nowMs=0)` 增加可选 `nowMs`，供传输层传入命令投递时刻与确定性测试；`release` 不增加时间参数。
+- `RoomSession` 构造接收每房间独立 `MeshBody`（`new RoomSession(roomId, options, mesh)`），并只读暴露 `simulator/session/aiDependencies` 供诊断与测试；权威写入仍只经 `command/tick`。
+- 事件序号与去重缓存按房间独立（每房间 seq 从 1 开始）；拒绝命令也进入每房间 256 条 FIFO 去重缓存，同一 `commandId` 永远返回原裁决。
+- 浏览器开发入口额外提供只读 `window.__snkNet` 测试句柄（仅 DEV、仅联机装配），用于验收读取席位/版本/时序/相机状态，不是公开产品接口。
+
 ## 5. 目录结构（骨架）
 
 ```

@@ -29,7 +29,12 @@ async function loadSimulator(): Promise<Simulator> {
   return new Simulator(mesh);
 }
 
-async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer; game: BrowserGame; audio: BrowserAudio }> {
+async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer; game: BrowserGame; audio: BrowserAudio } | undefined> {
+  // 联机开发原型：开发构建且 URL 带 ?net=<roomId> 时直接走联机装配，不同时运行两个渲染循环。
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has("net")) {
+    await import("./app-net.js");
+    return undefined;
+  }
   const canvas = document.querySelector("canvas");
   const status = document.querySelector("output");
   if (!canvas || !status) throw new Error("Missing render host");

@@ -8,6 +8,8 @@
 |---|---|
 | 校验并准备本地原作模型和物理台面 | `npm run assets:prepare` |
 | 启动网页开发服务 | `npm run dev`，访问终端实际输出的地址 |
+| 启动局域网网页开发服务 | `npm run dev:lan`（监听 0.0.0.0，用于双机开发测试） |
+| 启动联机开发原型服务器 | `npm run net:server -- --host 127.0.0.1 --port 8787 --dev-token dev-local`；双机把 host 改为 `0.0.0.0`，见[联机原型设计](multiplayer-prototype-design.md) §9 |
 | Node 人机演示 | `npm run demo` |
 | Node 自由练习演示 | `npm run demo -- --mode practice` |
 | 生产构建 | `npm run build` |
@@ -29,6 +31,7 @@
 | 本地上一杆回放 | `npm run test:replay` |
 | 规则与开发预设 | `npm run test:rules` |
 | 900 | `npm run test:900` |
+| 联机开发原型（两客户端真实击球） | `npm run test:net`（自建服务器与两个浏览器页面；步骤见[联机原型设计](multiplayer-prototype-design.md) §9—§10） |
 | 声音播放 | `npm run test:audio` |
 
 浏览器测试需要先启动开发服务并准备资产；非默认地址通过 `RENDER_URL` 指定，Chrome 路径可用 `CHROME_BIN` 指定。不要假定所有人的端口相同。截图和诊断产物留在忽略目录。
