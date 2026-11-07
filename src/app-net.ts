@@ -74,6 +74,8 @@ export interface NetTestHandle {
   readonly turn: boolean;
   /** 本地出杆前置条件：瞄准镜头到位且球杆可出杆（供验收定位问题）。 */
   readonly readyToStroke: boolean;
+  /** 最近约 0.5 秒的渲染帧率，用于区分网络卡顿与渲染帧率不足。 */
+  readonly fps: number;
 }
 
 declare global {
@@ -143,7 +145,7 @@ class NetHud {
   readonly element = document.createElement("pre");
   private lastSync = -Infinity;
   constructor() { this.element.className = "net-hud"; }
-  sync(nowMs: number, session: NetSessionState, lastError: string | null): void {
+  sync(nowMs: number, session: NetSessionState, lastError: string | null, fps: number): void {
     if (nowMs - this.lastSync < 100) return;
     this.lastSync = nowMs;
     const t = session.timing();
@@ -151,9 +153,12 @@ class NetHud {
     const delta = (from: number | null, to: number | null) =>
       from === null || to === null ? "—" : `${Math.round(to - from)}ms`;
     const jitter = latency.jitterMs > 0 ? ` ±${latency.jitterMs}` : "";
+    const context = session.context;
+    const score = context ? `${context.scores[0]} : ${context.scores[1]}` : "—";
     const lines = [
-      `${session.connectionState} · ${session.roomId ?? "—"} · 席位 ${session.seat ?? "—"} · v${session.version} · ${session.phase}`,
-      `RTT ${session.rttMs === null ? "—" : `${Math.round(session.rttMs)}ms`} · 单程延迟 ${latency.inboundMs}/${latency.outboundMs}ms${jitter} · ${session.isLocalTurn() ? "本机球权" : "等待对手"}`,
+      `${session.connectionState} · ${session.roomId ?? "—"} · 席位 ${session.seat ?? "—"} · v${session.version} · ${session.phase} · ${Math.round(fps)}fps`,
+      `比分 ${score} · 目标球 ${context?.ballOn ?? "—"} · 手中球 ${context?.inHand ?? "—"} · ${session.isLocalTurn() ? "本机球权" : "等待对手"}`,
+      `RTT ${session.rttMs === null ? "—" : `${Math.round(session.rttMs)}ms`} · 单程延迟 ${latency.inboundMs}/${latency.outboundMs}ms${jitter}`,
       `Space→命令 ${delta(t.spaceAtMs, t.commandSentAtMs)} · →Ack ${delta(t.spaceAtMs, t.ackAtMs)} · →投影触球 ${delta(t.spaceAtMs, t.projectedTouchAtMs)} · 动画-投影 ${delta(t.projectedTouchAtMs, t.animationTouchAtMs)} · 首运动-投影 ${delta(t.projectedTouchAtMs, t.firstMotionSnapshotAtMs)} · fired-投影 ${delta(t.projectedTouchAtMs, t.firedEventAtMs)} · 重试 ${t.retries}`
     ];
     if (lastError) lines.push(lastError);
@@ -181,6 +186,7 @@ async function main(): Promise<void> {
   const ready = new Promise<void>(resolve => { resolveReady = resolve; });
   const firstSnapshot = new Promise<SnapshotMessage>(resolve => { resolveSnapshot = resolve; });
   let snapshotSeen = false;
+  let fpsValue = 0;
   let scene: B.Scene | undefined;
 
   const handleMessage = (message: ServerMessage): void => {
@@ -222,7 +228,8 @@ async function main(): Promise<void> {
     get cameraTarget() { const t = person?.camera.target; return t ? { x: t.x, y: t.y, z: t.z } : { x: 0, y: 0, z: 0 }; },
     get shotsBusy() { return launcher?.busy ?? false; },
     get turn() { return session.canLaunch(); },
-    get readyToStroke() { return person?.isReadyToStroke() ?? false; }
+    get readyToStroke() { return person?.isReadyToStroke() ?? false; },
+    get fps() { return fpsValue; }
   };
   window.__snkNet = testHandle;
 
@@ -315,6 +322,8 @@ async function main(): Promise<void> {
     let lastStatus = "";
     let wasLocalTurn = false;
     let previousFrameAtMs = performance.now();
+    let fpsFrames = 0;
+    let fpsWindowStart = previousFrameAtMs;
     engine.runRenderLoop(() => {
       const nowMs = performance.now();
       // 出杆动画按真实经过时间对齐投影触球时刻；engine.getDeltaTime() 是性能监视器的瞬时帧时，
@@ -322,6 +331,12 @@ async function main(): Promise<void> {
       const rawDt = (nowMs - previousFrameAtMs) / 1000;
       previousFrameAtMs = nowMs;
       const dt = Math.min(rawDt, 0.25);
+      fpsFrames++;
+      if (nowMs - fpsWindowStart >= 500) {
+        fpsValue = fpsFrames * 1000 / (nowMs - fpsWindowStart);
+        fpsFrames = 0;
+        fpsWindowStart = nowMs;
+      }
       remote.setClockOffset(session.clockOffsetMs);
       remote.update(nowMs);
       personController.camera.shotView.smoothing.aspect = scene!.getEngine().getAspectRatio(camera);
@@ -345,13 +360,16 @@ async function main(): Promise<void> {
         gunsight.syncPrediction(prediction, ballOn);
         lastPrediction = prediction; lastBallOn = ballOn;
       }
-      gunsight.alpha = prediction && personController.camera.state === 1 ? 0.6 : 0;
+      // 与本地装配一致：瞄准线只在相机基本趴下后才淡入，并在后拉时淡出（PCOL L7651-7655）。
+      const aimRatio = (1 - (shotLauncher.busy ? shotLauncher.motion.pullbackProgress : 0)) * personController.camera.renderedRatio;
+      const aimAlpha = personController.active && aimRatio > 0.8 ? (aimRatio - 0.8) / 0.2 : 0;
+      gunsight.alpha = prediction && personController.camera.state === 1 ? 0.6 * aimAlpha : 0;
       controls.update();
       viewNotice.update(dt);
       viewNoticeDom.sync(viewNotice);
       decision.hidden = !session.canDecide();
       balls.sync();
-      hud.sync(nowMs, session, session.lastError ?? client?.lastError ?? null);
+      hud.sync(nowMs, session, session.lastError ?? client?.lastError ?? null, fpsValue);
       const nextStatus = session.connectionState !== "ready" ? session.connectionState
         : session.isLocalTurn() ? (shotLauncher.busy ? "击球中" : "本机回合 · W 瞄准 / Space 出杆") : "对手回合 · 自由观察";
       if (nextStatus !== lastStatus) { lastStatus = nextStatus; status.textContent = nextStatus; }
