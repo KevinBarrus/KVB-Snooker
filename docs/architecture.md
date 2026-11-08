@@ -373,6 +373,33 @@ export interface RoomSession {
 
 联机房间不启用练习选项；`RoomOptions.frameSetup` 仍是联机开发夹具，不承担练球产品流程。
 
+### 4.11 我的球形：自建球形与自建练习（2026-11-08）
+
+需求与产品规则见[我的球形设计](my-shapes-design.md)。范围只到本机自建球形，不涉及账号、数据库、云同步、排行榜、分享或联机。
+
+**边界**
+
+- 自建球形记录保存在浏览器 `localStorage`（key `snk.practice.shapes.v1`）；「我的球形」最多 50 条，回收站条目不占名额，保留 30 天。
+- 创建/编辑使用空台编辑器，不创建 `GameSession`，不推进物理、AI、计时或回放；只修改 `Simulator` 的球位并显示候选环。
+- 自建练习仍使用 `GameSession` + `FrameSetup`，母球全台手摆；不新增正式 `GameMode`。
+
+**窄接口**
+
+- `PracticeOptions.freeScoring?: boolean`：自建练习专用。为 true 时 `GameSession` 跳过斯诺克裁判，任意球合法；进球按球面值加入 `pts` 与 `brk`，未进球的一杆后 `brk=0`；母球落袋不计分、回标准母球点并进入手中球，单杆清零；`context.ballOn=0`，不显示目标球。
+- `CustomShapeRecord { id; name; balls: CustomShapeBall[]; createdAt; deletedAt }`、`CustomShapesSnapshot { active; recycle }` 定义在 `src/core/practice/custom-shapes.ts`；同一模块提供名称校验、`CUSTOM_SHAPE_LIMIT=50`、`CUSTOM_SHAPE_RECYCLE_MS=30天`、过期清理、`toCustomShapeSetup`、`toCustomPracticeOptions`。
+- `src/app-my-shapes.ts` 的 `MyShapesStore` 是 localStorage 适配器（可注入存储、时钟、id 生成以满足 Node 测试），提供 load/create/saveLayout/rename/remove/restore/purge；不进入 core。
+- 菜单 `MatchLaunchRequest` 增加可选 `customShapeId`；启动自建练习时装配根从 `MyShapesStore` 读取记录并转换为 setup + practice options，再调用既有 `setMode`。`syncExternalMatch` 按 customShapeId 把退出目录设为我的球形。
+- `MyShapesPanelDom` 负责我的球形/回收站列表、右键菜单、命名/确认/告示弹层；只通过 `MyShapesPort` 回调操作数据，不直接读写 `localStorage` 或核心状态。
+- 创建/编辑器的 DOM 由 `ShapeEditorPanelDom` 维护；`ShapeEditor` 装配根负责空台、摆放合法性（台面内 + 不重叠）、右键回收白环、彩球点位、镜头（鼠标拖动、A/D 环绕，无 W/滚轮）和与弹层解耦。编辑器仅暴露球位与库存给 UI。
+- 练习清完最后一颗对象球时，装配根提供「重摆 / 复位 / 继续 / 退出」四选项；继续保留当前台面、分数和单杆并允许继续操作，不锁相机。该规则同时适用于预设球形；五分点因每杆自动重摆不触发。
+- 清理提示复用 `PracticeControlsDom` 的输入锁边界，但完成弹层本身不锁镜头，只通过 `canAim` 阻止出杆。
+- `GameMenu` 的我的球形页签与 `我的球形 / 球形回收站` 高亮属于 UI 状态；三块始终展示。
+
+**目录**
+
+- 新增 `src/core/practice/custom-shapes.ts`、`src/app-my-shapes.ts`、`src/app-shape-editor.ts`、`src/ui/my-shapes-panel.ts`、`src/ui/shape-editor-panel.ts`、`src/ui/practice-completion.ts`。
+- 预设球形布局与既有练习行为不变；正式规则、相机、回放、音频不因自建练习改变。
+
 ## 5. 目录结构（骨架）
 
 ```

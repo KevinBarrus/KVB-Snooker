@@ -31,6 +31,7 @@
 | HUD 与临时消息 | [UI 设计](ui-design.md) | UI 章程、架构事件与回调 |
 | 主菜单 | [菜单](menu-design.md) | 账号权限及正式房间流程不由菜单自行定义 |
 | 练球球形 | [练球球形设计](practice-shape-design.md) | 需求见[用户球形规则](practise.md)；架构 §4.9 |
+| 我的球形 | [我的球形设计](my-shapes-design.md) | 架构 §4.11；存储仅 localStorage |
 | 音效接入 | [声音第一版](audio-v1-design.md) | audio 章程、架构 §9 |
 | 声音采集与试听 | [重采样](audio-resampling.md)、[试听交接](audio-v2-listening-handoff.md) | 历史素材方案不自动成为当前运行配置 |
 | 登录与游客 | [账号与游客](accounts-and-guests-design.md) | 不维护比赛结算规则 |

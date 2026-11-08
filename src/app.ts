@@ -15,6 +15,10 @@ import { BrowserAudio } from "./app-audio.js";
 import { GameMenu, type MatchLaunchRequest, type PresetShapeId } from "./ui/game-menu.js";
 import { GameMenuDom } from "./ui/game-menu-dom.js";
 import { makePracticeShapeConfig, type PracticeShapeId } from "./core/practice/shapes.js";
+import { toCustomPracticeOptions, toCustomShapeSetup, type CustomShapeRecord } from "./core/practice/custom-shapes.js";
+import { MyShapesStore } from "./app-my-shapes.js";
+import { ShapeEditor } from "./app-shape-editor.js";
+import type { MyShapesPort } from "./ui/my-shapes-panel.js";
 
 const PRACTICE_SHAPE_IDS: Record<PresetShapeId, PracticeShapeId> = {
   snake: "snake",
@@ -43,7 +47,8 @@ async function loadSimulator(): Promise<Simulator> {
   return new Simulator(mesh);
 }
 
-async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer; game: BrowserGame; audio: BrowserAudio } | undefined> {
+async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer;
+  game: BrowserGame; audio: BrowserAudio; editor?: ShapeEditor } | undefined> {
   // 联机开发原型：开发构建且 URL 带 ?net=<roomId> 时直接走联机装配，不同时运行两个渲染循环。
   if (import.meta.env.DEV && new URLSearchParams(location.search).has("net")) {
     await import("./app-net.js");
@@ -66,16 +71,30 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     if (!(scene.activeCamera instanceof B.TargetCamera)) throw new Error("Missing game camera");
     const game = new BrowserGame(simulator, scene, scene.activeCamera, canvas);
     disposeGame = () => game.dispose();
-    const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(), getBallView: index => game.getDisplayBallView(index) },
+    let editor: ShapeEditor | undefined;
+    const myShapes = new MyShapesStore(localStorage);
+    const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(),
+      getBallView: index => editor?.active ? editor.getBallView(index) : game.getDisplayBallView(index) },
       DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.cueBallRedDots });
     const cue = await loadCue(scene, lighting);
     const placement = new PlacementMarkers(scene, atlas, mask);
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
+    editor = new ShapeEditor(simulator, scene, scene.activeCamera, canvas, atlas, mask, {
+      create: (name, shapeBalls) => {
+        const created = myShapes.create(name, shapeBalls);
+        if (!created.ok) return;
+        closeEditor();
+      },
+      save: (id, shapeBalls) => { myShapes.saveLayout(id, shapeBalls); closeEditor(); },
+      exit: () => closeEditor()
+    });
+    game.onExitPractice = () => { menuState.triggerInGameAction("exit"); menuDom.sync(); };
     let lastPrediction: typeof game.human.prediction = null;
     let lastBallOn = -1;
     const options = document.querySelector<HTMLFormElement>(".game-options");
     audio = new BrowserAudio(game.bus, options ?? document.body);
     const menuState = new GameMenu({ onPauseSignal: () => {} });
+    let menuDom: GameMenuDom;
     const launchFromMenu = (req: MatchLaunchRequest) => {
       if (req.mode === "practice" && req.shapeId) {
         const shapeId = PRACTICE_SHAPE_IDS[req.shapeId];
@@ -84,11 +103,58 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
         game.setMode("practice", "NORMAL", { setup: config.setup, practice: config.practice }, shapeId);
         return;
       }
+      if (req.mode === "practice" && req.customShapeId) {
+        const record = myShapes.load().active.find(item => item.id === req.customShapeId);
+        if (!record) return;
+        game.setCueBallStyle(req.cueBallStyle ?? "classic");
+        game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator), practice: toCustomPracticeOptions() },
+          null, record);
+        menuState.syncExternalMatch(req);
+        menuDom.sync();
+        return;
+      }
       game.setCueBallStyle("classic");
       game.setMode(req.mode, req.difficulty, req.mode === "single-play"
         ? { ruleset: req.ruleset, ...(req.players ? { players: req.players } : {}) } : {});
     };
-    const menuDom = new GameMenuDom(menuState, launchFromMenu);
+    const openEditor = (record: CustomShapeRecord | null): void => {
+      if (!editor) return;
+      menuDom.element.hidden = true;
+      game.hudDom.element.hidden = true;
+      game.controls.input.enabled = false;
+      editor.enter(record);
+    };
+    const closeEditor = (): void => {
+      editor?.close();
+      menuDom.element.hidden = false;
+      game.hudDom.element.hidden = false;
+      game.controls.input.enabled = true;
+      menuState.mainMenuOpen = true;
+      menuState.activeTab = "practice";
+      menuState.practiceSub = "my-shapes";
+      menuDom.sync();
+    };
+    const startCustomPractice = (id: string, style: "classic" | "red-dot"): void => {
+      const record = myShapes.load().active.find(item => item.id === id);
+      if (!record) return;
+      game.setCueBallStyle(style);
+      game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator), practice: toCustomPracticeOptions() },
+        null, record);
+      menuState.syncExternalMatch({ kind: "practice", mode: "practice", difficulty: "NORMAL", ruleset: "classic",
+        customShapeId: id, cueBallStyle: style });
+      menuDom.sync();
+    };
+    const myShapesPort: MyShapesPort = {
+      snapshot: () => myShapes.load(),
+      create: () => openEditor(null),
+      edit: id => { const record = myShapes.load().active.find(item => item.id === id); if (record) openEditor(record); },
+      start: startCustomPractice,
+      rename: (id, name) => myShapes.rename(id, name),
+      remove: id => { myShapes.remove(id); menuDom.sync(); },
+      restore: id => myShapes.restore(id),
+      purge: id => { myShapes.purge(id); menuDom.sync(); }
+    };
+    menuDom = new GameMenuDom(menuState, launchFromMenu, document, myShapesPort);
     document.body.append(menuDom.element);
     const newGame = options?.querySelector("button");
     const testTools = options && import.meta.env.DEV && import.meta.env.VITE_RULES_TEST !== "0"
@@ -113,6 +179,16 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     };
     options?.addEventListener("submit", startGame);
     const syncInteraction = () => {
+      if (editor?.active) {
+        audio?.sync(game.session, simulator.evolution, false);
+        menuDom.element.hidden = true;
+        game.hudDom.element.hidden = true;
+        cue.isVisible = false;
+        gunsight.alpha = 0;
+        placement.sync(simulator.getCueBallPosition(), { active: false, visible: false, valid: false, spot: simulator.getCueBallPosition() });
+        status.textContent = "编辑球形 · 左键放置 · 右键回收 · A/D 环绕";
+        return;
+      }
       audio?.sync(game.session, simulator.evolution, game.replay.active);
       testTools?.sync();
       menuDom.element.hidden = game.replay.active;
@@ -155,7 +231,14 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const resize = () => engine.resize();
     window.addEventListener("resize", resize);
     engine.runRenderLoop(() => {
-      game.update(engine.getDeltaTime() / 1000);
+      const dt = engine.getDeltaTime() / 1000;
+      if (editor?.active) {
+        editor.update(dt);
+        balls.sync();
+        scene?.render();
+        return;
+      }
+      game.update(dt);
       balls.sync();
       scene?.render();
     });
@@ -167,13 +250,14 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       menuDom.dispose();
       testTools?.dispose();
       audio?.dispose();
+      editor?.dispose();
       game.dispose();
       placement.dispose(); gunsight.dispose();
       cue.material?.dispose(); cue.dispose();
       balls.dispose();
       scene?.dispose(); engine.dispose();
     }, { once: true });
-    return { engine, scene, simulator, balls, game, audio };
+    return { engine, scene, simulator, balls, game, audio, editor };
   } catch (error) {
     audio?.dispose();
     disposeGame?.();

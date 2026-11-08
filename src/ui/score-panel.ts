@@ -23,6 +23,8 @@ export class ScorePanel {
   readonly groups: [ScoreGroupState, ScoreGroupState] = [makeGroup(), makeGroup()];
   /** 清彩/五分点等不计分练习隐藏比分；正式对局保持 true。 */
   visible = true;
+  /** 自建球形练习只显示分数与单杆，隐藏目标球图标。 */
+  ballOnVisible = true;
   private playerCountValue = 1;
   private playerIndex = 0;
   private ballOnValue = 0;
@@ -156,6 +158,7 @@ export class ScorePanelDom {
       this.single = single;
       this.element.classList.toggle("single", single);
     }
+    this.element.classList.toggle("hide-ball-on", !panel.ballOnVisible);
     this.syncGroup(0, panel.groups[0]);
     this.syncGroup(1, panel.groups[1]);
   }

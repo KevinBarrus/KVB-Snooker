@@ -45,6 +45,9 @@ function copyPracticeOptions(options: PracticeOptions): PracticeOptions {
   if (options.score !== undefined && typeof options.score !== "boolean") {
     throw new Error("Invalid practice options");
   }
+  if (options.freeScoring !== undefined && typeof options.freeScoring !== "boolean") {
+    throw new Error("Invalid practice options");
+  }
   return { ...options };
 }
 
@@ -157,6 +160,7 @@ export class GameSession {
       setup.scores.forEach((score, index) => { this.players[index].pts = score; });
       this.simulator.reset(false, true);
     }
+    if (this.mode === "practice" && this.practiceOptions.freeScoring) this.context.ballOn = 0;
     this.nine?.reset(false);
     const cue = this.simulator.getBallAtIndex(0);
     if (this.nine && this.context.inHand > 0 && (!cue.active ||
@@ -301,6 +305,11 @@ export class GameSession {
       this.response();
       return;
     }
+    if (this.mode === "practice" && this.practiceOptions.freeScoring) {
+      this.settleFreePractice(index);
+      this.response();
+      return;
+    }
     const player = this.players[index];
     if (this.mode === "practice" && this.practiceOptions.score === false) {
       player.brk = 0;
@@ -338,6 +347,30 @@ export class GameSession {
     if (this.pendingDecision?.kind === "foul") {
       this.freeBall = this.context.inHand > 0 ? !hasOpenInHand(this.simulator, this.context.ballOn, this.ref.dArea)
         : snookerView(this.simulator, this.context.ballOn).snookered;
+    }
+  }
+
+  private settleFreePractice(index: number): void {
+    const player = this.players[index];
+    const values = [1, 1, 2, 3, 4, 5, 6, 7];
+    const result = this.simulator.getResult();
+    const score = result.pottedIndices.reduce((sum, ballIndex) => {
+      const ball = this.simulator.getBallView(ballIndex);
+      return sum + (ballIndex === 0 ? 0 : values[ball.number] ?? 0);
+    }, 0);
+    this.result.score = score;
+    this.result.foulCode = 0;
+    if (score > 0) {
+      player.pts += score;
+      player.scoreCount++;
+      player.brk += score;
+    } else {
+      player.brk = 0;
+    }
+    this.context.playerIndex = index;
+    if (!this.simulator.getBallView(0).active) {
+      this.simulator.respotIndexDefault(0);
+      this.context.inHand = 2;
     }
   }
 

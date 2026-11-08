@@ -108,7 +108,7 @@
 - 需求见[练球模式球形预设需求](practise.md)，实现、算法参数、练习流程与限制见[练球球形设计](practice-shape-design.md)。本轮完成十个预设球形的确定性生成、菜单启动、全台自由摆球、犯规重摆/复位、常驻复位按钮、清彩与五分点不计分、五分点蓝球复位。
 - 新增 `src/core/practice/**` 以及练习会话选项、复位统计快照、输入锁和比分隐藏；未改动物理、碰撞台面、经典判罚、相机或回放算法。
 - `tests/unit/practice-shapes.spec.ts` 5 项、`tests/unit/practice-shape-game.spec.ts` 5 项通过；`npm run test:practice` 真实浏览器验收通过（菜单启动、自由摆球、犯规弹窗、复位回滚与回放、重新开始重摆、清彩/五分点不计分）。
-- 自动验收：`npm run test` 65 文件 627 项通过；`npm run typecheck`、`npm run build` 通过；`npm run test:practice` 与 `npm run test:controller` 通过。提交 `a6afc02`、`28e3fd9` 已推送。真实手感、球形比例最终确认与「我的球形」仍未完成。
+- 自动验收：`npm run test` 65 文件 627 项通过；`npm run typecheck`、`npm run build` 通过；`npm run test:practice` 与 `npm run test:controller` 通过。提交 `a6afc02`、`28e3fd9` 已推送。真实手感与球形比例最终确认仍依赖用户试打；「我的球形」已另行实现。
 - 2026-11-08 后续修正：复位按钮与回放按钮分离；五分点每杆自动重摆蓝球与母球；退出练习增加确认；金字塔散点限制 D 区开球；双龙排内间距与黑端留球（1.1d / 1.8d，保证可上手单球）；母球光环按每次进入重新对准母球；球形启动先选经典/红点母球（红点复用 900 渲染）。
 
 ## 联机连续播放时钟修复（2026-11-08）
@@ -132,3 +132,10 @@
 - 新增9项回归：节流与显隐、最短角平滑、版本/序号隔离、非法值、权限/物理无损、服务端限流与断线、真实传输与晚加入/房间隔离、瞄准到触球交接、120Hz原控制器竖直到水平入位。`npm run test` 68文件644项、`npm run typecheck`和`npm run build`通过。
 - 完整 `npm run test:net`通过；双方互换验证W入位、S起身隐藏、再入位、Alt拖动加塞及清除、后续触球、镜头独立、确认丢失、1100ms阻塞、80/80ms延迟和双房间隔离。两端运动缓冲耗尽均为0。浏览器采样中的加塞触点移动约4.3mm，稳定后远端与本地姿态一致。
 - 首次浏览器检查要求起始显示角度大于1弧度，软件WebGL下本地第一帧实际已降到约0.757弧度，远端准确复现而触发该断言。现以120Hz数值回归验证完整近竖直起始姿态，浏览器同时采集两端实际帧验证中间姿态与一致性，没有改动入位算法来迎合低帧率环境。真实设备的延迟感与手感仍需用户验收。
+
+## 我的球形实现（2026-11-08）
+
+- 需求与规则见[我的球形设计](my-shapes-design.md)，接口见架构 §4.11。已完成 localStorage 存储、50 条上限与 30 天回收站、创建/编辑空台编辑器、七球库存面板、右键回收与白环、彩球点位多选、命名/保存/退出确认、我的球形列表与右键管理、自建练习（无规则限制、按球面值累计分数与单杆）、母球全台手摆、清完四选项，以及预设球形补上的清完四选项。
+- 新增 `src/core/practice/custom-shapes.ts`、`src/app-my-shapes.ts`、`src/app-shape-editor.ts`、`src/ui/my-shapes-panel.ts`、`src/ui/shape-editor-panel.ts`、`src/ui/practice-completion.ts`；未改物理、相机算法、正式规则或预设球形布局。
+- 自动验收：`npm run test` 73 文件 660 项通过；`npm run typecheck`、`npm run build` 通过；`npm run test:my-shapes`、`npm run test:practice`、`npm run test:controller` 通过。
+- 限制：小球面板当前为 CSS 球面高光近似；localStorage 清缓存会丢失；写入失败的专门提示未细分；3D 面板与真实手感仍由用户实机确认。

@@ -21,6 +21,8 @@ export interface PracticeOptions {
   readonly targetBallOn?: number;
   /** 默认 true；清彩与五分点练习不计分。 */
   readonly score?: boolean;
+  /** 自建球形练习：任意球合法，按落袋球面值累计分数与单杆，不判犯规。 */
+  readonly freeScoring?: boolean;
 }
 
 export interface GameOptions {

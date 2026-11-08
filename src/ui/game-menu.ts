@@ -43,6 +43,8 @@ export interface MatchLaunchRequest {
   readonly shapeId?: PresetShapeId;
   /** 球形练习的母球外观；正式对局由规则决定。 */
   readonly cueBallStyle?: CueBallStyle;
+  /** 我的球形启动的自建球形 id；预设球形与正式对局不携带。 */
+  readonly customShapeId?: string;
 }
 
 export interface InGameActionItem {
@@ -316,7 +318,7 @@ export class GameMenu {
     this.returnDir = {
       tab: request.kind === "ai" ? "ai" : request.kind === "two-player" ? "two-player" : "practice",
       twoPlayerSub: request.kind === "two-player" ? (this.twoPlayerSub ?? "create") : null,
-      practiceSub: null
+      practiceSub: request.customShapeId ? "my-shapes" : null
     };
     this.enterMatchState(request);
   }

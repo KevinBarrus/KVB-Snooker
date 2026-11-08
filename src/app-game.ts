@@ -22,8 +22,10 @@ import { RuleChoiceDom } from "./ui/rule-choice.js";
 import { FoulNotice, FoulNoticeDom } from "./ui/foul-notice.js";
 import { NominationDom } from "./ui/nomination.js";
 import { PracticeControlsDom } from "./ui/practice-controls.js";
+import { PracticeCompletionDom } from "./ui/practice-completion.js";
 import type { CueBallStyle } from "./ui/game-menu.js";
 import type { PracticeShapeId } from "./core/practice/shapes.js";
+import type { CustomShapeRecord } from "./core/practice/custom-shapes.js";
 
 const TOUCHING_BALL_NAMES = ["cue ball", "red", "yellow", "green", "brown", "blue", "pink", "black"];
 const BALL_NAMES = ["母球", "红球", "黄球", "绿球", "棕球", "蓝球", "粉球", "黑球"];
@@ -43,6 +45,8 @@ export class BrowserGame {
   readonly ruleChoice: RuleChoiceDom;
   readonly nomination: NominationDom;
   readonly practiceControls: PracticeControlsDom;
+  readonly practiceCompletion: PracticeCompletionDom;
+  onExitPractice?: () => void;
   private readonly touchingMessage = new FoulNotice();
   private touchingKey = "";
   readonly touchingNoticeDom = new FoulNoticeDom(document, () => this.canvas.focus());
@@ -58,7 +62,9 @@ export class BrowserGame {
   private cueBallStyle: CueBallStyle = "classic";
   private practiceChoicePending = false;
   private practiceChoiceMessage = "";
-  private clearanceFinished = false;
+  private customShape: CustomShapeRecord | null = null;
+  private startedWithObjectBalls = false;
+  private completionPending = false;
   private readonly disposeBus: () => void;
 
   constructor(readonly simulator: Simulator, private readonly scene: B.Scene,
@@ -118,7 +124,7 @@ export class BrowserGame {
     this.controls = new GamingInput(canvas, this.human, this.shots, {
       state: () => this.pendingShot ? GAME_STATE.SIMULATING : this.session.state,
       canAim: () => {
-        if (this.practiceChoicePending || this.clearanceFinished) return false;
+        if (this.practiceChoicePending || this.completionPending) return false;
         if (!this.human.active || !this.canShoot(this.human.playerIndex)) return false;
         if (!simulator.getBallView(0).active) {
           this.viewNotice.show("母球需要先放到合法位置");
@@ -181,10 +187,16 @@ export class BrowserGame {
     this.touchingNoticeDom.element.setAttribute("role", "status");
     this.practiceControls = new PracticeControlsDom(
       () => this.restorePracticeShot(),
-      () => this.restartPracticeShape()
+      () => this.restartPractice()
     );
+    this.practiceCompletion = new PracticeCompletionDom({
+      restart: () => this.restartPractice(),
+      restore: () => { this.closeCompletion(); this.restorePracticeShot(); },
+      continuePlaying: () => this.closeCompletion(),
+      exit: () => { this.closeCompletion(); this.onExitPractice?.(); }
+    });
     document.body.append(this.touchingNoticeDom.element, this.hudDom.element, this.viewNoticeDom.element,
-      this.ruleChoice.element, this.nomination.element, this.practiceControls.element);
+      this.ruleChoice.element, this.nomination.element, this.practiceControls.element, this.practiceCompletion.element);
     this.activateTurn();
     this.openOpeningPlacement();
     this.syncHud();
@@ -295,17 +307,20 @@ export class BrowserGame {
   }
 
   setMode(mode: GameMode, difficulty: keyof typeof AI_PROFILES = "NORMAL", options: GameOptions = {},
-    shapeId: PracticeShapeId | null = null): boolean {
+    shapeId: PracticeShapeId | null = null, customShape: CustomShapeRecord | null = null): boolean {
     if (!this.canReset) return false;
     this.controls.inHand.exit();
     this.shots.finish();
     this.human.camera.endShotView();
     this.replay.clear();
     this.shapeId = shapeId;
+    this.customShape = customShape;
     this.launchOptions = options;
     this.practiceChoicePending = false;
     this.practiceChoiceMessage = "";
-    this.clearanceFinished = false;
+    this.completionPending = false;
+    this.startedWithObjectBalls = options.setup?.balls.some(ball => ball.active && ball.index > 0) ?? false;
+    this.practiceCompletion.sync(false, false);
     const formal = mode === "single-play" && !options.setup;
     this.session = new GameSession(this.simulator, mode, formal
       ? { ...options, openingPlayerIndex: options.openingPlayerIndex ?? this.nextOpeningIndex } : options);
@@ -325,6 +340,7 @@ export class BrowserGame {
   private syncHud(): void {
     const { playerIndex, ballOn, inHand } = this.session.context;
     this.hud.scorePanel.visible = this.session.mode !== "practice" || this.session.practiceScored;
+    this.hud.scorePanel.ballOnVisible = this.customShape === null;
     const allLocal = this.session.players.length === 2 && this.session.players.every(player => player.type === "USER");
     this.hud.resetPlayers(this.session.players.map((player, index) => allLocal ? `玩家 ${index + 1}` : player.type === "USER" ? "PLAYER" : "PCOL AI"));
     this.hud.playerIndex = playerIndex;
@@ -357,21 +373,29 @@ export class BrowserGame {
     const { foulCode, score } = this.session.result;
     if (foulCode) this.bus.emit("game/foul", { foulCode, score, description: getFoulDescription(foulCode) });
     if (missed) this.hud.foulNotice.head = "FOUL AND A MISS";
-    if (this.shapeId !== null) this.afterPracticeShot();
+    if (this.shapeId !== null || this.customShape !== null) this.afterPracticeShot();
   }
 
   private afterPracticeShot(): void {
     if (this.shapeId === "five-spots") {
-      this.restartPracticeShape();
+      this.restartPractice();
       return;
     }
-    const objectBallsCleared = this.simulator.getBalls().every(ball => ball.index === 0 || !ball.active);
-    if (this.shapeId === "clearance" && objectBallsCleared) {
-      this.clearanceFinished = true;
-      this.viewNotice.show("清彩完成 · 菜单→重新开始可重摆");
-      this.viewNoticeDom.sync(this.viewNotice);
+    const objectBalls = this.simulator.getBalls().filter(ball => ball.index > 0 && ball.active).length;
+    if (this.customShape !== null) {
+      if (this.startedWithObjectBalls && objectBalls === 0 && !this.completionPending) {
+        this.completionPending = true;
+        this.practiceCompletion.sync(true, this.session.canRestorePreviousShot);
+        this.controls.update();
+        return;
+      }
+      if (!this.simulator.getBallView(0).active || this.session.context.inHand > 0) this.openOpeningPlacement();
+      return;
+    }
+    if (this.shapeId !== null && this.startedWithObjectBalls && objectBalls === 0 && !this.completionPending) {
+      this.completionPending = true;
+      this.practiceCompletion.sync(true, this.session.canRestorePreviousShot);
       this.controls.update();
-      this.syncPracticeControls();
       return;
     }
     const foulCode = this.session.result.foulCode;
@@ -383,7 +407,7 @@ export class BrowserGame {
   }
 
   private get canRestorePracticeShot(): boolean {
-    return this.shapeId !== null && !this.practiceChoicePending && !this.clearanceFinished &&
+    return (this.shapeId !== null || this.customShape !== null) && !this.practiceChoicePending &&
       this.session.state === GAME_STATE.READY && this.session.canRestorePreviousShot &&
       !this.shots.busy && !this.pendingShot && !this.replay.active;
   }
@@ -397,7 +421,8 @@ export class BrowserGame {
   }
 
   private restorePracticeShot(): boolean {
-    if (this.shapeId === null || !this.session.canRestorePreviousShot || this.session.state !== GAME_STATE.READY ||
+    this.closeCompletion();
+    if ((this.shapeId === null && this.customShape === null) || !this.session.canRestorePreviousShot || this.session.state !== GAME_STATE.READY ||
         this.shots.busy || this.pendingShot || this.replay.active) return false;
     if (this.session.restorePreviousShot(this.session.context.playerIndex) === false) return false;
     this.practiceChoicePending = false;
@@ -415,10 +440,17 @@ export class BrowserGame {
     return true;
   }
 
-  private restartPracticeShape(): boolean {
-    if (this.shapeId === null) return false;
+  private restartPractice(): boolean {
+    if (this.shapeId === null && this.customShape === null) return false;
     this.practiceChoicePending = false;
-    return this.setMode("practice", this.difficulty, this.launchOptions, this.shapeId);
+    this.closeCompletion();
+    return this.setMode("practice", this.difficulty, this.launchOptions, this.shapeId, this.customShape);
+  }
+
+  private closeCompletion(): void {
+    this.completionPending = false;
+    this.practiceCompletion.sync(false, false);
+    this.controls.update();
   }
 
   private handleClockExpiry(): void {
@@ -496,6 +528,7 @@ export class BrowserGame {
     this.viewNoticeDom.element.remove();
     this.replay.dispose();
     this.practiceControls.dispose();
+    this.practiceCompletion.dispose();
     this.ruleChoice.dispose();
     this.nomination.dispose();
     this.touchingNoticeDom.element.remove();

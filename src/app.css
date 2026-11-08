@@ -119,6 +119,9 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 @media (max-width: 900px) { .net-hud { max-width: calc(100vw - 32px); font-size: 10px; white-space: pre-wrap; } }
 .net-decision { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); display: flex; gap: 8px; padding: 10px 14px; background: #171713ed; }
 .net-decision[hidden] { display: none; }
+.net-match { position: absolute; right: 16px; bottom: 16px; max-width: calc(100vw - 32px); padding: 12px 16px; background: #171713ed; color: #e8e8df; font: 13px/1.8 sans-serif; }
+.net-match[hidden] { display: none; }
+.net-match button { margin: 8px 6px 0 0; }
 
 .practice-controls { position: absolute; left: 16px; top: 60px; pointer-events: none; }
 .practice-restore { pointer-events: auto; padding: 9px 14px; border-radius: 7px; background: rgba(18, 20, 17, 0.9); border: 1px solid rgba(229, 214, 157, 0.4); color: #f7e8b4; font-weight: 600; }
@@ -136,3 +139,48 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .menu-choice-dialog strong { color: #f7e8b4; font-size: 16px; }
 .menu-choice-message { margin: 0; color: #b7bcae; font-size: 13px; }
 .menu-choice-dialog .menu-seg-btn { width: 100%; }
+
+.my-shapes-panel { display: flex; flex-direction: column; gap: 8px; }
+.my-shapes-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.my-shapes-tab { padding: 9px 12px; border-radius: 7px; background: #171c17; border: 1px solid rgba(255, 255, 255, 0.14); color: #b7bcae; font-weight: 600; }
+.my-shapes-tab[aria-pressed="true"] { background: #293325; border-color: rgba(229, 214, 157, 0.55); color: #f7e8b4; }
+.my-shapes-items { display: flex; flex-direction: column; gap: 6px; max-height: 42vh; overflow-y: auto; }
+.my-shapes-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 10px 12px; border-radius: 7px; background: #141814; border: 1px solid rgba(255, 255, 255, 0.12); color: #ecefe8; text-align: left; }
+.my-shapes-item:hover { border-color: rgba(229, 214, 157, 0.42); }
+.my-shapes-name { font-weight: 600; }
+.my-shapes-expiry { color: #858c80; font-size: 12px; font-variant-numeric: tabular-nums; }
+.my-shapes-context { position: fixed; z-index: 40; display: flex; flex-direction: column; min-width: 120px; padding: 6px; background: #171713f2; border: 1px solid rgba(229, 214, 157, 0.34); border-radius: 8px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7); }
+.my-shapes-context button { padding: 7px 10px; border: none; border-radius: 5px; background: transparent; color: #ecefe8; text-align: left; }
+.my-shapes-context button:hover { background: #2a3126; color: #f7e8b4; }
+.my-shapes-dialog-close { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border: none; border-radius: 5px; background: transparent; color: #b7bcae; font-size: 18px; }
+.my-shapes-dialog-actions { display: flex; gap: 8px; }
+.my-shapes-dialog-actions button { flex: 1; }
+.shape-editor-layer { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
+.shape-editor-tools { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; width: 150px; pointer-events: auto; }
+.shape-editor-tools button { padding: 10px 12px; border-radius: 7px; background: rgba(18, 20, 17, 0.92); border: 1px solid rgba(229, 214, 157, 0.4); color: #ecefe8; font-weight: 600; }
+.shape-editor-tools button:hover { border-color: #e5d69d; color: #f7e8b4; }
+.shape-editor-inventory { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 18px; padding: 12px 18px; background: rgba(10, 12, 10, 0.78); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; pointer-events: auto; }
+.shape-editor-ball { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 68px; padding: 8px 4px 6px; border-radius: 10px; border: 1px solid transparent; background: transparent; }
+.shape-editor-ball.selected { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.42); }
+.shape-editor-ball.selected::after { content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #f7f7f0; }
+.shape-editor-sphere { display: block; width: 52px; height: 52px; border-radius: 50%; background:
+  radial-gradient(circle at 32% 26%, rgba(255,255,255,0.95) 0 6%, rgba(255,255,255,0.28) 18%, transparent 35%),
+  radial-gradient(circle at 38% 34%, var(--ball-colour, #888) 0 38%, color-mix(in srgb, var(--ball-colour, #888) 55%, #000) 78%, #000 100%);
+  box-shadow: inset -6px -8px 14px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.5); }
+.shape-editor-count { color: #ecefe8; font-weight: 700; font-variant-numeric: tabular-nums; }
+.shape-editor-forbidden { position: absolute; top: 0; left: 50%; transform: translateX(-50%); display: none; color: #ff5a4a; font-size: 26px; font-weight: 800; line-height: 1; }
+.shape-editor-ball.empty .shape-editor-forbidden { display: block; }
+.shape-editor-ball.empty .shape-editor-sphere { filter: grayscale(0.65) brightness(0.7); }
+.shape-editor-hint { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%); color: #b7bcae; }
+.shape-editor-colours { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.shape-editor-colour { display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 8px; background: transparent; border: 1px solid transparent; }
+.shape-editor-colour:disabled { opacity: 0.28; }
+.shape-editor-colour.selected { background: rgba(255, 255, 255, 0.72); border-color: #fff; }
+.shape-editor-colour .shape-editor-sphere { width: 42px; height: 42px; }
+.practice-completion { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); z-index: 35; display: flex; flex-direction: column; gap: 12px; min-width: 300px; padding: 18px; background: rgba(18, 20, 17, 0.96); border: 1px solid rgba(229, 214, 157, 0.42); border-radius: 12px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.78); pointer-events: auto; }
+.practice-completion[hidden] { display: none; }
+.practice-completion strong { color: #f7e8b4; font-size: 17px; }
+.practice-completion-actions { display: flex; gap: 8px; }
+.practice-completion-actions button { flex: 1; padding: 9px 10px; border-radius: 7px; background: #1e231d; border: 1px solid rgba(255, 255, 255, 0.14); color: #ecefe8; font-weight: 600; }
+.practice-completion-actions button:hover:not(:disabled) { border-color: rgba(229, 214, 157, 0.5); color: #f7e8b4; }
+.score-container.hide-ball-on .ball-on-icon { display: none; }

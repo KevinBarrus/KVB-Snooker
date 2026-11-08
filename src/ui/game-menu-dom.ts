@@ -11,6 +11,7 @@ import {
   type MenuRuleset,
   type PresetShapeId
 } from "./game-menu";
+import { MyShapesPanelDom, type MyShapesPort } from "./my-shapes-panel";
 
 const MAIN_TABS: readonly { readonly id: MainMenuTab; readonly label: string }[] = [
   { id: "ai", label: "AI 对战" },
@@ -66,7 +67,8 @@ export class GameMenuDom {
   private readonly practiceEntryBox: HTMLElement;
   private readonly shapesGridBox: HTMLElement;
   private readonly myShapesListBox: HTMLElement;
-  private readonly myShapesEmptyText: HTMLElement;
+  private readonly myShapesEmptyText: HTMLElement | null;
+  private readonly myShapesPanel: MyShapesPanelDom | null;
 
   private readonly profilePanel: HTMLElement;
 
@@ -83,7 +85,8 @@ export class GameMenuDom {
   constructor(
     readonly state: GameMenu,
     private readonly onLaunchMatch: (request: MatchLaunchRequest) => void,
-    private readonly doc: Document = document
+    private readonly doc: Document = document,
+    private readonly myShapesPort?: MyShapesPort
   ) {
     this.element = doc.createElement("div");
     this.element.className = "game-menu-layer";
@@ -267,20 +270,28 @@ export class GameMenuDom {
     }
     const myShapesBtn = this.makeButton("menu-seg-btn menu-my-shapes-entry", "我的球形", () => {
       this.state.openMyShapes();
+      this.myShapesPanel?.showMine();
       this.sync();
     });
     this.shapesGridBox.append(myShapesBtn);
 
     this.myShapesListBox = doc.createElement("div");
     this.myShapesListBox.className = "menu-list-box";
-    const createRowBtn = this.makeButton("menu-list-top-action", "创建球形", () => {
-      this.state.clickCreateShape();
-      this.sync();
-    });
-    this.myShapesEmptyText = doc.createElement("div");
-    this.myShapesEmptyText.className = "menu-list-empty";
-    this.myShapesEmptyText.setAttribute("role", "status");
-    this.myShapesListBox.append(createRowBtn, this.myShapesEmptyText);
+    if (this.myShapesPort) {
+      this.myShapesPanel = new MyShapesPanelDom(this.myShapesPort, doc);
+      this.myShapesListBox.append(this.myShapesPanel.element);
+      this.myShapesEmptyText = null;
+    } else {
+      this.myShapesPanel = null;
+      const createRowBtn = this.makeButton("menu-list-top-action", "创建球形", () => {
+        this.state.clickCreateShape();
+        this.sync();
+      });
+      this.myShapesEmptyText = doc.createElement("div");
+      this.myShapesEmptyText.className = "menu-list-empty";
+      this.myShapesEmptyText.setAttribute("role", "status");
+      this.myShapesListBox.append(createRowBtn, this.myShapesEmptyText);
+    }
     this.practicePanel.append(this.practiceEntryBox, this.shapesGridBox, this.myShapesListBox);
 
     this.profilePanel = doc.createElement("div");
@@ -455,7 +466,8 @@ export class GameMenuDom {
     this.practiceEntryBox.hidden = s.practiceSub !== null;
     this.shapesGridBox.hidden = s.practiceSub !== "shapes";
     this.myShapesListBox.hidden = s.practiceSub !== "my-shapes";
-    this.myShapesEmptyText.textContent = s.myShapesStatusText;
+    if (this.myShapesPanel && !this.myShapesListBox.hidden) this.myShapesPanel.sync();
+    if (this.myShapesEmptyText) this.myShapesEmptyText.textContent = s.myShapesStatusText;
 
     this.profilePanel.hidden = s.activeTab !== "profile";
 
@@ -486,6 +498,7 @@ export class GameMenuDom {
   }
 
   dispose(): void {
+    this.myShapesPanel?.dispose();
     this.element.remove();
   }
 }
