@@ -93,6 +93,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     let lastBallOn = -1;
     const options = document.querySelector<HTMLFormElement>(".game-options");
     audio = new BrowserAudio(game.bus, options ?? document.body);
+    const offAudioUnlock = game.bus.on("sim/shooting-start", () => audio?.unlockNow());
     const menuState = new GameMenu({ onPauseSignal: () => {} });
     let menuDom: GameMenuDom;
     const launchFromMenu = (req: MatchLaunchRequest) => {
@@ -247,6 +248,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     window.addEventListener("pagehide", () => {
       window.removeEventListener("resize", resize);
       options?.removeEventListener("submit", startGame);
+      offAudioUnlock();
       menuDom.dispose();
       testTools?.dispose();
       audio?.dispose();

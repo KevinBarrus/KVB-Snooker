@@ -57,6 +57,11 @@ export class BrowserAudio {
     });
   };
 
+  /** 出杆开始前主动恢复音频上下文，避免首次触球声与后续碰撞声挤在一起。 */
+  unlockNow(): void {
+    this.unlock();
+  }
+
   private async load(): Promise<boolean> {
     try {
       const response = await fetch("/assets/audio/manifest.json", { signal: this.abort.signal });

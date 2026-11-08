@@ -48,12 +48,8 @@ export class BrowserSoundBackend implements SoundBackend {
   }
 
   play(decision: SoundDecision): void {
-    if (!this.running) {
-      void this.unlock().then(() => { if (this.running) this.play(decision); }).catch(() => undefined);
-      return;
-    }
     const sample = decision.sample;
-    if (!sample || !this.enabled || this.volume <= 0 || this.disposed || !Number.isFinite(decision.volume) || decision.volume <= 0) return;
+    if (!sample || !this.running || !this.enabled || this.volume <= 0 || this.disposed || !Number.isFinite(decision.volume) || decision.volume <= 0) return;
     const buffer = this.buffers.get(sample.id);
     if (!buffer) return;
     while (this.voices.size >= this.config.playback.voices) this.remove(this.voices.keys().next().value!);
