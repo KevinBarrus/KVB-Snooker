@@ -150,6 +150,7 @@ export class MyShapesPanelDom {
   }
 
   private openContextMenu(x: number, y: number, record: CustomShapeRecord): void {
+    this.closeDialog();
     this.closeContextMenu();
     const menu = this.doc.createElement("div");
     menu.className = "my-shapes-context";

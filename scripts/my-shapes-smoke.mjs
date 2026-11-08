@@ -152,11 +152,16 @@ try {
   await advance(2);
   assert.equal(await page.locator(".my-shapes-item").count(), 1);
 
-  // 4) 编辑保存、删除、恢复、彻底删除
-  await page.locator(".my-shapes-item").first().click({ button: "right" });
-  await page.locator(".my-shapes-context").getByRole("button", { name: "编辑", exact: true }).click();
+  // 4) 编辑保存、删除、恢复、彻底删除；开始询问框打开时右键编辑应关闭旧询问框
+  await page.locator(".my-shapes-item").first().click();
+  assert.equal(await page.locator(".menu-choice-dialog").filter({ hasText: "球形练习" }).count(), 1);
+  await page.locator(".my-shapes-item").first().dispatchEvent("contextmenu", { clientX: 500, clientY: 400 });
+  await page.evaluate(() => { const button = Array.from(document.querySelectorAll(".my-shapes-context button")).find(item => item.textContent === "编辑"); if (button instanceof HTMLElement) button.click(); });
   await advance(2);
   assert.equal((await snapshot()).editor, true);
+  assert.equal(await page.locator(".menu-choice-dialog").filter({ hasText: "球形练习" }).count(), 0,
+    "Editing must close a pending start dialog");
+  assert.equal(await page.locator(".shape-editor-tools").getByRole("button", { name: "退出编辑", exact: true }).isVisible(), true);
   await page.locator(".shape-editor-tools").getByRole("button", { name: "保存", exact: true }).click();
   await advance(1);
   const cameraBefore = await page.evaluate(async () => {

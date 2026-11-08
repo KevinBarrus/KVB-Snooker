@@ -41,6 +41,9 @@ export class BrowserAudio {
       this.updateCaption();
     }, { signal });
     document.addEventListener("pointerdown", this.unlock, { capture: true, signal });
+    document.addEventListener("pointerup", this.unlock, { capture: true, signal });
+    document.addEventListener("click", this.unlock, { capture: true, signal });
+    document.addEventListener("touchstart", this.unlock, { capture: true, signal });
     document.addEventListener("keydown", this.unlock, { capture: true, signal });
     document.addEventListener("visibilitychange", () => { if (document.hidden) this.backend?.stop(); }, { signal });
     try {
@@ -89,6 +92,8 @@ export class BrowserAudio {
     }
     this.session = session; this.evolution = evolution; this.replay = replay;
     this.backend?.setEnabled(!replay);
+    // 浏览器可能在切模式/失焦后把上下文挂起；每帧尝试恢复，确保第一杆触球声不被整体推迟。
+    if (this.backend && !this.backend.running) void this.backend.unlock().catch(() => undefined);
   }
 
   private updateCaption(): void {

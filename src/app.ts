@@ -97,6 +97,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const menuState = new GameMenu({ onPauseSignal: () => {} });
     let menuDom: GameMenuDom;
     const launchFromMenu = (req: MatchLaunchRequest) => {
+      audio?.unlockNow();
       if (req.mode === "practice" && req.shapeId) {
         const shapeId = PRACTICE_SHAPE_IDS[req.shapeId];
         const config = makePracticeShapeConfig(shapeId, simulator);
@@ -173,6 +174,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       const difficulty = level === "EASY" || level === "HARD" ? level : "NORMAL";
       const mode = values.get("mode") === "single-play" ? "single-play" : "practice";
       const ruleset = values.get("rules") === "snooker-900" ? "snooker-900" : "classic";
+      audio?.unlockNow();
       if (game.setMode(mode, difficulty, mode === "single-play" ? { ruleset } : {})) {
         menuState.syncExternalMatch({ kind: mode === "single-play" ? "ai" : "practice", mode, difficulty, ruleset });
         menuDom.sync();

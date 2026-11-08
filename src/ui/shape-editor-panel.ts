@@ -77,6 +77,7 @@ export class ShapeEditorPanelDom {
       button.setAttribute("aria-label", `${BALL_LABELS[item.ballNumber] ?? ""}，剩余 ${item.count}`);
     }
     this.finishButton.textContent = this.port.editing ? "保存" : "完成创建";
+    this.exitButton.textContent = this.port.editing ? "退出编辑" : "退出创建";
   }
 
   showRecycle(ballNumber: number, onConfirm: () => void): void {
