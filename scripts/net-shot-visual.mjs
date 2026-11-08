@@ -63,3 +63,39 @@ export async function shootAcrossStall(page, stallMs) {
     canvas.dispatchEvent(new KeyboardEvent("keyup", { key: " ", code: "Space", keyCode: 32, bubbles: true }));
   }, stallMs);
 }
+
+export async function watchRemoteCue(page) {
+  await page.evaluate(() => {
+    const origin = { ...window.__snkNet.shotVisual.cuePosition };
+    const record = window.__snkRemoteCue = { origin, samples: [], stop: false };
+    const observe = () => {
+      const net = window.__snkNet;
+      if (!net || record.stop) return;
+      record.samples.push({ at: performance.now(), ...net.remoteCueVisual,
+        cue: { ...net.shotVisual.cuePosition }, camera: { ...net.cameraPosition } });
+      if (record.samples.length < 2000) requestAnimationFrame(observe);
+    };
+    requestAnimationFrame(observe);
+  });
+}
+
+export async function assertRemoteCue(page) {
+  const record = await page.evaluate(() => {
+    window.__snkRemoteCue.stop = true;
+    return window.__snkRemoteCue;
+  });
+  const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+  const visible = record.samples.filter(sample => sample.visible);
+  assert.ok(visible.length >= 3, "观看方实际模型必须显示多帧球杆动作");
+  assert.ok(visible.some(sample => !sample.struck && sample.leadingSpace < -.02 &&
+    distance(sample.cue, record.origin) < 1e-5), "球仍静止时观看方须看到后拉");
+  const moving = record.samples.find(sample => distance(sample.cue, record.origin) > 1e-5);
+  assert.ok(moving?.visible && moving.struck, "母球首次移动时远端球杆必须显示且已经触球");
+  assert.ok(moving.leadingSpace >= -1e-6, "远端球杆不能在母球移动后仍处于后拉");
+  assert.ok(visible.every(sample => Number.isFinite(sample.position.x + sample.position.y + sample.position.z)));
+  assert.ok(visible.every(sample => distance(sample.camera, record.samples[0].camera) < .01),
+    "远端球杆不能接管观看者相机");
+  assert.equal(record.samples.at(-1).visible, false, "出杆收尾后隐藏远端球杆");
+  return { visibleFrames: visible.length, firstMotionAtMs: moving.at,
+    leadingSpaceAtFirstMotion: moving.leadingSpace };
+}

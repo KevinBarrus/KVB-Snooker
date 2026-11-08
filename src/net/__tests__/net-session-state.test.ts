@@ -178,10 +178,10 @@ describe("NetSessionState 出杆阶段与时序记录", () => {
       serverTimeMs: 5_100, duplicate: false, shotId: "shot-1", touchAtServerMs: 5_400 }, 1_300);
     expect(session.projectedTouchAtMs()).toBe(1_450);
     session.noteAnimationTouch(1_420);
-    session.onSnapshot(snapshot(4, 5_300, { phase: "simulating", pendingShot: { shotId: "shot-1", seat: 0, touchAtServerMs: 5_400 } }), 1_320);
+    session.onSnapshot(snapshot(4, 5_300, { phase: "simulating", pendingShot: { shotId: "shot-1", seat: 0, touchAtServerMs: 5_400, vars: [0, .9, 0, 1, 0, 0, 20, .005] } }), 1_320);
     session.onSnapshot(snapshot(4, 5_350, { phase: "simulating",
       balls: [ball(0, 0, 0.1, 0.9, 0), ball(1, 1, 0.5, 0.9, 0)],
-      pendingShot: { shotId: "shot-1", seat: 0, touchAtServerMs: 5_400 } }), 1_370);
+      pendingShot: { shotId: "shot-1", seat: 0, touchAtServerMs: 5_400, vars: [0, .9, 0, 1, 0, 0, 20, .005] } }), 1_370);
     session.onEvent(event(1, 5_400, { type: "shot-fired", shotId: "shot-1", seat: 0, touchAtServerMs: 5_400, firedAtServerMs: 5_410 }), 1_400);
     expect(session.pendingPhase).toBe("fired");
     const timing = session.timing();

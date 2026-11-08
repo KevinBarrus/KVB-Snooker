@@ -52,7 +52,7 @@ describe("ShotCommandTracker", () => {
   it("权威事件推进阶段并记录 fired 与结算", () => {
     const shots = tracker();
     shots.begin(new Float32Array(8), 3, 1_000, null);
-    shots.handleEvent({ type: "shot-prepared", shotId: "shot-1", seat: 0, touchAtServerMs: 5_400, prepareLeadMs: 300 },
+    shots.handleEvent({ type: "shot-prepared", shotId: "shot-1", seat: 0, touchAtServerMs: 5_400, vars: [0, .9, 0, 1, 0, 0, 20, .005], prepareLeadMs: 300 },
       0, 1_100, project);
     expect(shots.pendingPhase).toBe("prepared");
     shots.handleEvent({ type: "shot-fired", shotId: "shot-1", seat: 0, touchAtServerMs: 5_400, firedAtServerMs: 5_410 },

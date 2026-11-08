@@ -60,6 +60,11 @@ describe("WebSocket 传输与双客户端（联机原型 §3—§6）", () => {
       expect(preparedA.event.shotId).toBe(ack.shotId);
       expect(preparedB.event.shotId).toBe(ack.shotId);
       expect(preparedA.event.prepareLeadMs).toBe(700);
+      const frozenVars = Array.from(Float32Array.from(varsFor(0, -1, 5)));
+      expect(preparedA.event.vars).toEqual(frozenVars);
+      expect(preparedB.event.vars).toEqual(frozenVars);
+      const preparedSnapshot = await waitSnapshot(b.client, snapshot => snapshot.pendingShot !== null);
+      expect(preparedSnapshot.pendingShot?.vars).toEqual(frozenVars);
 
       const firedA = await waitEvent(a.client, "shot-fired");
       const firedB = await waitEvent(b.client, "shot-fired");

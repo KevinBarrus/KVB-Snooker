@@ -29,7 +29,8 @@ export class TipMotion {
 
   isReady(): boolean { return !this.needsUpdate && this.pullbackProgress === 0; }
 
-  launch(stick: StickController, power: number): number {
+  launch(stick: Pick<StickController, "kissPoint" | "kissDir" | "getTouchSpdWithPower" |
+    "getSlowDownDistance" | "getTipRadius">, power: number): number {
     const speed = stick.getTouchSpdWithPower(power);
     const slowDownDistance = stick.getSlowDownDistance(power, this.maxPullbackLen);
     this.tipRadius = stick.getTipRadius();

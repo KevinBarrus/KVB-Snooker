@@ -93,7 +93,8 @@ describe("服务端权威房间（联机原型 §3—§6 / 架构 §4.8）", () 
     if (!preparedSnapshot) throw new Error("missing prepared snapshot");
     expect(preparedSnapshot.version).toBe(1);
     expect(preparedSnapshot.phase).toBe("ready");
-    expect(preparedSnapshot.pendingShot).toEqual({ shotId: prepared.ack?.shotId, seat: 0, touchAtServerMs: 1700 });
+    expect(preparedSnapshot.pendingShot).toEqual({ shotId: prepared.ack?.shotId, seat: 0,
+      touchAtServerMs: 1700, vars: Array.from(Float32Array.from(vars)) });
     expect(preparedSnapshot.checkpoint?.mbid).toBe("six-pocket-test-table");
 
     expect(eventsOfType(room.tick(1690).events, "shot-fired")).toHaveLength(0);

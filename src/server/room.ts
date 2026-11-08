@@ -234,7 +234,7 @@ export class RoomSession {
     };
     this.remember(message.commandId, commandSignature(action), ack);
     const event = this.pushEvent({ type: "shot-prepared", shotId, seat, touchAtServerMs,
-      prepareLeadMs: this.options.prepareLeadMs }, nowMs);
+      prepareLeadMs: this.options.prepareLeadMs, vars: Array.from(vars) }, nowMs);
     return { ack, events: [event], snapshot: this.buildSnapshotNow(nowMs) };
   }
 
@@ -325,7 +325,7 @@ export class RoomSession {
 
   private pendingView(): PendingShotView | null {
     const pending = this.pendingShot;
-    return pending ? { shotId: pending.shotId, seat: pending.seat, touchAtServerMs: pending.touchAtServerMs } : null;
+    return pending ? { shotId: pending.shotId, seat: pending.seat, touchAtServerMs: pending.touchAtServerMs, vars: Array.from(pending.vars) } : null;
   }
 
   private buildSnapshotNow(nowMs: number): SnapshotMessage {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright-core";
-import { watchShot, assertShotVisual, shootAcrossStall, assertDiagnosticDownload } from "./net-shot-visual.mjs";
+import { watchShot, assertShotVisual, shootAcrossStall, assertDiagnosticDownload, watchRemoteCue, assertRemoteCue } from "./net-shot-visual.mjs";
 import {
   CHROME_BIN, LEAD_MS, aimClient, assertSnapshotsEqual, buildServer, closePages, openClient, readNet, recordShot,
   resolveDecision, shoot, sleep, startServer, stopServer, waitFor
@@ -37,6 +37,7 @@ async function runBaseline(browser) {
     const aimed = await readNet(seat0);
     assert.equal(aimed.turn, true, "席位 0 应轮到本机");
     await watchShot(seat0);
+    await watchRemoteCue(seat1);
     await shoot(seat0);
     const motion = await recordShot([seat0, seat1], 0);
     const diagnostics = await Promise.all(pages.map(assertDiagnosticDownload));
@@ -47,6 +48,7 @@ async function runBaseline(browser) {
     assertSnapshotsEqual(final0.snapshot, final1.snapshot, "baseline 两端结算快照");
 
     const visual = await assertShotVisual(seat0);
+    const opponentVisual = await assertRemoteCue(seat1);
     const t = final0.timing;
     for (const key of ["spaceAtMs", "commandSentAtMs", "ackAtMs", "projectedTouchAtMs",
       "animationTouchAtMs", "firstMotionSnapshotAtMs", "firedEventAtMs"]) {
@@ -80,7 +82,7 @@ async function runBaseline(browser) {
     const cameraAfter = final1.cameraPosition;
     const cameraDelta = Math.hypot(cameraAfter.x - cameraBefore.x, cameraAfter.y - cameraBefore.y, cameraAfter.z - cameraBefore.z);
     assert.ok(cameraDelta < 0.2, `对手相机不应被本杆接管（位移 ${cameraDelta.toFixed(3)}）`);
-    assert.equal(final1.timing.shotId, null, "非击球端不应持有本杆动画/出杆状态");
+    assert.equal(final1.timing.shotId, null, "非击球端不应持有本杆出杆命令状态");
 
     // 球权：只有当前持权者可以出杆；无权端按 Space 不产生任何命令/版本变化。
     const current = final0.snapshot.context.playerIndex;
@@ -98,7 +100,7 @@ async function runBaseline(browser) {
 
     results.push({
       name: "baseline", room, leadMs: LEAD_MS,
-      timing: t, visual, animationMinusProjectedMs: Math.round(animationDelta),
+      timing: t, visual, opponentVisual, animationMinusProjectedMs: Math.round(animationDelta),
       versionBefore, versionAfter: final0.snapshot.version,
       commonVersions: commonVersions.length, cameraDelta,
       players: final0.snapshot.context.playerIndex,
@@ -107,6 +109,15 @@ async function runBaseline(browser) {
     await mkdir(".cache/net", { recursive: true });
     await seat0.screenshot({ path: ".cache/net/baseline-seat0.png" });
     await seat1.screenshot({ path: ".cache/net/baseline-seat1.png" });
+    assert.equal(current, 1, "本验收开球犯规后应由席位1接手");
+    await aimClient(seat1);
+    await watchShot(seat1);
+    await watchRemoteCue(seat0);
+    await shoot(seat1);
+    await recordShot(pages, 1);
+    const reverseVisual = await assertRemoteCue(seat0);
+    await assertShotVisual(seat1);
+    results[results.length - 1].reverseVisual = reverseVisual;
     return { t, final: final0.snapshot, motionVersions: commonVersions.length };
   } finally {
     await closePages(pages);
@@ -126,18 +137,20 @@ async function runAlignment(browser) {
     pages.push(seat0, seat1);
     await aimClient(seat0);
     await watchShot(seat0);
+    await watchRemoteCue(seat1);
     await shoot(seat0);
     const motion = await recordShot([seat0, seat1], 0);
     const final0 = await readNet(seat0);
     const final1 = await readNet(seat1);
     assertSnapshotsEqual(final0.snapshot, final1.snapshot, "alignment 两端结算快照");
     const visual = await assertShotVisual(seat0);
+    const opponentVisual = await assertRemoteCue(seat1);
     const t = final0.timing;
     const delta = t.animationTouchAtMs - t.projectedTouchAtMs;
     assert.ok(t.animationTouchAtMs <= visual.firstMotionAtMs,
       "实际显示触球帧不能晚于母球首次运动帧");
     assert.ok(t.firstMotionSnapshotAtMs - t.projectedTouchAtMs <= 400);
-    results.push({ name: "alignment", leadMs, visual, animationMinusProjectedMs: Math.round(delta),
+    results.push({ name: "alignment", leadMs, visual, opponentVisual, animationMinusProjectedMs: Math.round(delta),
       spaceToProjectedMs: Math.round(t.projectedTouchAtMs - t.spaceAtMs),
       commonVersions: [...motion.samples[0].keys()].filter(version => motion.samples[1].has(version)).length });
   } finally {
@@ -160,6 +173,7 @@ async function runDropAck(browser) {
     const versionBefore = initial.snapshot.version;
     await aimClient(seat0);
     await watchShot(seat0);
+    await watchRemoteCue(seat1);
     await shoot(seat0);
     const motion = await recordShot([seat0], 0);
     const final = await readNet(seat0);
@@ -168,7 +182,8 @@ async function runDropAck(browser) {
       `重复命令只能产生一次实际击球（版本增量应恰为 3：${final.snapshot.version} - ${versionBefore}）`);
     assert.notEqual(final.timing.shotId, null);
     const visual = await assertShotVisual(seat0);
-    results.push({ name: "drop-ack", visual, versionBefore, versionAfter: final.snapshot.version,
+    const opponentVisual = await assertRemoteCue(seat1);
+    results.push({ name: "drop-ack", visual, opponentVisual, versionBefore, versionAfter: final.snapshot.version,
       retries: final.timing.retries, commonVersions: motion.samples[0].size });
     return final;
   } finally {
@@ -195,12 +210,14 @@ async function runLatency(browser) {
     assert.equal(initial.latency.appliesTo, "one-way-per-direction", "配置必须声明是单程延迟");
     await aimClient(seat0);
     await watchShot(seat0);
+    await watchRemoteCue(seat1);
     await shoot(seat0);
     const motion = await recordShot([seat0, seat1], 0);
     const final0 = await readNet(seat0);
     const final1 = await readNet(seat1);
     assertSnapshotsEqual(final0.snapshot, final1.snapshot, "latency 两端结算快照");
     const visual = await assertShotVisual(seat0);
+    const opponentVisual = await assertRemoteCue(seat1);
     const t = final0.timing;
     assert.ok(t.ackAtMs - t.spaceAtMs >= 130, `往返延迟应体现（Ack-Space=${Math.round(t.ackAtMs - t.spaceAtMs)}ms）`);
     assert.ok(t.projectedTouchAtMs - t.spaceAtMs >= leadMs + 40,
@@ -214,7 +231,7 @@ async function runLatency(browser) {
     assert.ok(t.retries === 0);
     const commonVersions = [...motion.samples[0].keys()].filter(version => motion.samples[1].has(version));
     assert.ok(commonVersions.length >= 2, "延迟下两端仍应共享同一杆快照版本");
-    results.push({ name: "latency", leadMs, timing: t, visual, commonVersions: commonVersions.length,
+    results.push({ name: "latency", leadMs, timing: t, visual, opponentVisual, commonVersions: commonVersions.length,
       animationMinusProjectedMs: Math.round(latencyAnimationDelta),
       rttMs: Math.round(t.ackAtMs - t.spaceAtMs) });
     return { t, commonVersions };
@@ -283,13 +300,15 @@ async function runStall(browser) {
     pages.push(seat0, seat1);
     await aimClient(seat0);
     await watchShot(seat0);
+    await watchRemoteCue(seat1);
     await shootAcrossStall(seat0, 1100);
     await recordShot(pages, 0);
     const visual = await assertShotVisual(seat0);
+    const opponentVisual = await assertRemoteCue(seat1);
     const final0 = await readNet(seat0);
     const final1 = await readNet(seat1);
     assertSnapshotsEqual(final0.snapshot, final1.snapshot, "长帧之后两端结算");
-    results.push({ name: "late-animation-start", stallMs: 1100, visual, timing: final0.timing });
+    results.push({ name: "late-animation-start", stallMs: 1100, visual, opponentVisual, timing: final0.timing });
   } finally {
     await closePages(pages);
     await stopServer(server);

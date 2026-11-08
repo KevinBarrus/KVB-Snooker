@@ -294,7 +294,7 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 - `src/server/**` 是 Node 基础设施，只允许依赖 `src/core/**`、`src/net/protocol.ts` 与 Node 内置模块；`core` 不导入 `server`、`net` 或任何网络模块。
 - 浏览器网络适配分为纯状态 `src/net/**`（协议、快照缓冲、插值、客户端状态机）与装配根 `src/app-net*.ts`（建立连接、场景/渲染/控制器装配）。`render/ui/controller/audio` 不导入网络或服务端代码。
-- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；报文版本 `NET_PROTOCOL_VERSION = 1`。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
+- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；当前报文版本 `NET_PROTOCOL_VERSION = 2`。v2在待击球快照及 `shot-prepared` 中增加服务器冻结的 `vars: readonly number[]`（沿用八个击球参数），供观看方还原球杆；旧客户端须刷新、旧服务器须重启，版本不符拒绝连接。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
 - 现有 `GameSession`、`Simulator`、规则与物理是唯一权威；服务端不复制第二套规则，客户端不推进权威物理、不自行结算触球。
 
 **服务端窄接口（`src/server/room.ts`）**
@@ -335,7 +335,8 @@ export interface RoomSession {
 - AI 隔离：`AIController` 增加可选依赖 `{ routeCache?: RouteCache; random?: () => number }`，默认仍共享原模块级缓存与 `coreRandom` 以保持现有单机行为；服务器为每房间注入独立 `RouteCache` 与随机源。该改动不改变 AI 算法、物理或规则。
 - 控制器窄接口：`GamingInput` 只依赖 `ShotLauncher { readonly busy: boolean; readonly inputLocked: boolean; launch(person: PersonController): boolean }`；本地 `ShotController` 与联机出杆动画器都实现该接口，镜头、球杆和输入映射算法不变。
 - 客户端显示源：`src/net/remote-view.ts` 由权威快照生成 `BallView` 结构视图（插值位置与归一化姿态），装配根把它接到现有 `BallRenderer` 与 `PersonController`。瞄准预测只使用本地 `Simulator` 从快照携带的 `SerialData` 检查点恢复后计算，从不写回服务端，也不推进真实回合。
-- 联机显示时序：`RemoteView.interpolationStats.targetServerMs` 为本帧显示时间，装配传给 `NetShotLauncher.update(nowMs, displayServerMs)`；球位和球杆共用它，晚到动画追赶而非重启。`nowMs` 只记录真实观察帧时间。原 `ShotLauncher` 与单机控制器接口不变，报文版本不变。DEV 测试句柄 `shotVisual` 只读暴露显示母球位置、球杆前送距离、触球阶段和显示时间，供逐帧回归；不是产品 API。
+- 联机显示时序：`RemoteView.interpolationStats.targetServerMs` 为本帧显示时间，装配传给 `NetShotLauncher.update(nowMs, displayServerMs)`；球位和球杆共用它，晚到动画追赶而非重启。`nowMs` 只记录真实观察帧时间。原 `ShotLauncher` 与单机控制器接口不变。DEV 测试句柄 `shotVisual` 只读暴露显示母球位置、球杆前送距离、触球阶段和显示时间，供逐帧回归；不是产品 API；`remoteCueVisual` 只读暴露远端模型可见性、位置、前送距离及触球状态。
+- 远端球杆由装配根 `app-net-remote-cue.ts` 消费权威出杆参数，使用同一显示时刻和 `TipMotion`，不创建远端输入或相机控制器。`TipMotion.launch` 的输入类型收窄为只读的触点/方向及既有三个数值方法（`Pick<StickController, "kissPoint" | "kissDir" | "getTouchSpdWithPower" | "getSlowDownDistance" | "getTipRadius">`）；原调用与曲线保持不变。远端球杆只显示，不触发物理或本地出杆命令。
 - 运动播放时间与ping校时分离：`RemoteView.pushSnapshot(snapshot, nowMs)` 的本地到达时刻参与缓冲控制，内部 `PlaybackClock` 在准备/运动/结算显示期间维持单调游标。`setClockOffset` 保留供静止阶段投影及兼容调用，不能在运动中直接跳动游标。参数与恢复边界只在原型设计 §5 维护，不增加对核心的依赖。
 - 计时：本原型只实现经典规则；`advanceTime`、900 双表与触球截止竞争不在本次登记范围。
 

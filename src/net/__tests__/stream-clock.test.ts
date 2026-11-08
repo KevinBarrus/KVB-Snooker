@@ -7,7 +7,7 @@ function snapshot(time: number, phase: SnapshotMessage["phase"], pending = false
     context: { playerIndex: 0, ballOn: 2, inHand: 0, scores: [0, 0], round: 0 },
     balls: [{ index: 0, number: 0, active: true, x: phase === "ready" ? 0 : (time - 1700) / 1000,
       y: 0.9, z: 0, qx: 0, qy: 0, qz: 0, qw: 1 }], checkpoint: null,
-    pendingShot: pending ? { shotId: "s1", seat: 0, touchAtServerMs: 1700 } : null };
+    pendingShot: pending ? { shotId: "s1", seat: 0, touchAtServerMs: 1700, vars: [0, .9, 0, 1, 0, 0, 20, .005] } : null };
 }
 
 describe("运动显示时钟", () => {

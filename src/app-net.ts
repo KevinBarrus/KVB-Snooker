@@ -19,61 +19,19 @@ import { ViewNotice, ViewNoticeDom } from "./ui/view-notice.js";
 import type { PlacementCommands } from "./controller/in-hand.js";
 import { NetHud, parseConfig } from "./app-net-support.js";
 import { NetClient } from "./app-net-client.js";
+import type { NetTestHandle } from "./app-net-types.js";
+import { RemoteCue } from "./app-net-remote-cue.js";
 import { NetShotLauncher } from "./app-net-shot.js";
-import { NetSessionState, type ShotTimingRecord } from "./net/net-session-state.js";
+import { NetSessionState } from "./net/net-session-state.js";
 import { RemoteView } from "./net/remote-view.js";
 import { NetDiagnostics } from "./app-net-diagnostics.js";
 import {
-  type ContextView,
   type LatencyConfig,
-  type RoomPhase,
-  type SeatIndex,
   type ServerMessage,
   type SnapshotMessage
 } from "./net/protocol.js";
 
 interface DisplaySource extends Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "getResult" | "predict"> {}
-interface NetSnapshotView {
-  readonly seat: SeatIndex | null;
-  readonly roomId: string | null;
-  readonly version: number;
-  readonly phase: RoomPhase;
-  readonly context: ContextView;
-  readonly balls: readonly { index: number; number: number; active: boolean; x: number; y: number; z: number }[];
-}
-
-export interface NetTestHandle {
-  readonly ready: Promise<void>;
-  snapshot(): NetSnapshotView | null;
-  timing(): ShotTimingRecord;
-  diagnostics(): ReturnType<NetDiagnostics["report"]>;
-  readonly latency: LatencyConfig;
-  readonly lastError: string | null;
-  readonly lastRejectReason: string | null;
-  readonly connectionState: string;
-  readonly seat: SeatIndex | null;
-  readonly cameraState: 0 | 1;
-  readonly cameraPosition: { readonly x: number; readonly y: number; readonly z: number };
-  readonly cameraTarget: { readonly x: number; readonly y: number; readonly z: number };
-  readonly shotsBusy: boolean;
-  readonly turn: boolean;
-  readonly readyToStroke: boolean;
-  readonly fps: number;
-  readonly netStats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number };
-  readonly turnReady: boolean;
-  readonly contactErrorMm: number | null;
-  readonly shotVisual: {
-    readonly cuePosition: { readonly x: number; readonly y: number; readonly z: number };
-    readonly leadingSpace: number;
-    readonly struck: boolean;
-    readonly displayServerMs: number;
-  };
-}
-
-declare global {
-  interface Window { __snkNet?: NetTestHandle }
-}
-
 const ZERO_LATENCY: LatencyConfig = { enabled: false, inboundMs: 0, outboundMs: 0, jitterMs: 0, appliesTo: "one-way-per-direction" };
 const NO_PLACEMENT: PlacementCommands = {
   ray: () => ({ origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 0 } }),
@@ -128,6 +86,8 @@ async function main(): Promise<void> {
   engine.enableOfflineSupport = false;
   const session = new NetSessionState();
   const remote = new RemoteView({ interpolationDelayMs: config.interpolationDelayMs });
+  const remoteCue = new RemoteCue(DEFAULT_SCENE.ballRadius);
+  let remoteMesh: B.Mesh | null = null;
   const diagnostics = new NetDiagnostics(config.interpolationDelayMs);
   const hud = new NetHud(() => { diagnostics.download(session.seat); canvas.focus(); });
   let client: NetClient | null = null;
@@ -167,11 +127,13 @@ async function main(): Promise<void> {
         }
         break;
       }
-      case "event": session.onEvent(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
+      case "event": accepted = session.onEvent(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
       case "ack": session.onAck(message, nowMs); break;
       case "pong": session.onPong(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
       case "error": session.onServerError(message, nowMs); break;
     }
+    const cueBall = session.latestSnapshot?.balls[0];
+    if (accepted && cueBall) remoteCue.receive(message, session.seat, cueBall);
     diagnostics.message(message, nowMs, session.clockOffsetMs, accepted);
   };
   const testHandle: NetTestHandle = {
@@ -208,6 +170,11 @@ async function main(): Promise<void> {
     },
     get turnReady() { return turnReady; },
     get contactErrorMm() { return launcher?.contactErrorMm ?? null; },
+    get remoteCueVisual() {
+      const p = remoteCue.position;
+      return { visible: remoteMesh?.isVisible ?? false, struck: remoteCue.struck,
+        leadingSpace: remoteCue.motion.length, position: { x: p.x, y: p.y, z: p.z } };
+    },
     get shotVisual() {
       return { cuePosition: remote.getCueBallPosition(), leadingSpace: person?.stick.leadingSpace ?? 0,
         struck: launcher?.isStruck ?? false, displayServerMs: remote.interpolationStats.targetServerMs };
@@ -249,6 +216,9 @@ async function main(): Promise<void> {
     launcher = shotLauncher;
     const balls = new BallRenderer(scene, view, simulator.ballRadius, 0.88, lighting, atlas, mask);
     const cue = await loadCue(scene, lighting);
+    const opponentCue = cue.clone("remote-cue");
+    remoteMesh = opponentCue;
+    opponentCue.isVisible = false;
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
     const viewNotice = new ViewNotice();
     const viewNoticeDom = new ViewNoticeDom(document, () => canvas.focus());
@@ -340,6 +310,12 @@ async function main(): Promise<void> {
       cue.position.copyFrom(personController.stick.position);
       cue.rotation.copyFromFloats(0, personController.stick.rotation.y, personController.stick.rotation.z);
       cue.computeWorldMatrix(true);
+      if (session.connectionState !== "ready") remoteCue.clear();
+      remoteCue.update(remote.interpolationStats.targetServerMs, remote.getCueBallPosition());
+      opponentCue.isVisible = remoteCue.visible;
+      opponentCue.position.copyFrom(remoteCue.position);
+      opponentCue.rotation.copyFrom(remoteCue.rotation);
+      opponentCue.computeWorldMatrix(true);
       const prediction = personController.prediction;
       const ballOn = session.context?.ballOn ?? 0;
       if (prediction && (prediction !== lastPrediction || ballOn !== lastBallOn)) {
@@ -377,6 +353,7 @@ async function main(): Promise<void> {
       hud.element.remove();
       viewNoticeDom.element.remove();
       decision.remove();
+      opponentCue.dispose();
       cue.material?.dispose(); cue.dispose();
       gunsight.dispose();
       balls.dispose();

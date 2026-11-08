@@ -8,7 +8,7 @@ function snapshot(time: number, phase: "ready" | "simulating" = "simulating", sh
     context: { playerIndex: 0, ballOn: 2, inHand: 0, scores: [0, 0], round: 0 },
     balls: [{ index: 0, number: 0, active: true, x: time / 1000, y: 0.9, z: 0,
       qx: 0, qy: 0, qz: 0, qw: 1 }], checkpoint: null,
-    pendingShot: shotId ? { shotId, seat: 0, touchAtServerMs: 1000 } : null };
+    pendingShot: shotId ? { shotId, seat: 0, touchAtServerMs: 1000, vars: [0, .9, 0, 1, 0, 0, 20, .005] } : null };
 }
 
 function frame(nowMs: number, margin = 50, dtMs = 1000 / 120) {

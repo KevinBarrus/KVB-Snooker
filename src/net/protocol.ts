@@ -5,7 +5,7 @@
  */
 import type { SerialData } from "../core/simulator/shot-result.js";
 
-export const NET_PROTOCOL_VERSION = 1;
+export const NET_PROTOCOL_VERSION = 2;
 export const DEFAULT_NET_PORT = 8787;
 export const DEFAULT_DEV_TOKEN = "dev-local";
 export const ROOM_RULESET = "classic" as const;
@@ -84,6 +84,7 @@ export interface ContextView {
 }
 
 export interface PendingShotView {
+  readonly vars: readonly number[];
   readonly shotId: string;
   readonly seat: SeatIndex;
   readonly touchAtServerMs: number;
@@ -104,7 +105,7 @@ export interface SnapshotMessage {
 
 export type ServerEvent =
   | { readonly type: "shot-prepared"; readonly shotId: string; readonly seat: SeatIndex;
-      readonly touchAtServerMs: number; readonly prepareLeadMs: number }
+      readonly touchAtServerMs: number; readonly prepareLeadMs: number; readonly vars: readonly number[] }
   | { readonly type: "shot-fired"; readonly shotId: string; readonly seat: SeatIndex;
       readonly touchAtServerMs: number; readonly firedAtServerMs: number }
   | { readonly type: "shot-settled"; readonly shotId: string; readonly seat: SeatIndex;

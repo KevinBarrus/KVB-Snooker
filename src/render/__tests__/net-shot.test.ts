@@ -28,7 +28,7 @@ function setup(interpolationDelayMs = 100) {
       const ball = simulator.getBallView(index);
       return { index, number: ball.number, active: true, x: ball.position.x + (index === 0 ? distance : 0),
         y: ball.position.y, z: ball.position.z, qx: 0, qy: 0, qz: 0, qw: 1 };
-    }), checkpoint: null, pendingShot: phase === "ready" ? { shotId: "shot-1", seat: 0, touchAtServerMs: 700 } : null
+    }), checkpoint: null, pendingShot: phase === "ready" ? { shotId: "shot-1", seat: 0, touchAtServerMs: 700, vars: [0, .9, 0, 1, 0, 0, 20, .005] } : null
   });
   const initial = snapshot(0);
   session.onSnapshot(initial, 0);
