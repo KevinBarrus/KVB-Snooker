@@ -5,7 +5,7 @@
  */
 import type { SerialData } from "../core/simulator/shot-result.js";
 
-export const NET_PROTOCOL_VERSION = 2;
+export const NET_PROTOCOL_VERSION = 3;
 export const DEFAULT_NET_PORT = 8787;
 export const DEFAULT_DEV_TOKEN = "dev-local";
 export const ROOM_RULESET = "classic" as const;
@@ -160,7 +160,40 @@ export interface ServerErrorMessage {
   readonly message: string;
 }
 
-export type ServerMessage = WelcomeMessage | SnapshotMessage | ServerEventMessage | AckMessage | PongMessage | ServerErrorMessage;
+export interface CuePose {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly yaw: number;
+  readonly pitch: number;
+}
+
+export interface CuePoseMessage {
+  readonly type: "cue-pose";
+  readonly expectedVersion: StateVersion;
+  readonly sequence: number;
+  readonly pose: CuePose | null;
+}
+
+export interface CuePoseState {
+  readonly type: "cue-pose";
+  readonly version: StateVersion;
+  readonly sequence: number;
+  readonly seat: SeatIndex;
+  readonly serverTimeMs: number;
+  readonly pose: CuePose | null;
+}
+
+export function isCuePose(value: unknown): value is CuePose | null {
+  if (value === null) return true;
+  if (typeof value !== "object") return false;
+  const pose = value as Partial<CuePose>;
+  return [pose.x, pose.y, pose.z, pose.yaw, pose.pitch].every(v => typeof v === "number" && Number.isFinite(v)) &&
+    Math.abs(pose.x!) <= 10 && Math.abs(pose.z!) <= 10 && pose.y! >= 0 && pose.y! <= 5 &&
+    Math.abs(pose.yaw!) <= 4 * Math.PI && Math.abs(pose.pitch!) <= Math.PI;
+}
+
+export type ServerMessage = WelcomeMessage | SnapshotMessage | ServerEventMessage | AckMessage | PongMessage | ServerErrorMessage | CuePoseState;
 
 export interface HelloMessage {
   readonly type: "hello";
@@ -197,7 +230,7 @@ export interface PingMessage {
   readonly clientTimeMs: number;
 }
 
-export type ClientMessage = HelloMessage | CommandMessage | PingMessage;
+export type ClientMessage = HelloMessage | CommandMessage | PingMessage | CuePoseMessage;
 
 /** 击球参数合法范围：只做服务端防御性校验，不改变核心物理公式。 */
 export interface StrokeVarBounds {
@@ -261,6 +294,7 @@ export function parseClientMessage(raw: string): { readonly message: ClientMessa
   const candidate = value as { readonly type?: unknown };
   if (candidate.type === "hello") return { message: value as HelloMessage };
   if (candidate.type === "ping") return { message: value as PingMessage };
+  if (candidate.type === "cue-pose") return { message: value as CuePoseMessage };
   if (candidate.type === "command") return { message: value as CommandMessage };
   return { reason: REJECT.BAD_PROTOCOL };
 }

@@ -8,6 +8,9 @@ import {
   NET_PROTOCOL_VERSION,
   isSeatIndex,
   isStateVersion,
+  isCuePose,
+  type CuePoseMessage,
+  type CuePoseState,
   type ClientMessage,
   type CommandMessage,
   type HelloMessage,
@@ -38,7 +41,7 @@ interface PendingCommand {
   retries: number;
 }
 
-const KNOWN_SERVER_TYPES = ["welcome", "snapshot", "event", "ack", "pong", "error"] as const;
+const KNOWN_SERVER_TYPES = ["welcome", "snapshot", "event", "ack", "pong", "error", "cue-pose"] as const;
 
 /** 开发原型客户端连接。浏览器专用（WebSocket/DOM），由联机装配根创建。 */
 export class NetClient {
@@ -93,6 +96,8 @@ export class NetClient {
     }
     return true;
   }
+
+  sendCuePose(message: CuePoseMessage): boolean { return this.sendRaw(message); }
 
   /** 收到 shot-settled / 断开时释放未决重试。 */
   cancelPendingCommand(): void {
@@ -198,6 +203,12 @@ export class NetClient {
     const candidate = value as { readonly type?: unknown };
     if (typeof candidate.type !== "string" || !(KNOWN_SERVER_TYPES as readonly string[]).includes(candidate.type)) return null;
     switch (candidate.type) {
+      case "cue-pose": {
+        const pose = value as Partial<CuePoseState>;
+        if (!isStateVersion(pose.version) || !isStateVersion(pose.sequence) || !isSeatIndex(pose.seat) ||
+            typeof pose.serverTimeMs !== "number" || !Number.isFinite(pose.serverTimeMs) || !isCuePose(pose.pose)) return null;
+        return value as ServerMessage;
+      }
       case "welcome": {
         const welcome = value as { readonly protocolVersion?: unknown; readonly roomId?: unknown;
           readonly seat?: unknown; readonly stateVersion?: unknown; readonly serverTimeMs?: unknown;

@@ -138,6 +138,7 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     connection.seat = lease.result.seat;
     send(connection, lease.result.welcome);
     send(connection, lease.room.snapshot(nowMs));
+    if (lease.room.cuePose) send(connection, lease.room.cuePose);
   }
 
   function handlePing(connection: ClientConnection, message: ClientMessage): void {
@@ -171,6 +172,11 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
     }
     if (message.type === "ping" && isPingMessage(message)) { handlePing(connection, message); return; }
     if (message.type === "command") { handleCommand(connection, message, nowMs); return; }
+    if (message.type === "cue-pose") {
+      const pose = connection.room.receiveCuePose(connection.id, message, nowMs);
+      if (pose) broadcast(connection.room, pose);
+      return;
+    }
     sendError(connection, REJECT.BAD_PROTOCOL, "报文结构非法");
   }
 

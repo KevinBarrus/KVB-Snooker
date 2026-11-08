@@ -23,6 +23,7 @@ import type { NetTestHandle } from "./app-net-types.js";
 import { RemoteCue } from "./app-net-remote-cue.js";
 import { NetShotLauncher } from "./app-net-shot.js";
 import { NetSessionState } from "./net/net-session-state.js";
+import { CuePosePublisher } from "./net/cue-pose.js";
 import { RemoteView } from "./net/remote-view.js";
 import { NetDiagnostics } from "./app-net-diagnostics.js";
 import {
@@ -86,6 +87,7 @@ async function main(): Promise<void> {
   engine.enableOfflineSupport = false;
   const session = new NetSessionState();
   const remote = new RemoteView({ interpolationDelayMs: config.interpolationDelayMs });
+  const posePublisher = new CuePosePublisher();
   const remoteCue = new RemoteCue(DEFAULT_SCENE.ballRadius);
   let remoteMesh: B.Mesh | null = null;
   const diagnostics = new NetDiagnostics(config.interpolationDelayMs);
@@ -133,7 +135,7 @@ async function main(): Promise<void> {
       case "error": session.onServerError(message, nowMs); break;
     }
     const cueBall = session.latestSnapshot?.balls[0];
-    if (accepted && cueBall) remoteCue.receive(message, session.seat, cueBall);
+    if (accepted && cueBall) remoteCue.receive(message, session.seat, cueBall, nowMs);
     diagnostics.message(message, nowMs, session.clockOffsetMs, accepted);
   };
   const testHandle: NetTestHandle = {
@@ -170,10 +172,16 @@ async function main(): Promise<void> {
     },
     get turnReady() { return turnReady; },
     get contactErrorMm() { return launcher?.contactErrorMm ?? null; },
+    get localCueVisual() {
+      const p = person?.stick.position;
+      return { visible: (person?.camera.stateRatio ?? 0) > 0,
+        yaw: person?.stick.rotation.y ?? 0, pitch: person?.stick.rotation.z ?? 0,
+        position: { x: p?.x ?? 0, y: p?.y ?? 0, z: p?.z ?? 0 } };
+    },
     get remoteCueVisual() {
       const p = remoteCue.position;
       return { visible: remoteMesh?.isVisible ?? false, struck: remoteCue.struck,
-        leadingSpace: remoteCue.motion.length, position: { x: p.x, y: p.y, z: p.z } };
+        leadingSpace: remoteCue.motion.length, yaw: remoteCue.rotation.y, pitch: remoteCue.rotation.z, position: { x: p.x, y: p.y, z: p.z } };
     },
     get shotVisual() {
       return { cuePosition: remote.getCueBallPosition(), leadingSpace: person?.stick.leadingSpace ?? 0,
@@ -310,8 +318,12 @@ async function main(): Promise<void> {
       cue.position.copyFrom(personController.stick.position);
       cue.rotation.copyFromFloats(0, personController.stick.rotation.y, personController.stick.rotation.z);
       cue.computeWorldMatrix(true);
+      const poseMessage = posePublisher.update(nowMs, session.version, turnReady && session.canLaunch() && !shotLauncher.busy,
+        cue.isVisible ? { x: cue.position.x, y: cue.position.y, z: cue.position.z,
+          yaw: cue.rotation.y, pitch: cue.rotation.z } : null);
+      if (poseMessage) client?.sendCuePose(poseMessage);
       if (session.connectionState !== "ready") remoteCue.clear();
-      remoteCue.update(remote.interpolationStats.targetServerMs, remote.getCueBallPosition());
+      remoteCue.update(remote.interpolationStats.targetServerMs, remote.getCueBallPosition(), nowMs);
       opponentCue.isVisible = remoteCue.visible;
       opponentCue.position.copyFrom(remoteCue.position);
       opponentCue.rotation.copyFrom(remoteCue.rotation);

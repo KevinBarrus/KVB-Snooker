@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RemoteCue } from "../../app-net-remote-cue.js";
+import { CuePosePublisher } from "../../net/cue-pose.js";
 import { PersonController } from "../../controller/person-controller.js";
 import { TipMotion } from "../../controller/tip-motion.js";
 import { EventBus } from "../../core/event-bus.js";
@@ -27,6 +28,58 @@ function setup(power = .5, spin = 0, elevation = 0) {
 }
 
 describe("观看方球杆", () => {
+  it("120Hz真实控制器入位：观看方复用竖直、中间及水平姿态，未发出击球计划", () => {
+    const t = setup();
+    t.person.gotoState0(true);
+    t.person.update(0);
+    t.person.gotoState1();
+    const publisher = new CuePosePublisher();
+    const pitches: number[] = [];
+    for (let frame = 0; frame < 240; frame++) {
+      const at = frame * 1000 / 120;
+      t.person.update(1 / 120);
+      const stick = t.person.stick;
+      const message = publisher.update(at, 0, true, t.person.camera.stateRatio > 0 ? {
+        x: stick.position.x, y: stick.position.y, z: stick.position.z,
+        yaw: stick.rotation.y, pitch: stick.rotation.z
+      } : null);
+      if (message) t.remote.receive({ type: "cue-pose", seat: 0, version: 0,
+        sequence: message.sequence, serverTimeMs: at, pose: message.pose }, 1, t.cue, at);
+      t.remote.update(at, t.cue, at);
+      if (t.remote.visible) pitches.push(t.remote.rotation.z);
+      expect(t.remote.struck).toBe(false);
+    }
+    expect(pitches[0]).toBeGreaterThan(1.5);
+    expect(pitches.some(p => p > .3 && p < 1)).toBe(true);
+    expect(pitches.at(-1)).toBeCloseTo(t.person.stick.rotation.z, 6);
+    expect(pitches.at(-1)!).toBeLessThan(.15);
+  });
+
+  it("未出杆时显示竖直到水平入位，权威计划接管后迟到姿态不能覆盖触球", () => {
+    const t = setup();
+    const standing = { x: -2, y: 1.7, z: 0, yaw: 0, pitch: Math.PI / 2 };
+    const pose = { type: "cue-pose" as const, seat: 0 as const, version: 0, sequence: 1,
+      serverTimeMs: 0, pose: standing };
+    t.remote.receive(pose, 1, t.cue, 0);
+    t.remote.update(0, t.cue, 0);
+    expect(t.remote.visible).toBe(true);
+    expect(t.remote.rotation.z).toBe(Math.PI / 2);
+    t.remote.receive({ ...pose, sequence: 2, pose: { ...standing, pitch: 0, y: .9 } }, 1, t.cue, 100);
+    t.remote.update(150, t.cue, 150);
+    expect(t.remote.rotation.z).toBeCloseTo(Math.PI / 4);
+    expect(t.remote.struck).toBe(false);
+    t.remote.update(200, t.cue, 200);
+    const handoff = t.remote.position.clone();
+    t.remote.receive(t.plan, 1, t.cue, 200);
+    t.remote.update(200, t.cue, 200);
+    expect(t.remote.position.equals(handoff)).toBe(true);
+    t.remote.receive({ ...pose, sequence: 3, pose: { ...standing, x: 5 } }, 1, t.cue, 500);
+    t.remote.update(1010, { ...t.cue, x: t.cue.x + .1 }, 1010);
+    expect(t.remote.struck).toBe(true);
+    expect(t.remote.motion.length).toBeGreaterThanOrEqual(0);
+    expect(t.remote.position.x).toBeLessThan(2);
+  });
+
   it.each([[0, 0, 0], [.5, 0, 0], [1, 0, 0], [.3, .8, .2], [.75, -.8, .6]])(
     "力度%s、加塞%s、抬杆%s：复用本地曲线，触点和方向不因观看相机改变", (power, spin, elevation) => {
       const t = setup(power, spin, elevation);

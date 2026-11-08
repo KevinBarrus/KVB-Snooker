@@ -31,8 +31,13 @@ export interface NetTestHandle {
   readonly netStats: { readonly snapshotsPerSecond: number; readonly maxGapMs: number; readonly marginMs: number };
   readonly turnReady: boolean;
   readonly contactErrorMm: number | null;
+  readonly localCueVisual: {
+    readonly visible: boolean; readonly yaw: number; readonly pitch: number;
+    readonly position: { readonly x: number; readonly y: number; readonly z: number };
+  };
   readonly remoteCueVisual: {
     readonly visible: boolean; readonly struck: boolean; readonly leadingSpace: number;
+    readonly yaw: number; readonly pitch: number;
     readonly position: { readonly x: number; readonly y: number; readonly z: number };
   };
   readonly shotVisual: {

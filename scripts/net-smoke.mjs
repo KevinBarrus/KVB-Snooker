@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertAimEntry } from "./net-aim-visual.mjs";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { watchShot, assertShotVisual, shootAcrossStall, assertDiagnosticDownload, watchRemoteCue, assertRemoteCue } from "./net-shot-visual.mjs";
@@ -33,7 +34,7 @@ async function runBaseline(browser) {
     const cameraBefore = (await readNet(seat1)).cameraPosition;
     const versionBefore = initial0.snapshot.version;
 
-    await aimClient(seat0);
+    const aimVisual = await assertAimEntry(seat0, seat1);
     const aimed = await readNet(seat0);
     assert.equal(aimed.turn, true, "席位 0 应轮到本机");
     await watchShot(seat0);
@@ -100,7 +101,7 @@ async function runBaseline(browser) {
 
     results.push({
       name: "baseline", room, leadMs: LEAD_MS,
-      timing: t, visual, opponentVisual, animationMinusProjectedMs: Math.round(animationDelta),
+      timing: t, visual, opponentVisual, aimVisual, animationMinusProjectedMs: Math.round(animationDelta),
       versionBefore, versionAfter: final0.snapshot.version,
       commonVersions: commonVersions.length, cameraDelta,
       players: final0.snapshot.context.playerIndex,
@@ -110,7 +111,8 @@ async function runBaseline(browser) {
     await seat0.screenshot({ path: ".cache/net/baseline-seat0.png" });
     await seat1.screenshot({ path: ".cache/net/baseline-seat1.png" });
     assert.equal(current, 1, "本验收开球犯规后应由席位1接手");
-    await aimClient(seat1);
+    const reverseAim = await assertAimEntry(seat1, seat0);
+    results[results.length - 1].reverseAim = reverseAim;
     await watchShot(seat1);
     await watchRemoteCue(seat0);
     await shoot(seat1);

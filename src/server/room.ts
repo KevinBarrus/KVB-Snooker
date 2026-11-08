@@ -14,6 +14,8 @@ import {
 } from "../net/protocol.js";
 import { commandSignature, isDecideTurnAction, isPrepareShotAction } from "./room-command.js";
 import { ensureCueBallActive } from "./cue-placement.js";
+import { RoomCuePose } from "./cue-pose.js";
+import type { CuePoseMessage, CuePoseState } from "../net/protocol.js";
 import { NO_LATENCY, buildSnapshot, eventMessage } from "./room-view.js";
 import type { RoomJoinOutcome, RoomOptions, RoomTickResult } from "./room-types.js";
 
@@ -70,6 +72,7 @@ export class RoomSession {
   private lastSnapshotMs: number | null = null;
   private accumulatorMs = 0;
   private closed = false;
+  private readonly poses = new RoomCuePose();
 
   constructor(roomId: string, options: RoomOptions, mesh: MeshBody) {
     if (!Number.isFinite(options.prepareLeadMs) || options.prepareLeadMs < 0 ||
@@ -96,6 +99,20 @@ export class RoomSession {
   get eventSequence(): number { return this.eventSeq; }
   get seats(): readonly LobbySeat[] { return this.seatSnapshot(); }
 
+  get cuePose(): CuePoseState | null {
+    const pose = this.poses.latest;
+    return !this.closed && !this.pendingShot && this.session.state === GAME_STATE.READY &&
+      !this.session.finished && pose?.version === this.version &&
+      pose.seat === this.session.context.playerIndex ? pose : null;
+  }
+
+  receiveCuePose(connectionId: string, message: CuePoseMessage, nowMs: number): CuePoseState | null {
+    const seat = this.seatByConnection.get(connectionId);
+    if (this.closed || this.pendingShot || this.session.finished || this.session.state !== GAME_STATE.READY ||
+        seat === undefined || seat !== this.session.context.playerIndex || message.expectedVersion !== this.version) return null;
+    return this.poses.accept(connectionId, seat, message, nowMs);
+  }
+
   join(connectionId: string, requestedSeat?: SeatIndex, nowMs = 0): RoomJoinOutcome {
     if (this.closed) return { reason: REJECT.ROOM_FULL };
     this.lastNowMs = nowMs;
@@ -118,6 +135,7 @@ export class RoomSession {
   }
 
   release(connectionId: string): void {
+    this.poses.forget(connectionId);
     const seat = this.seatByConnection.get(connectionId);
     if (seat === undefined) return;
     this.seatByConnection.delete(connectionId);
