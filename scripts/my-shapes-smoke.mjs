@@ -112,6 +112,7 @@ try {
   // 2) 自建练习：经典母球、任意球规则、只显示分数和单杆
   await page.locator(".my-shapes-item").first().click();
   await page.getByRole("button", { name: "经典母球", exact: true }).click();
+  await page.getByRole("button", { name: "彩球不再复位", exact: true }).click();
   await advance(3);
   state = await snapshot();
   assert.equal(state.editor, false);
@@ -121,6 +122,10 @@ try {
   assert.equal(state.active, 4);
   assert.equal(state.scoreVisible, true);
   assert.equal(state.ballOnHidden, true);
+  assert.equal(await page.evaluate(async () => {
+    const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return r.game.session.practiceOptions.respotColoursAfterReds;
+  }), false);
   assert.equal(await page.locator(".practice-restore").isVisible(), true);
   assert.equal(await page.evaluate(async () => {
     const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;

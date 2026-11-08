@@ -69,7 +69,7 @@
 
 ## 4. 接口与装配
 
-- `GameOptions.practice` 只允许练习模式，提供 `cuePlacement`、`respotTargetBallNumber`、`targetBallOn`、`score`；非法值构造即拒绝。
+- `GameOptions.practice` 只允许练习模式，提供 `cuePlacement`、`respotTargetBallNumber`、`targetBallOn`、`score`、`freeScoring`、`respotColoursAfterReds`；非法值构造即拒绝。
 - 练习模式允许 `GameOptions.setup`；`GameSession.reset` 恢复该布局。
 - `GameSession.canRestorePreviousShot`、`practiceScored` 为只读派生值。
 - `Player.snapshot()` / `restore()` 保存比分、罚分、杆数、命中与最高单杆；仅练习复位消费，正式比赛恢复语义不变。

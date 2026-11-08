@@ -23,6 +23,8 @@ export interface PracticeOptions {
   readonly score?: boolean;
   /** 自建球形练习：任意球合法，按落袋球面值累计分数与单杆，不判犯规。 */
   readonly freeScoring?: boolean;
+  /** 自建球形练习：红球清完后，打进的彩球是否继续复位到点位。 */
+  readonly respotColoursAfterReds?: boolean;
 }
 
 export interface GameOptions {

@@ -26,17 +26,13 @@ function makeStore(now: () => number = () => 1000): MyShapesStore {
   return new MyShapesStore(new MemoryStorage(), now, () => `shape-${++next}`);
 }
 
-function makeCustomGame(): GameSession {
+function makeCustomGame(respotColoursAfterReds = false, balls: CustomShapeRecord["balls"] = [
+  { index: 1, x: 0, z: -0.55 }, { index: 19, x: 0.1, z: 0.3 }
+]): GameSession {
   const simulator = new Simulator(makePocketTable(), DEFAULT_SCENE);
-  const shape: CustomShapeRecord = {
-    id: "test", name: "测试", balls: [
-      { index: 1, x: 0, z: -0.55 },
-      { index: 19, x: 0.1, z: 0.3 }
-    ],
-    createdAt: 0, deletedAt: null
-  };
+  const shape: CustomShapeRecord = { id: "test", name: "测试", balls, createdAt: 0, deletedAt: null };
   return new GameSession(simulator, "practice", {
-    setup: toCustomShapeSetup(shape, simulator), practice: toCustomPracticeOptions()
+    setup: toCustomShapeSetup(shape, simulator), practice: toCustomPracticeOptions(respotColoursAfterReds)
   });
 }
 
@@ -130,6 +126,27 @@ describe("custom practice free scoring", () => {
     expect(game.restorePreviousShot(0)).toBe(true);
     expect(game.players[0].pts).toBe(1);
     expect(game.players[0].brk).toBe(1);
+  });
+
+  it("respots colours while reds remain, and obeys the clearance respot choice afterwards", () => {
+    const redPhase = makeCustomGame(false, [{ index: 1, x: 0, z: -0.55 }, { index: 2, x: .1, z: -.55 },
+      { index: 19, x: .2, z: .3 }]);
+    redPhase.context.inHand = 0;
+    pot(redPhase, 1);
+    pot(redPhase, 19);
+    expect(redPhase.simulator.getBallView(19).active).toBe(true);
+
+    const keep = makeCustomGame(true);
+    keep.context.inHand = 0;
+    pot(keep, 1);
+    pot(keep, 19);
+    expect(keep.simulator.getBallView(19).active).toBe(true);
+
+    const clear = makeCustomGame(false);
+    clear.context.inHand = 0;
+    pot(clear, 1);
+    pot(clear, 19);
+    expect(clear.simulator.getBallView(19).active).toBe(false);
   });
 
   it("clears the break on a shot that pots nothing", () => {

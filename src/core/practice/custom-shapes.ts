@@ -108,6 +108,6 @@ export function toCustomShapeSetup(record: CustomShapeRecord, simulator: Simulat
   return { balls, ballOn: 2, inHand: 2, playerIndex: 0, scores: [0] };
 }
 
-export function toCustomPracticeOptions(): PracticeOptions {
-  return { cuePlacement: "anywhere", freeScoring: true };
+export function toCustomPracticeOptions(respotColoursAfterReds = false): PracticeOptions {
+  return { cuePlacement: "anywhere", freeScoring: true, respotColoursAfterReds };
 }

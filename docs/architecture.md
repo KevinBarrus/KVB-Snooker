@@ -362,7 +362,7 @@ export interface RoomSession {
 
 **练习模式窄接口**
 
-- `GameOptions.practice?: PracticeOptions`，仅练习模式允许，非法构造即拒绝。`PracticeOptions` 为 `{ cuePlacement?: "d-area" | "anywhere"; respotTargetBallNumber?: number; targetBallOn?: number; score?: boolean }`。
+- `GameOptions.practice?: PracticeOptions`，仅练习模式允许，非法构造即拒绝。`PracticeOptions` 为 `{ cuePlacement?: "d-area" | "anywhere"; respotTargetBallNumber?: number; targetBallOn?: number; score?: boolean; freeScoring?: boolean; respotColoursAfterReds?: boolean }`。
 - 练习模式允许 `GameOptions.setup`；`GameSession.reset()` 恢复该布局。默认 `cuePlacement` 为 `"d-area"`，保持练习原有 D 区手中球；`"anywhere"` 使用既有全台合法落点校验。
 - `GameSession.canRestorePreviousShot:boolean` 为只读派生值，表示杆前快照存在且未准备出杆；`practiceScored:boolean` 为只读派生值。
 - `restorePreviousShot` 的练习分支在恢复球位/目标阶段/球权之外，额外恢复 `Player.snapshot()` 的比分、罚分、break、杆数与最高单杆；正式比赛仍保持“只恢复球位、保留已记罚分和累计统计”的既有语义。
@@ -386,6 +386,7 @@ export interface RoomSession {
 **窄接口**
 
 - `PracticeOptions.freeScoring?: boolean`：自建练习专用。为 true 时 `GameSession` 跳过斯诺克裁判，任意球合法；进球按球面值加入 `pts` 与 `brk`，未进球的一杆后 `brk=0`；母球落袋不计分、回标准母球点并进入手中球，单杆清零；`context.ballOn=65535`（任意球合法），HUD 隐藏目标球图标。
+- `PracticeOptions.respotColoursAfterReds?: boolean`：仅配合 `freeScoring`。为 true 时，最后一颗红球清完后把初始 setup 中实际存在的彩球复位到标准点位，清彩阶段进袋彩球继续复位；为 false 时红球阶段仍复位进袋彩球，但清彩阶段不再复位。复位不影响分数和单杆。
 - `CustomShapeRecord { id; name; balls: CustomShapeBall[]; createdAt; deletedAt }`、`CustomShapesSnapshot { active; recycle }` 定义在 `src/core/practice/custom-shapes.ts`；同一模块提供名称校验、`CUSTOM_SHAPE_LIMIT=50`、`CUSTOM_SHAPE_RECYCLE_MS=30天`、过期清理、`toCustomShapeSetup`、`toCustomPracticeOptions`。
 - `src/app-my-shapes.ts` 的 `MyShapesStore` 是 localStorage 适配器（可注入存储、时钟、id 生成以满足 Node 测试），提供 load/create/saveLayout/rename/remove/restore/purge；不进入 core。
 - 菜单 `MatchLaunchRequest` 增加可选 `customShapeId`；启动自建练习时装配根从 `MyShapesStore` 读取记录并转换为 setup + practice options，再调用既有 `setMode`。`syncExternalMatch` 按 customShapeId 把退出目录设为我的球形。

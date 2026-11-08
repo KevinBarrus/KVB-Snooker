@@ -8,7 +8,7 @@ export interface MyShapesPort {
   snapshot(): CustomShapesSnapshot;
   create(): void;
   edit(id: string): void;
-  start(id: string, cueBallStyle: CueBallStyle): void;
+  start(id: string, cueBallStyle: CueBallStyle, respotColoursAfterReds: boolean): void;
   rename(id: string, name: string): boolean;
   remove(id: string): void;
   restore(id: string): "ok" | "full" | "missing";
@@ -184,8 +184,19 @@ export class MyShapesPanelDom {
 
   private openStartDialog(record: CustomShapeRecord): void {
     this.showDialog(`开始「${record.name}」球形练习？`, [
-      { label: "经典母球", primary: true, run: () => this.port.start(record.id, "classic") },
-      { label: "红点母球", run: () => this.port.start(record.id, "red-dot") },
+      { label: "经典母球", primary: true, run: () => this.openClearanceDialog(record, "classic") },
+      { label: "红点母球", run: () => this.openClearanceDialog(record, "red-dot") },
+      { label: "取消", run: () => undefined }
+    ]);
+  }
+
+  private openClearanceDialog(record: CustomShapeRecord, style: CueBallStyle): void {
+    const hasRed = record.balls.some(ball => ball.index >= 1 && ball.index <= 15);
+    const hasColour = record.balls.some(ball => ball.index >= 16 && ball.index <= 21);
+    if (!hasRed || !hasColour) { this.port.start(record.id, style, false); return; }
+    this.showDialog("红球清完后，打进的彩球还要继续复位吗？", [
+      { label: "继续复位彩球", primary: true, run: () => this.port.start(record.id, style, true) },
+      { label: "彩球不再复位", run: () => this.port.start(record.id, style, false) },
       { label: "取消", run: () => undefined }
     ]);
   }

@@ -72,6 +72,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const game = new BrowserGame(simulator, scene, scene.activeCamera, canvas);
     disposeGame = () => game.dispose();
     let editor: ShapeEditor | undefined;
+    let customRespotColours = false;
     const myShapes = new MyShapesStore(localStorage);
     const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(),
       getBallView: index => editor?.active ? editor.getBallView(index) : game.getDisplayBallView(index) },
@@ -109,8 +110,8 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
         const record = myShapes.load().active.find(item => item.id === req.customShapeId);
         if (!record) return;
         game.setCueBallStyle(req.cueBallStyle ?? "classic");
-        game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator), practice: toCustomPracticeOptions() },
-          null, record);
+        game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator),
+          practice: toCustomPracticeOptions(customRespotColours) }, null, record);
         menuState.syncExternalMatch(req);
         menuDom.sync();
         return;
@@ -136,12 +137,13 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       menuState.practiceSub = "my-shapes";
       menuDom.sync();
     };
-    const startCustomPractice = (id: string, style: "classic" | "red-dot"): void => {
+    const startCustomPractice = (id: string, style: "classic" | "red-dot", respotColoursAfterReds: boolean): void => {
       const record = myShapes.load().active.find(item => item.id === id);
       if (!record) return;
+      customRespotColours = respotColoursAfterReds;
       game.setCueBallStyle(style);
-      game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator), practice: toCustomPracticeOptions() },
-        null, record);
+      game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator),
+        practice: toCustomPracticeOptions(respotColoursAfterReds) }, null, record);
       menuState.syncExternalMatch({ kind: "practice", mode: "practice", difficulty: "NORMAL", ruleset: "classic",
         customShapeId: id, cueBallStyle: style });
       menuDom.sync();

@@ -11,6 +11,8 @@ import { FOUL } from "./rules/foul.js";
 import { NineHundredRef, canPlaceOnTable, targetPenalty } from "./rules/nine-hundred.js";
 import { NineHundredMatch, type ShootoutView } from "./nine-hundred-match.js";
 import type { MatchClockView } from "./match-clock.js";
+import { Vec3 } from "./math/vec3.js";
+import { practiceTable } from "./practice/table-geometry.js";
 
 // PCOL L8922-8931
 export const GAME_STATE = { ERROR: 0, NO_GAME: 1, PENDING: 2, READY: 4, SIMULATING: 8, JUDGING: 16, DECIDING: 32 } as const;
@@ -48,6 +50,9 @@ function copyPracticeOptions(options: PracticeOptions): PracticeOptions {
   if (options.freeScoring !== undefined && typeof options.freeScoring !== "boolean") {
     throw new Error("Invalid practice options");
   }
+  if (options.respotColoursAfterReds !== undefined && typeof options.respotColoursAfterReds !== "boolean") {
+    throw new Error("Invalid practice options");
+  }
   return { ...options };
 }
 
@@ -73,6 +78,7 @@ export class GameSession {
   private prepared = false;
   private freeBall = false;
   private previousShot: ShotPosition | null = null;
+  private readonly initialColourIndices: number[];
   private openingIndex: number;
 
   constructor(readonly simulator: Simulator, readonly mode: GameMode = "single-play", options: GameOptions = {}) {
@@ -92,6 +98,10 @@ export class GameSession {
     this.nine = this.ruleset === "snooker-900" ? new NineHundredMatch() : null;
     this.players = types.map(type => new Player(type));
     this.initialSetup = options.setup && copyFrameSetup(options.setup, simulator.getBallCount(), this.players.length);
+    this.initialColourIndices = this.initialSetup
+      ? this.initialSetup.balls.filter(ball => ball.active && ball.index > 0 &&
+        this.simulator.getBallAtIndex(ball.index).number >= 2).map(ball => ball.index)
+      : [];
     this.currentState = GAME_STATE.PENDING;
     this.ref.syncAreaWithSimulator(simulator);
     this.reset();
@@ -296,17 +306,18 @@ export class GameSession {
     this.simulator.step(dt);
     if (this.simulator.nAwakened !== 0) return;
     this.currentState = GAME_STATE.JUDGING;
-    this.ref.checkResult(this.context, this.simulator, this.result);
-    this.resetShotState();
     const index = this.context.playerIndex;
     this.context.nRounds++;
-    if (this.nine) {
-      this.settleNineHundred(index);
+    if (this.mode === "practice" && this.practiceOptions.freeScoring) {
+      this.resetShotState();
+      this.settleFreePractice(index);
       this.response();
       return;
     }
-    if (this.mode === "practice" && this.practiceOptions.freeScoring) {
-      this.settleFreePractice(index);
+    this.ref.checkResult(this.context, this.simulator, this.result);
+    this.resetShotState();
+    if (this.nine) {
+      this.settleNineHundred(index);
       this.response();
       return;
     }
@@ -368,9 +379,43 @@ export class GameSession {
       player.brk = 0;
     }
     this.context.playerIndex = index;
+    this.respotFreePracticeColours(result.pottedIndices, result.outOfBoundsIndices);
     if (!this.simulator.getBallView(0).active) {
       this.simulator.respotIndexDefault(0);
       this.context.inHand = 2;
+    }
+  }
+
+  private respotFreePracticeColours(potted: readonly number[], outOfBounds: readonly number[]): void {
+    const inactive = [...new Set([...potted, ...outOfBounds])];
+    const reds = (): number => this.simulator.getBalls().filter(ball => ball.number === 1 && ball.active).length;
+    const redsAfter = reds();
+    const redsPotted = inactive.filter(index => this.simulator.getBallView(index).number === 1).length;
+    const redsBefore = redsAfter + redsPotted;
+    const colours = inactive.filter(index => this.simulator.getBallView(index).number >= 2);
+    const continueRespot = this.practiceOptions.respotColoursAfterReds === true;
+    if (redsBefore > 0 && redsAfter === 0) {
+      if (continueRespot) this.initialColourIndices.forEach(index => this.respotFreePracticeColour(index));
+      return;
+    }
+    if (redsAfter > 0 || continueRespot) colours.forEach(index => this.respotFreePracticeColour(index));
+  }
+
+  private respotFreePracticeColour(index: number): void {
+    const ball = this.simulator.getBallAtIndex(index);
+    if (!this.simulator.touchBalls(index, ball.spot)) { this.simulator.respotIndexDefault(index); return; }
+    const table = practiceTable(this.simulator);
+    for (let radius = .05; radius <= Math.max(table.maxX - table.minX, table.maxZ - table.minZ); radius += .05) {
+      for (let step = -radius; step <= radius + 1e-9; step += .05) {
+        for (const [x, z] of [[ball.spot.x + step, ball.spot.z + radius], [ball.spot.x + radius, ball.spot.z + step],
+          [ball.spot.x + step, ball.spot.z - radius], [ball.spot.x - radius, ball.spot.z + step]] as const) {
+          if (x < table.minX || x > table.maxX || z < table.minZ || z > table.maxZ) continue;
+          const point = new Vec3(x, this.simulator.spotY, z);
+          if (this.simulator.touchBalls(index, point)) continue;
+          this.simulator.respotIndexXYZ(index, x, this.simulator.spotY, z);
+          return;
+        }
+      }
     }
   }
 
