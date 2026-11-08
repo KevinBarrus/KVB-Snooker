@@ -107,9 +107,13 @@ describe("practice shape layouts", () => {
     expect(upper).toHaveLength(8);
     expect(lower).toHaveLength(7);
     expect(upper.every(ball => Math.abs(ball.z - upper[0].z) < 1e-9)).toBe(true);
+    const nearestPink = Math.min(...reds.map(ball => Math.hypot(ball.x - table.spots[20].x, ball.z - table.spots[20].z)));
+    expect(nearestPink).toBeGreaterThanOrEqual(2 * table.ballRadius);
     expect(lower.every(ball => Math.abs(ball.z - lower[0].z) < 1e-9)).toBe(true);
     const gap = upper[0].z - lower[0].z;
     expect(gap).toBeCloseTo(1.5 * 2 * table.ballRadius, 9);
-    expect(lower[0].x - upper[0].x).toBeCloseTo(1.2 * table.ballRadius, 9);
+    expect(lower[0].x - upper[0].x).toBeCloseTo(1.1 * table.ballRadius, 9);
+    const nearestBlack = Math.min(...reds.map(ball => Math.hypot(ball.x - table.spots[21].x, ball.z - table.spots[21].z)));
+    expect(nearestBlack).toBeGreaterThanOrEqual(1.8 * 2 * table.ballRadius);
   });
 });

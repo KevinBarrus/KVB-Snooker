@@ -79,11 +79,11 @@ export function doubleDragonLayout(table: PracticeTable): PracticeLayout {
   activateColours(balls, table);
   const diameter = 2 * table.ballRadius;
   const lateral = .75 * diameter;
-  const spacing = 1.2 * diameter;
+  const spacing = 1.1 * diameter;
   const pink = table.spots[COLOUR_INDEX.pink];
   const black = table.spots[COLOUR_INDEX.black];
   const span = 7 * spacing;
-  const start = pink.x + (black.x - pink.x - span) / 2;
+  const start = black.x - 1.8 * diameter - span;
   const points = [
     ...Array.from({ length: 8 }, (_, index) => ({ x: start + index * spacing, z: lateral })),
     ...Array.from({ length: 7 }, (_, index) => ({ x: start + (index + .5) * spacing, z: -lateral }))
