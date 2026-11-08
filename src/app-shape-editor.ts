@@ -87,7 +87,10 @@ export class ShapeEditor {
       dialogsOpen: open => {
         this.dialogOpen = open;
         if (open) this.candidate = null;
-        else if (this.lastPointer && this.selected !== null) this.move(this.lastPointer.x, this.lastPointer.y);
+        else {
+          this.haloIndex = null;
+          if (this.lastPointer && this.selected !== null) this.move(this.lastPointer.x, this.lastPointer.y);
+        }
       }
     }, doc);
     this.panel.element.hidden = true;

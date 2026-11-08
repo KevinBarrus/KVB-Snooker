@@ -389,7 +389,8 @@ export class BrowserGame {
         this.controls.update();
         return;
       }
-      if (!this.simulator.getBallView(0).active || this.session.context.inHand > 0) this.openOpeningPlacement();
+      const shotResult = this.simulator.getResult();
+      if (shotResult.pottedIndices.includes(0) || shotResult.outOfBoundsIndices.includes(0)) this.openOpeningPlacement();
       return;
     }
     if (this.shapeId !== null && this.startedWithObjectBalls && objectBalls === 0 && !this.completionPending) {

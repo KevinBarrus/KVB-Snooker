@@ -80,6 +80,14 @@ try {
     return r.editor.markers.preview.isVisible;
   }), false, "No placement preview while the recycle dialog is open");
   assert.equal(await page.locator(".shape-editor-dialog").count(), 1);
+  await page.locator(".shape-editor-dialog").getByRole("button", { name: "取消", exact: true }).click();
+  await advance(1);
+  assert.equal(await page.evaluate(async () => {
+    const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return r.editor.markers.origin.isVisible;
+  }), false, "Cancelling recycle must hide the white halo");
+  await page.mouse.click(640, 420, { button: "right" });
+  await advance(1);
   await page.locator(".shape-editor-dialog").getByRole("button", { name: "回收", exact: true }).click();
   await advance(2);
   assert.equal((await snapshot()).active, 1);
@@ -114,6 +122,13 @@ try {
   assert.equal(state.scoreVisible, true);
   assert.equal(state.ballOnHidden, true);
   assert.equal(await page.locator(".practice-restore").isVisible(), true);
+  assert.equal(await page.evaluate(async () => {
+    const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    const initial = r.game.controls.inHand.active;
+    r.game.controls.inHand.exit();
+    r.game.afterPracticeShot();
+    return { initial, afterShot: r.game.controls.inHand.active };
+  }).then(value => value.initial && !value.afterShot), true, "Only the initial custom practice should open the cue halo");
   await page.locator(".ingame-menu-trigger").click();
   const customActions = await page.locator(".ingame-action-btn").allTextContents();
   assert.equal(customActions.includes("暂停"), false);
