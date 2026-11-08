@@ -294,7 +294,7 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 - `src/server/**` 是 Node 基础设施，只允许依赖 `src/core/**`、`src/net/protocol.ts` 与 Node 内置模块；`core` 不导入 `server`、`net` 或任何网络模块。
 - 浏览器网络适配分为纯状态 `src/net/**`（协议、快照缓冲、插值、客户端状态机）与装配根 `src/app-net*.ts`（建立连接、场景/渲染/控制器装配）。`render/ui/controller/audio` 不导入网络或服务端代码。
-- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；当前报文版本 `NET_PROTOCOL_VERSION = 3`。v2增加待击球快照及 `shot-prepared.vars`；v3增加非权威 `cue-pose` 瞄准显示消息。旧客户端须刷新、旧服务器须重启，版本不符拒绝连接。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
+- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；当前报文版本 `NET_PROTOCOL_VERSION = 4`。v2增加待击球快照及 `shot-prepared.vars`；v3增加非权威 `cue-pose` 瞄准显示消息；v4增加整场进度与局间命令（§4.10）。旧客户端须刷新、旧服务器须重启，版本不符拒绝连接。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
 - 现有 `GameSession`、`Simulator`、规则与物理是唯一权威；服务端不复制第二套规则，客户端不推进权威物理、不自行结算触球。
 
 **服务端窄接口（`src/server/room.ts`）**
@@ -326,7 +326,7 @@ export interface RoomSession {
 }
 ```
 
-房间命令只有 `prepare-shot` 与 `decide-turn` 两种；击球意图在服务器校验、冻结并由权威触球时刻施加一次冲量。`RoomSession` 不依赖 `setTimeout` 或真实墙钟，时间由调用方以毫秒单调值传入，便于确定性测试。WebSocket、延迟注入与监听地址属于传输层（`src/server/transport.ts`、`src/server/latency.ts`），不得进入房间裁决。
+原型基础击球命令为 `prepare-shot` 与 `decide-turn`；整场命令扩展见§4.10。击球意图在服务器校验、冻结并由权威触球时刻施加一次冲量。`RoomSession` 不依赖 `setTimeout` 或真实墙钟，时间由调用方以毫秒单调值传入，便于确定性测试。WebSocket、延迟注入与监听地址属于传输层（`src/server/transport.ts`、`src/server/latency.ts`），不得进入房间裁决。
 
 服务器传输统一通过 `src/server/clock.ts` 的 `serverNowMs()` 取得进程单调毫秒时间（Node `performance.timeOrigin + performance.now()`）。命令投递、pong、物理tick及快照使用同一时基；系统墙钟只可用于日志/持久化日期，不能驱动本原型对局。报文仍是数字毫秒，不改变协议版本。
 
@@ -347,7 +347,7 @@ export interface RoomSession {
 - `RoomOptions` 增加可选 `latency`（`welcome.latency` 来源，延迟注入仍在传输层）与 `frameSetup`（测试/开发夹具；正式流程不传）。
 - `join(connectionId, requestedSeat?, nowMs=0)` 增加可选 `nowMs`，供传输层传入命令投递时刻与确定性测试；`release` 不增加时间参数。
 - `RoomSession` 构造接收每房间独立 `MeshBody`（`new RoomSession(roomId, options, mesh)`），并只读暴露 `simulator/session/aiDependencies` 供诊断与测试；权威写入仍只经 `command/tick`。
-- 事件序号与去重缓存按房间独立（每房间 seq 从 1 开始）；拒绝命令也进入每房间 256 条 FIFO 去重缓存，同一 `commandId` 永远返回原裁决。
+- 事件序号与去重缓存按房间独立（每房间 seq 从 1 开始）；拒绝命令也进入每房间 256 条 FIFO 去重缓存，按席位与 `commandId` 隔离；缓存内返回原裁决，淘汰后旧 expectedVersion/attemptId 拒绝过期动作，不承诺跨进程幂等。
 - 浏览器开发入口额外提供只读 `window.__snkNet` 测试句柄（仅 DEV、仅联机装配），用于验收读取席位/版本/时序/相机状态，不是公开产品接口。
 - `window.__snkNet.diagnostics()` 返回本杆诊断副本；开发 HUD 可将同一数据下载为 JSON。采集范围为球位快照、原始 pong、显示帧及相机位置，不含开发令牌，不修改报文或权威状态；格式与使用见原型设计 §10.6。
 
@@ -372,6 +372,21 @@ export interface RoomSession {
 - 表现层合同：`PracticeControlsDom` 承载常驻「复位上一杆」与「重摆/复位」弹窗；`ScorePanel.visible` 控制不计分练习隐藏比分；`GameMenu.startShapePractice(shapeId, cueBallStyle)` 返回带 `MatchLaunchRequest.shapeId` 与 `cueBallStyle?: "classic" | "red-dot"` 的启动请求，装配根据此选择母球外观，900 对局仍强制红点。练习退出确认、五分点每杆自动重摆属于装配/UI 行为，不改核心规则。
 
 联机房间不启用练习选项；`RoomOptions.frameSetup` 仍是联机开发夹具，不承担练球产品流程。
+
+### 4.10 整场进度（2026-11-08）
+
+行为与验收边界见 [整场身份与换局](match-progress-design.md)。新增纯核心 `core/match-progress.ts`，不改 GameSession 的公开签名：
+
+- `MatchProgress({matchId:string,bestOf:number,firstOpeningPlayer:0|1})`：校验赛制；`view:MatchProgressView` 返回复制的只读状态。
+- `reserveShotId():string|null` 预留当前尝试的一杆身份；`recordStrike(shotId:string):boolean` 在真实触球后计数一次。
+- `finishFrame(winner:0|1,scores:readonly number[],reason:"played"|"conceded"):FrameResult|null` 只在 active 阶段结算一次。
+- `readyNextFrame(player:0|1):boolean` 接受局间准备，双方准备齐后推进一局；`clearReady(player)` 用于断线撤销准备。
+- `rerack():boolean` 仅更新当前尝试身份和杆数；不触碰 GameSession 或时钟。本轮不从网络暴露，未来调用方必须先获得双方同意、到达安全边界，并按900规则保留局时。
+- `MatchProgressView` 含 matchId/bestOf/firstOpeningPlayer/frameNumber/frameId/attemptNumber/attemptId/openingPlayer/frameWins/phase/ready/shotCount/lastShotId/frames/result；phase 为 active/between-frames/finished。FrameResult 保存 frameId/attemptId/frameNumber/openingPlayer/winner/scores/reason/shotCount；MatchResult 保存 resultId/matchId/winner/frameWins。ID 是业务身份，不能代替账号鉴权。
+
+联机协议升级 v4：`SnapshotMessage.match:MatchProgressView` 必填；RoomPhase 增加 between-frames；服务端事件增加 frame-ended/frame-started/match-ended，分别携带 frame/match/result。动作增加 `{type:"ready-next-frame"|"concede-frame",attemptId:string}`，校验所属尝试、席位、阶段和 expectedVersion。已有击球/规则命令继续使用房间内跨局单调版本隔离旧局，shotId 带完整尝试前缀。
+
+RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身份及首局开球；运行服务器默认三局两胜、随机首局、UUID整场身份。RoomSession.session 改为只读 getter，由服务器 room-match 装配整场与当前 GameSession；换局创建新的标准开局，不调用隐含轮换的 reset。服务器允许依赖协议重导出的纯核心 MatchProgressView 等数据类型。快照与局间面板只读消费，不自行计算胜者。开发启动参数 `--best-of` / `--first-opening-player` 后者仅供可重复验收。
 
 ### 4.11 我的球形：自建球形与自建练习（2026-11-08）
 

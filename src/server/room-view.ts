@@ -1,6 +1,6 @@
 import type { GameSession } from "../core/game.js";
 import { GAME_STATE } from "../core/game.js";
-import type { LatencyConfig, PendingShotView, RoomPhase, ServerEvent, ServerEventMessage, SnapshotBall, SnapshotMessage } from "../net/protocol.js";
+import type { LatencyConfig, MatchProgressView, PendingShotView, RoomPhase, ServerEvent, ServerEventMessage, SnapshotBall, SnapshotMessage } from "../net/protocol.js";
 
 /** welcome.latency 的缺省值：未开启延迟注入。 */
 export const NO_LATENCY: LatencyConfig = {
@@ -33,9 +33,10 @@ export function buildSnapshot(
   version: number,
   eventSeq: number,
   nowMs: number,
-  pendingShot: PendingShotView | null
+  pendingShot: PendingShotView | null,
+  match: MatchProgressView
 ): SnapshotMessage {
-  const phase = roomPhase(session);
+  const phase = match.phase === "active" ? roomPhase(session) : match.phase;
   const simulator = session.simulator;
   const balls: SnapshotBall[] = [];
   for (let index = 0; index < simulator.getBallCount(); ++index) {
@@ -55,6 +56,7 @@ export function buildSnapshot(
   }
   return {
     type: "snapshot",
+    match,
     version,
     eventSeq,
     serverTimeMs: nowMs,

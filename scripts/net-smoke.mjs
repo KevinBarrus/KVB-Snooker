@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { assertAimEntry } from "./net-aim-visual.mjs";
+import { runMatch } from "./net-match-smoke.mjs";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { watchShot, assertShotVisual, shootAcrossStall, assertDiagnosticDownload, watchRemoteCue, assertRemoteCue } from "./net-shot-visual.mjs";
@@ -378,6 +379,7 @@ async function main() {
     await runDropAck(browser); logResult();
     await runLatency(browser); logResult();
     await runTwoRooms(browser); logResult();
+    results.push(await runMatch(browser)); logResult();
     console.log(`NET_SMOKE_RESULTS ${JSON.stringify(results)}`);
     console.log("Net smoke passed: two real browser clients, authoritative shot sync, camera ownership, drop-ack retry, one-way latency, two-room isolation");
   } finally {

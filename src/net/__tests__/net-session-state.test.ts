@@ -1,3 +1,4 @@
+import { MatchProgress } from "../../core/match-progress.js";
 import { describe, expect, it } from "vitest";
 import {
   NetSessionState,
@@ -39,7 +40,7 @@ function snapshot(version: StateVersion, serverTimeMs: number,
   options: { balls?: readonly SnapshotBall[]; phase?: RoomPhase; eventSeq?: number; context?: ContextView;
     checkpoint?: SerialData | null; pendingShot?: PendingShotView | null } = {}): SnapshotMessage {
   return {
-    type: "snapshot", version, eventSeq: options.eventSeq ?? version, serverTimeMs,
+    type: "snapshot", match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version, eventSeq: options.eventSeq ?? version, serverTimeMs,
     phase: options.phase ?? "ready", context: options.context ?? CONTEXT,
     balls: options.balls ?? [ball(0, 0, 0, 0.9, 0), ball(1, 1, 0.5, 0.9, 0)],
     checkpoint: options.checkpoint === undefined ? null : options.checkpoint,

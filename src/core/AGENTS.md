@@ -7,6 +7,7 @@
 - 装配 simulator、rules、ai、玩家与回合流程；下层不得反向依赖本目录的装配根。
 - 核心时间由外部输入，测试使用可控数值；不以显示帧、物理快进或 UI 状态代替规则时钟。
 - 业务结果由核心裁决，浏览器和未来服务端通过已登记命令消费；基础设施不进入核心。
+- 整场进度与单局裁判分离；MatchProgress 只接收已裁决的局结果，开球选择由装配注入，重摆尝试不得推进局序号或已完成局分。
 - demo 是 Node 验收装配，允许读取命令行指定的本地台面；不提交原作资源。
 
 ## 修改前必读
@@ -17,6 +18,7 @@
 - [snooker-900-design.md](../../docs/snooker-900-design.md)。
 - [match-lifecycle-design.md](../../docs/match-lifecycle-design.md)。
 - [match-persistence-design.md](../../docs/match-persistence-design.md)。
+- [match-progress-design.md](../../docs/match-progress-design.md)。
 
 ## 测试与文档纪律
 

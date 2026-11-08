@@ -21,7 +21,7 @@ function buildServer() {
 function startServer(extraArgs = [], leadMs = LEAD_MS) {
   return new Promise((resolve, reject) => {
     const proc = spawn("node", [SERVER_MAIN, "--host", "127.0.0.1", "--port", "0",
-      "--dev-token", DEV_TOKEN, "--prepare-lead-ms", String(leadMs), ...extraArgs], { cwd: ROOT });
+      "--dev-token", DEV_TOKEN, "--first-opening-player", "0", "--prepare-lead-ms", String(leadMs), ...extraArgs], { cwd: ROOT });
     let stdout = "";
     let settled = false;
     const timer = setTimeout(() => {

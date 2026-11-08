@@ -37,9 +37,10 @@ export async function startHarness(
     port: 0,
     devToken: DEV_TOKEN,
     latency: { inboundMs: 0, outboundMs: 0, jitterMs: 0, dropNextAck: false },
-    room: { prepareLeadMs: 700, tickHz: 60, snapshotHz: 20, seed: 2026 },
+    room: { prepareLeadMs: 700, tickHz: 60, snapshotHz: 20, seed: 2026, bestOf: 1, firstOpeningPlayer: 0 },
     meshFactory: () => makePocketTable(),
-    ...overrides
+    ...overrides,
+    ...(overrides.room ? { room: { bestOf: 1, firstOpeningPlayer: 0, ...overrides.room } } : {})
   });
   const clients: TestClient[] = [];
   const harness: Harness = {

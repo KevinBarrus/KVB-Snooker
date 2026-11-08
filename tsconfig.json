@@ -24,6 +24,7 @@
     "src/app-placement.ts",
     "src/app-replay.ts",
     "src/app-net.ts",
+    "src/app-net-match.ts",
     "src/app-net-types.ts",
     "src/app-net-remote-cue.ts",
     "src/app-net-client.ts",

@@ -1,3 +1,4 @@
+import { MatchProgress } from "../../core/match-progress.js";
 import { describe, expect, it } from "vitest";
 import { NetShotLauncher } from "../../app-net-shot.js";
 import { PersonController } from "../../controller/person-controller.js";
@@ -22,7 +23,7 @@ function setup(interpolationDelayMs = 100) {
   }, 0);
   const remote = new RemoteView({ interpolationDelayMs });
   const snapshot = (time: number, distance = 0, phase: SnapshotMessage["phase"] = "ready"): SnapshotMessage => ({
-    type: "snapshot", version: distance ? 2 : 0, eventSeq: 0, serverTimeMs: time, phase,
+    type: "snapshot", match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version: distance ? 2 : 0, eventSeq: 0, serverTimeMs: time, phase,
     context: { playerIndex: 0, ballOn: 1, inHand: 0, scores: [0, 0], round: 0 },
     balls: Array.from({ length: simulator.getBallCount() }, (_, index) => {
       const ball = simulator.getBallView(index);

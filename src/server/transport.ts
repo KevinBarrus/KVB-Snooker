@@ -13,6 +13,8 @@ import { acceptUpgrade, WebSocketConnection } from "./websocket.js";
 import { serverNowMs } from "./clock.js";
 
 export interface DevServerRoomOptions {
+  readonly bestOf?: number;
+  readonly firstOpeningPlayer?: SeatIndex;
   readonly prepareLeadMs: number;
   readonly tickHz: number;
   readonly snapshotHz: number;
@@ -63,7 +65,7 @@ function isCommandMessage(message: ClientMessage): message is CommandMessage {
   if (typeof record.commandId !== "string" || record.commandId.length === 0 || record.commandId.length > 128) return false;
   if (!isStateVersion(record.expectedVersion)) return false;
   const action = rawRecord(record.action);
-  return action !== null && (action.type === "prepare-shot" || action.type === "decide-turn");
+  return action !== null && ["prepare-shot", "decide-turn", "ready-next-frame", "concede-frame"].includes(String(action.type));
 }
 
 function isPingMessage(message: ClientMessage): boolean {
@@ -80,6 +82,8 @@ export async function startDevServer(options: DevServerOptions): Promise<DevServ
   }
   const latency = new DevLatency(options.latency);
   const roomManager = new RoomManager({
+    bestOf: options.room.bestOf,
+    firstOpeningPlayer: options.room.firstOpeningPlayer,
     prepareLeadMs: options.room.prepareLeadMs,
     tickHz: options.room.tickHz,
     snapshotHz: options.room.snapshotHz,

@@ -69,7 +69,7 @@ export function makeTestRoom(options: Partial<RoomOptions> = {}): RoomSession {
     prepareLeadMs: 700,
     tickHz: 100,
     snapshotHz: 20,
-    seed: 2026,
+    seed: 2026, bestOf: 1, firstOpeningPlayer: 0, matchId: "test-match",
     ...options
   }, makePocketTable());
 }

@@ -4,15 +4,17 @@
  * 纯类型与校验，禁止 DOM、WebSocket 与 Node 依赖。
  */
 import type { SerialData } from "../core/simulator/shot-result.js";
+import type { FrameResult, MatchProgressView, MatchResult } from "../core/match-progress.js";
+export type { FrameResult, MatchProgressView, MatchResult } from "../core/match-progress.js";
 
-export const NET_PROTOCOL_VERSION = 3;
+export const NET_PROTOCOL_VERSION = 4;
 export const DEFAULT_NET_PORT = 8787;
 export const DEFAULT_DEV_TOKEN = "dev-local";
 export const ROOM_RULESET = "classic" as const;
 
 export type SeatIndex = 0 | 1;
 export type StateVersion = number;
-export type RoomPhase = "ready" | "simulating" | "deciding" | "finished";
+export type RoomPhase = "ready" | "simulating" | "deciding" | "between-frames" | "finished";
 
 /** 开发入口只允许两个固定席位；正式账号与游客权限不在本原型内。 */
 export const DEV_SEATS: readonly SeatIndex[] = [0, 1];
@@ -92,6 +94,7 @@ export interface PendingShotView {
 
 export interface SnapshotMessage {
   readonly type: "snapshot";
+  readonly match: MatchProgressView;
   readonly version: StateVersion;
   readonly eventSeq: number;
   readonly serverTimeMs: number;
@@ -103,7 +106,28 @@ export interface SnapshotMessage {
   readonly pendingShot: PendingShotView | null;
 }
 
+export function isMatchProgressView(value: unknown): value is MatchProgressView {
+  if (!value || typeof value !== "object") return false;
+  const match = value as Partial<MatchProgressView>;
+  const pair = (items: unknown, type: "number" | "boolean"): boolean =>
+    Array.isArray(items) && items.length === 2 && items.every(item => typeof item === type &&
+      (type !== "number" || (Number.isSafeInteger(item) && item >= 0)));
+  return [match.matchId, match.frameId, match.attemptId].every(id => typeof id === "string" && id.length > 0) &&
+    [match.bestOf, match.frameNumber, match.attemptNumber].every(n => typeof n === "number" && Number.isSafeInteger(n) && n > 0) &&
+    isSeatIndex(match.firstOpeningPlayer) && isSeatIndex(match.openingPlayer) &&
+    ["active", "between-frames", "finished"].includes(String(match.phase)) &&
+    pair(match.frameWins, "number") && pair(match.ready, "boolean") &&
+    typeof match.shotCount === "number" && Number.isSafeInteger(match.shotCount) && match.shotCount >= 0 &&
+    (match.lastShotId === null || typeof match.lastShotId === "string") && Array.isArray(match.frames) &&
+    match.frames.every(frame => frame && isSeatIndex(frame.winner) && pair(frame.scores, "number")) &&
+    (match.result === null || (typeof match.result === "object" && match.result !== undefined &&
+      isSeatIndex(match.result.winner) && typeof match.result.resultId === "string" && pair(match.result.frameWins, "number")));
+}
+
 export type ServerEvent =
+  | { readonly type: "frame-ended"; readonly frame: FrameResult }
+  | { readonly type: "frame-started"; readonly match: MatchProgressView }
+  | { readonly type: "match-ended"; readonly result: MatchResult }
   | { readonly type: "shot-prepared"; readonly shotId: string; readonly seat: SeatIndex;
       readonly touchAtServerMs: number; readonly prepareLeadMs: number; readonly vars: readonly number[] }
   | { readonly type: "shot-fired"; readonly shotId: string; readonly seat: SeatIndex;
@@ -215,7 +239,12 @@ export interface DecideTurnAction {
   readonly takeOver: boolean;
 }
 
-export type ClientCommandAction = PrepareShotAction | DecideTurnAction;
+export interface MatchAction {
+  readonly type: "ready-next-frame" | "concede-frame";
+  readonly attemptId: string;
+}
+
+export type ClientCommandAction = PrepareShotAction | DecideTurnAction | MatchAction;
 
 export interface CommandMessage {
   readonly type: "command";

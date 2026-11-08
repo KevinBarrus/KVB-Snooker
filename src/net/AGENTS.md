@@ -7,6 +7,7 @@
 - `src/net/**` 是零 DOM 的协议与客户端状态：报文、快照缓冲/插值、时钟偏移、命令身份与重试、时序测量；不得导入 WebSocket、DOM、Babylon 或物理/rules 实现。
 - 浏览器装配在 `src/app-net*.ts`，只由开发入口（`import.meta.env.DEV` 且 URL 带 `?net=`）动态加载；不得把网络依赖带进 `render/ui/controller/audio`。
 - 客户端不推进权威物理、不认可触球、不结算：球运动只来自服务器快照；出杆只发意图并显示受认可的动画。
+- 整场及局间界面只消费权威进度；不同尝试的球位不得互相插值。换局清理旧动画，但同局结算仍须播完已确认触球，不得破坏现有显示时序。
 - 镜头与输入所有权按本地席位判断，对手出杆不接管本机相机；不改镜头/球杆/力度算法。
 - 瞄准预测只允许在本地 `Simulator` 上从权威检查点 `restore` 后计算，不写回服务器、不产生权威事件。
 - 开发令牌、固定两席位与测试句柄仅限开发原型，不是正式产品接口。
@@ -18,6 +19,7 @@
 - [架构契约](../../docs/architecture.md) §4.8、§4.2、§4.4。
 - [联机开发原型设计](../../docs/multiplayer-prototype-design.md)：出杆时序、运动同步、延迟注入与验收。
 - [联机通信与状态同步](../../docs/multiplayer-protocol-design.md)。
+- [整场身份与换局](../../docs/match-progress-design.md)。
 - [观察与回放设计](../../docs/camera-replay-design.md) §3、§9（本地相机所有权与远端旁观）。
 - [控制器章程](../controller/AGENTS.md)、[渲染章程](../render/AGENTS.md)、[UI 章程](../ui/AGENTS.md)（含用户亲写设计原则）。
 

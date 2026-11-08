@@ -62,6 +62,7 @@ export class RemoteView {
   private targetServerMs = 0;
   private latestServerMs = 0;
   private latestArrivalMs = 0;
+  private attemptId: string | null = null;
   private readonly playback = new PlaybackClock();
   private idleFloorMs = -Infinity;
   private readonly emptyResult: ShotResult = { nKissed: 0, firstKissIndex: 0, pottedIndices: [], outOfBoundsIndices: [] };
@@ -91,7 +92,7 @@ export class RemoteView {
     if (latest) {
       if (snapshot.version < latest.version) return false;
       if (snapshot.version === latest.version && snapshot.serverTimeMs <= latest.serverTimeMs) return false;
-      const discontinuous = snapshot.serverTimeMs < latest.serverTimeMs ||
+      const discontinuous = snapshot.match.attemptId !== this.attemptId || snapshot.serverTimeMs < latest.serverTimeMs ||
         snapshot.version > latest.version + MAX_INTERPOLATABLE_VERSION_JUMP;
       if (discontinuous) { this.frames = []; this.playback.reset(); this.idleFloorMs = -Infinity; }
       else if (latest.phase === "ready" && snapshot.phase === "simulating" &&
@@ -105,6 +106,7 @@ export class RemoteView {
       this.idleFloorMs = -Infinity;
     }
     this.latestArrivalMs = nowMs;
+    this.attemptId = snapshot.match.attemptId;
     this.versionValue = snapshot.version;
     this.phaseValue = snapshot.phase;
     this.frames.push({
@@ -197,6 +199,7 @@ export class RemoteView {
   }
 
   reset(): void {
+    this.attemptId = null;
     this.frames = [];
     this.views = [];
     this.versionValue = -1;

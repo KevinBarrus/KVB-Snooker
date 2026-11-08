@@ -19,6 +19,7 @@ import { ViewNotice, ViewNoticeDom } from "./ui/view-notice.js";
 import type { PlacementCommands } from "./controller/in-hand.js";
 import { NetHud, parseConfig } from "./app-net-support.js";
 import { NetClient } from "./app-net-client.js";
+import { NetMatchPanel } from "./app-net-match.js";
 import type { NetTestHandle } from "./app-net-types.js";
 import { RemoteCue } from "./app-net-remote-cue.js";
 import { NetShotLauncher } from "./app-net-shot.js";
@@ -93,6 +94,7 @@ async function main(): Promise<void> {
   const diagnostics = new NetDiagnostics(config.interpolationDelayMs);
   const hud = new NetHud(() => { diagnostics.download(session.seat); canvas.focus(); });
   let client: NetClient | null = null;
+  const matchPanel = new NetMatchPanel(session, command => client?.sendCommand(command) ?? false, () => canvas.focus());
   let person: PersonController | null = null;
   let launcher: NetShotLauncher | null = null;
   let resolveReady: () => void = () => {};
@@ -129,12 +131,13 @@ async function main(): Promise<void> {
         }
         break;
       }
-      case "event": accepted = session.onEvent(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
+      case "event": accepted = session.onEvent(message, nowMs); remote.setClockOffset(session.clockOffsetMs); if (accepted && message.event.type === "frame-started") launcher?.finish(); break;
       case "ack": session.onAck(message, nowMs); break;
       case "pong": session.onPong(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
       case "error": session.onServerError(message, nowMs); break;
     }
     const cueBall = session.latestSnapshot?.balls[0];
+    matchPanel.receive(message);
     if (accepted && cueBall) remoteCue.receive(message, session.seat, cueBall, nowMs);
     diagnostics.message(message, nowMs, session.clockOffsetMs, accepted);
   };
@@ -145,7 +148,7 @@ async function main(): Promise<void> {
       if (!snapshot) return null;
       return {
         seat: session.seat, roomId: session.roomId, version: snapshot.version, phase: snapshot.phase,
-        context: snapshot.context,
+        context: snapshot.context, match: snapshot.match,
         balls: snapshot.balls.map(ball => ({ index: ball.index, number: ball.number, active: ball.active, x: ball.x, y: ball.y, z: ball.z }))
       };
     },
@@ -249,7 +252,7 @@ async function main(): Promise<void> {
     otherButton.type = "button"; otherButton.textContent = "让对手继续";
     otherButton.addEventListener("click", () => { sendDecision(false); canvas.focus(); });
     decision.append(ownButton, otherButton);
-    document.body.append(hud.element, viewNoticeDom.element, decision);
+    document.body.append(hud.element, viewNoticeDom.element, decision, matchPanel.element);
     const cycleView = (): void => {
       if (!session.isLocalTurn() && !shotLauncher.busy) return;
       const shotView = personController.camera.shotView;
@@ -280,6 +283,7 @@ async function main(): Promise<void> {
     let lastBallOn = -1;
     let lastStatus = "";
     let wasCanLaunch = false;
+    let displayAttempt: string | null = null;
     let turnResetPending = false;
     let previousFrameAtMs = performance.now();
     let fpsFrames = 0;
@@ -300,7 +304,10 @@ async function main(): Promise<void> {
       personController.camera.shotView.smoothing.aspect = scene!.getEngine().getAspectRatio(camera);
       personController.camera.shotView.smoothing.verticalFov = camera.fov;
       const canLaunch = session.canLaunch();
-      if (canLaunch && !wasCanLaunch) turnResetPending = true;
+      const attempt = session.latestSnapshot?.match.attemptId ?? null;
+      if (canLaunch && (!wasCanLaunch || attempt !== displayAttempt)) turnResetPending = true;
+      displayAttempt = attempt;
+      if (!shotLauncher.busy && (session.phase === "between-frames" || session.phase === "finished")) personController.gotoState0();
       if (!canLaunch) { turnReady = false; turnResetPending = false; }
       wasCanLaunch = canLaunch;
       shotLauncher.update(nowMs, remote.interpolationStats.targetServerMs);
@@ -342,6 +349,7 @@ async function main(): Promise<void> {
       viewNotice.update(dt);
       viewNoticeDom.sync(viewNotice);
       decision.hidden = !session.canDecide();
+      matchPanel.sync(nowMs, shotLauncher.busy);
       balls.sync();
       diagnostics.capture(nowMs, rawDt * 1000, session, remote, personController.camera);
       hud.sync(nowMs, session, session.lastError ?? client?.lastError ?? null, fpsValue, {
@@ -352,6 +360,8 @@ async function main(): Promise<void> {
         turnReady
       });
       const nextStatus = session.connectionState !== "ready" ? session.connectionState
+        : session.phase === "between-frames" ? "本局结束 · 等待双方准备下一局"
+        : session.phase === "finished" ? "整场结束"
         : session.isLocalTurn() ? (shotLauncher.busy ? "击球中" : "本机回合 · W 瞄准 / Space 出杆") : "对手回合 · 自由观察";
       if (nextStatus !== lastStatus) { lastStatus = nextStatus; status.textContent = nextStatus; }
       scene!.render();
@@ -365,6 +375,7 @@ async function main(): Promise<void> {
       hud.element.remove();
       viewNoticeDom.element.remove();
       decision.remove();
+      matchPanel.element.remove();
       opponentCue.dispose();
       cue.material?.dispose(); cue.dispose();
       gunsight.dispose();

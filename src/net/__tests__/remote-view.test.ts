@@ -1,3 +1,4 @@
+import { MatchProgress } from "../../core/match-progress.js";
 import { describe, expect, it } from "vitest";
 import { RemoteView } from "../remote-view.js";
 import type { RoomPhase, SnapshotBall, SnapshotMessage, StateVersion } from "../protocol.js";
@@ -11,7 +12,7 @@ function ball(index: number, number: number, x: number, y: number, z: number, ac
 function snapshot(version: StateVersion, serverTimeMs: number, balls: readonly SnapshotBall[],
   options: { phase?: RoomPhase; checkpoint?: SerialData | null } = {}): SnapshotMessage {
   return {
-    type: "snapshot", version, eventSeq: version, serverTimeMs, phase: options.phase ?? "ready",
+    type: "snapshot", match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version, eventSeq: version, serverTimeMs, phase: options.phase ?? "ready",
     context: { playerIndex: 0, ballOn: 2, inHand: 0, scores: [0, 0], round: 0 },
     balls, checkpoint: options.checkpoint === undefined ? null : options.checkpoint, pendingShot: null
   };
@@ -26,6 +27,20 @@ function makeView(): RemoteView {
 }
 
 describe("RemoteView 版本与缓冲", () => {
+  it("换局直接采用新球台，不跨尝试插值，迟到旧局快照仍拒绝", () => {
+    const view = makeView();
+    const old = snapshot(4, 1000, positions([ball(0, 0, 0.6, .9, 0)]));
+    view.pushSnapshot(old, 100);
+    view.update(110);
+    const match = new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 });
+    match.finishFrame(0, [7, 0], "played"); match.readyNextFrame(0); match.readyNextFrame(1);
+    const next = { ...snapshot(7, 1100, positions([ball(0, 0, -1, .9, 0)])), match: match.view };
+    view.pushSnapshot(next, 200);
+    view.update(200);
+    expect(view.frameCount).toBe(1);
+    expect(view.getCueBallPosition().x).toBe(-1);
+    expect(view.pushSnapshot(old, 201)).toBe(false);
+  });
   it("旧 version 快照被丢弃，不用旧数据覆盖新数据", () => {
     const view = makeView();
     expect(view.pushSnapshot(snapshot(5, 5_000, positions()), 100)).toBe(true);

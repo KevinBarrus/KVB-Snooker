@@ -1,10 +1,13 @@
 import { networkInterfaces } from "node:os";
+import { MATCH_LENGTHS, type MatchPlayer } from "../core/match-progress.js";
 import { parseArgs } from "node:util";
 import { DEFAULT_DEV_TOKEN, DEFAULT_NET_PORT, NET_PROTOCOL_VERSION } from "../net/protocol.js";
 import { PHYSICS_TABLE_PATH, TABLE_MESH_ID, createTableMesh, loadPhysicsTable } from "./table.js";
 import { startDevServer, type DevServer } from "./transport.js";
 
 interface ServerConfig {
+  readonly bestOf: number;
+  readonly firstOpeningPlayer?: MatchPlayer;
   readonly host: string;
   readonly port: number;
   readonly devToken: string;
@@ -30,6 +33,8 @@ function readConfig(argv: readonly string[]): ServerConfig {
   const { values } = parseArgs({
     args: [...argv],
     options: {
+      "best-of": { type: "string", default: "3" },
+      "first-opening-player": { type: "string" },
       host: { type: "string", default: "127.0.0.1" },
       port: { type: "string", default: String(DEFAULT_NET_PORT) },
       "dev-token": { type: "string", default: DEFAULT_DEV_TOKEN },
@@ -44,6 +49,13 @@ function readConfig(argv: readonly string[]): ServerConfig {
     }
   });
   const host = String(values.host ?? "");
+  const bestOf = numberArg(values["best-of"], "best-of", 3);
+  if (!MATCH_LENGTHS.includes(bestOf)) throw new Error("--best-of 必须为支持的比赛局数");
+  const firstOpeningPlayer = values["first-opening-player"] === undefined ? undefined :
+    numberArg(values["first-opening-player"], "first-opening-player", 0);
+  if (firstOpeningPlayer !== undefined && firstOpeningPlayer !== 0 && firstOpeningPlayer !== 1) {
+    throw new Error("--first-opening-player 必须为0或1（仅开发验收）");
+  }
   const port = numberArg(values.port, "port", DEFAULT_NET_PORT);
   const latencyInMs = numberArg(values["latency-in-ms"], "latency-in-ms", 0);
   const latencyOutMs = numberArg(values["latency-out-ms"], "latency-out-ms", 0);
@@ -64,6 +76,7 @@ function readConfig(argv: readonly string[]): ServerConfig {
   if (snapshotHz < 1 || snapshotHz > 240) throw new Error("--snapshot-hz 必须在 1–240 之间");
   if (devToken.length === 0) throw new Error("--dev-token 不能为空");
   return {
+    bestOf, firstOpeningPlayer,
     host, port, devToken, prepareLeadMs, tickHz, snapshotHz, tablePath,
     latencyInMs, latencyOutMs, latencyJitterMs,
     dropNextAck: values["drop-next-ack"] === true
@@ -110,6 +123,8 @@ async function main(): Promise<void> {
       dropNextAck: config.dropNextAck
     },
     room: {
+      bestOf: config.bestOf,
+      firstOpeningPlayer: config.firstOpeningPlayer,
       prepareLeadMs: config.prepareLeadMs,
       tickHz: config.tickHz,
       snapshotHz: config.snapshotHz,

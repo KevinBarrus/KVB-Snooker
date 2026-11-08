@@ -9,15 +9,16 @@ import {
   DEFAULT_STROKE_BOUNDS, NET_PROTOCOL_VERSION, REJECT, ROOM_RULESET,
   isSeatIndex, validateCueContact, validateStrokeVars,
   type AckMessage, type CommandMessage, type DecideTurnAction, type LobbySeat,
-  type MatchConfigView, type PendingShotView, type PrepareShotAction, type RejectReason,
+  type MatchAction, type MatchConfigView, type PendingShotView, type PrepareShotAction, type RejectReason,
   type SeatIndex, type ServerEvent, type ServerEventMessage, type SnapshotMessage, type WelcomeMessage
 } from "../net/protocol.js";
-import { commandSignature, isDecideTurnAction, isPrepareShotAction } from "./room-command.js";
+import { commandSignature, isDecideTurnAction, isMatchAction, isPrepareShotAction } from "./room-command.js";
 import { ensureCueBallActive } from "./cue-placement.js";
+import { RoomMatch } from "./room-match.js";
 import { RoomCuePose } from "./cue-pose.js";
 import type { CuePoseMessage, CuePoseState } from "../net/protocol.js";
 import { NO_LATENCY, buildSnapshot, eventMessage } from "./room-view.js";
-import type { RoomJoinOutcome, RoomOptions, RoomTickResult } from "./room-types.js";
+import type { RoomCommandResult, RoomJoinOutcome, RoomOptions, RoomTickResult } from "./room-types.js";
 
 export type { RoomJoinOutcome, RoomJoinResult, RoomOptions, RoomTickResult } from "./room-types.js";
 
@@ -51,10 +52,9 @@ const MAX_CATCH_UP_STEPS = 6;
 export class RoomSession {
   readonly roomId: string;
   readonly config: MatchConfigView;
-  /** 内部状态：测试与诊断只读访问；权威写入只能经 command/tick。 */
   readonly simulator: Simulator;
-  readonly session: GameSession;
-  /** 每房间独立 AI 依赖（本原型两席位均为 USER，为后续 AI 席位与隔离验收预留）。 */
+  private readonly match: RoomMatch;
+  get session(): GameSession { return this.match.session; }
   readonly aiDependencies: Required<AIControllerDependencies>;
 
   private readonly options: RoomOptions;
@@ -64,7 +64,6 @@ export class RoomSession {
   private readonly queuedEvents: QueuedEvent[] = [];
   private pendingShot: PendingShot | null = null;
   private activeShot: ActiveShot | null = null;
-  private shotSequence = 0;
   private version = 0;
   private eventSeq = 0;
   private lastTickMs: number | null = null;
@@ -87,10 +86,7 @@ export class RoomSession {
       tickHz: options.tickHz, snapshotHz: options.snapshotHz, prepareLeadMs: options.prepareLeadMs
     };
     this.simulator = new SimulatorClass(mesh);
-    this.session = new GameSession(this.simulator, "single-play", {
-      players: ["USER", "USER"], ruleset: "classic",
-      ...(options.frameSetup ? { setup: options.frameSetup } : {})
-    });
+    this.match = new RoomMatch(this.simulator, options);
     const seeded = new SeededRandom(options.seed);
     this.aiDependencies = { routeCache: new RouteCache(), random: () => seeded.next() };
   }
@@ -101,14 +97,14 @@ export class RoomSession {
 
   get cuePose(): CuePoseState | null {
     const pose = this.poses.latest;
-    return !this.closed && !this.pendingShot && this.session.state === GAME_STATE.READY &&
+    return this.match.active && !this.closed && !this.pendingShot && this.session.state === GAME_STATE.READY &&
       !this.session.finished && pose?.version === this.version &&
       pose.seat === this.session.context.playerIndex ? pose : null;
   }
 
   receiveCuePose(connectionId: string, message: CuePoseMessage, nowMs: number): CuePoseState | null {
     const seat = this.seatByConnection.get(connectionId);
-    if (this.closed || this.pendingShot || this.session.finished || this.session.state !== GAME_STATE.READY ||
+    if (!this.match.active || this.closed || this.pendingShot || this.session.finished || this.session.state !== GAME_STATE.READY ||
         seat === undefined || seat !== this.session.context.playerIndex || message.expectedVersion !== this.version) return null;
     return this.poses.accept(connectionId, seat, message, nowMs);
   }
@@ -138,6 +134,8 @@ export class RoomSession {
     this.poses.forget(connectionId);
     const seat = this.seatByConnection.get(connectionId);
     if (seat === undefined) return;
+    if (this.match.view.ready[seat]) this.version++;
+    this.match.progress.clearReady(seat);
     this.seatByConnection.delete(connectionId);
     this.connections.delete(seat);
     this.queueSeatChange(this.lastNowMs);
@@ -148,17 +146,19 @@ export class RoomSession {
     this.lastNowMs = nowMs;
     if (this.lastTickMs === null) this.lastTickMs = nowMs;
     const queued = this.flushQueuedEvents();
+    const seat = this.seatByConnection.get(connectionId);
+    if (seat === undefined) return { ack: this.rejectAck(message.commandId, REJECT.NOT_YOUR_TURN, nowMs), events: queued, snapshot: null };
     const signature = commandSignature(message.action);
-    const cached = this.dedup.get(message.commandId);
+    const key = `${seat}:${message.commandId}`;
+    const cached = this.dedup.get(key);
     if (cached) {
       const ack = cached.signature === signature
         ? { ...cached.ack, duplicate: true }
         : this.rejectAck(message.commandId, REJECT.DUPLICATE_MISMATCH, nowMs, true);
       return { ack, events: queued, snapshot: null };
     }
-    const seat = this.seatByConnection.get(connectionId);
-    if (seat === undefined) return { ack: this.rejectAck(message.commandId, REJECT.NOT_YOUR_TURN, nowMs), events: queued, snapshot: null };
     const outcome = this.dispatch(seat, message, nowMs);
+    this.remember(key, signature, outcome.ack);
     return { ack: outcome.ack, events: [...queued, ...outcome.events], snapshot: outcome.snapshot };
   }
 
@@ -209,22 +209,41 @@ export class RoomSession {
     this.queuedEvents.length = 0;
   }
 
-  private dispatch(seat: SeatIndex, message: CommandMessage, nowMs: number): {
-    ack: AckMessage; events: ServerEventMessage[]; snapshot: SnapshotMessage | null;
-  } {
+  private dispatch(seat: SeatIndex, message: CommandMessage, nowMs: number): RoomCommandResult {
     const action = message.action;
-    if (!isPrepareShotAction(action) && !isDecideTurnAction(action)) {
+    if (!isPrepareShotAction(action) && !isDecideTurnAction(action) && !isMatchAction(action)) {
       return this.cachedReject(message, REJECT.UNKNOWN_ACTION, nowMs);
     }
     if (message.expectedVersion !== this.version) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
+    if (isMatchAction(action)) return this.matchCommand(seat, message, action, nowMs);
+    if (!this.match.active) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
     return isPrepareShotAction(action)
       ? this.prepareShot(seat, message, action, nowMs)
       : this.decideTurn(seat, message, action, nowMs);
   }
 
-  private prepareShot(seat: SeatIndex, message: CommandMessage, action: PrepareShotAction, nowMs: number): {
-    ack: AckMessage; events: ServerEventMessage[]; snapshot: SnapshotMessage | null;
-  } {
+  private matchCommand(seat: SeatIndex, message: CommandMessage, action: MatchAction, nowMs: number): RoomCommandResult {
+    if (action.attemptId !== this.match.view.attemptId) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
+    let events: readonly ServerEvent[] | null;
+    if (action.type === "ready-next-frame") {
+      if (this.connections.size !== 2) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
+      events = this.match.ready(seat);
+    } else {
+      if (!this.match.active || this.pendingShot || this.activeShot ||
+          ![GAME_STATE.READY, GAME_STATE.DECIDING].some(state => state === this.session.state)) {
+        return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
+      }
+      events = this.match.finish(seat === 0 ? 1 : 0, "conceded");
+    }
+    if (events === null) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
+    this.version++;
+    const messages = events.map(event => this.pushEvent(event, nowMs));
+    return { ack: { type: "ack", commandId: message.commandId, accepted: true,
+      stateVersion: this.version, serverTimeMs: nowMs, duplicate: false },
+      events: messages, snapshot: this.buildSnapshotNow(nowMs) };
+  }
+
+  private prepareShot(seat: SeatIndex, message: CommandMessage, action: PrepareShotAction, nowMs: number): RoomCommandResult {
     const session = this.session;
     if (this.pendingShot || session.state !== GAME_STATE.READY || session.finished) {
       return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
@@ -233,16 +252,13 @@ export class RoomSession {
     const bounds = { ...DEFAULT_STROKE_BOUNDS, ballRadius: this.simulator.ballRadius };
     const invalidVars = validateStrokeVars(action.vars, bounds);
     if (invalidVars) return this.cachedReject(message, invalidVars, nowMs);
-    // 手中球母球应在结算/决定阶段由服务器放到合法位置并随 ready 快照下发；
-    // 这里不再临时改位，否则客户端基于旧位置算出的触点会偏移（意外侧塞）或被误拒。
     if (!this.simulator.getBallAtIndex(0).active) return this.cachedReject(message, REJECT.CUE_BALL_INACTIVE, nowMs);
     const cue = this.simulator.getCueBallPosition();
     const invalidContact = validateCueContact(action.vars, cue.x, cue.y, cue.z, this.simulator.ballRadius);
     if (invalidContact) return this.cachedReject(message, invalidContact, nowMs);
     const vars = Float32Array.from(action.vars);
     if (!session.prepareStroke(seat, vars)) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
-    this.shotSequence++;
-    const shotId = `shot-${this.shotSequence}`;
+    const shotId = this.match.progress.reserveShotId()!;
     const touchAtServerMs = nowMs + this.options.prepareLeadMs;
     this.pendingShot = { shotId, seat, vars, touchAtServerMs };
     this.version++;
@@ -250,29 +266,24 @@ export class RoomSession {
       type: "ack", commandId: message.commandId, accepted: true, stateVersion: this.version,
       serverTimeMs: nowMs, duplicate: false, shotId, touchAtServerMs
     };
-    this.remember(message.commandId, commandSignature(action), ack);
     const event = this.pushEvent({ type: "shot-prepared", shotId, seat, touchAtServerMs,
       prepareLeadMs: this.options.prepareLeadMs, vars: Array.from(vars) }, nowMs);
     return { ack, events: [event], snapshot: this.buildSnapshotNow(nowMs) };
   }
 
-  private decideTurn(seat: SeatIndex, message: CommandMessage, action: DecideTurnAction, nowMs: number): {
-    ack: AckMessage; events: ServerEventMessage[]; snapshot: SnapshotMessage | null;
-  } {
+  private decideTurn(seat: SeatIndex, message: CommandMessage, action: DecideTurnAction, nowMs: number): RoomCommandResult {
     const session = this.session;
     if (session.state !== GAME_STATE.DECIDING) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
     const decision = session.decision;
     if (!decision || decision.playerIndex !== seat) return this.cachedReject(message, REJECT.NOT_YOUR_TURN, nowMs);
     const next: SeatIndex = action.takeOver ? seat : seat === 0 ? 1 : 0;
     if (!session.chooseNextPlayer(seat, next)) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
-    // 决定完成、状态回到 READY 后立刻把手中球放到合法位置，让客户端在 ready 快照里拿到最终母球位置。
     this.ensureCueBallActive();
     this.version++;
     const ack: AckMessage = {
       type: "ack", commandId: message.commandId, accepted: true, stateVersion: this.version,
       serverTimeMs: nowMs, duplicate: false
     };
-    this.remember(message.commandId, commandSignature(action), ack);
     return { ack, events: [], snapshot: this.buildSnapshotNow(nowMs) };
   }
 
@@ -292,6 +303,7 @@ export class RoomSession {
     }
     this.pendingShot = null;
     this.activeShot = { shotId: pending.shotId, seat: pending.seat };
+    this.match.progress.recordStrike(pending.shotId);
     this.version++;
     events.push(this.pushEvent({
       type: "shot-fired", shotId: pending.shotId, seat: pending.seat,
@@ -317,7 +329,7 @@ export class RoomSession {
       potted: [...result.pottedIndices], outOfBounds: [...result.outOfBoundsIndices],
       settledAtServerMs: nowMs
     }, nowMs));
-    // 直接回到 READY（无待选择）时，把手中球母球放到合法位置；DECIDING 留给 decide-turn 后处理。
+    events.push(...this.match.settle().map(event => this.pushEvent(event, nowMs)));
     if (this.session.state === GAME_STATE.READY) this.ensureCueBallActive();
   }
 
@@ -347,7 +359,7 @@ export class RoomSession {
   }
 
   private buildSnapshotNow(nowMs: number): SnapshotMessage {
-    return buildSnapshot(this.session, this.version, this.eventSeq, nowMs, this.pendingView());
+    return buildSnapshot(this.session, this.version, this.eventSeq, nowMs, this.pendingView(), this.match.view);
   }
 
   private pushEvent(event: ServerEvent, nowMs: number): ServerEventMessage {
@@ -365,11 +377,8 @@ export class RoomSession {
     return messages;
   }
 
-  private cachedReject(message: CommandMessage, reason: RejectReason, nowMs: number): {
-    ack: AckMessage; events: ServerEventMessage[]; snapshot: SnapshotMessage | null;
-  } {
+  private cachedReject(message: CommandMessage, reason: RejectReason, nowMs: number): RoomCommandResult {
     const ack = this.rejectAck(message.commandId, reason, nowMs);
-    this.remember(message.commandId, commandSignature(message.action), ack);
     return { ack, events: [], snapshot: null };
   }
 

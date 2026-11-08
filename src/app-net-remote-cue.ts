@@ -40,6 +40,7 @@ export class RemoteCue {
     if (message.type === "snapshot" && message.pendingShot) this.prepare(message.pendingShot, seat, cue);
     if (message.type !== "event") return;
     const event = message.event;
+    if (event.type === "frame-started") this.clear();
     if (event.type === "seat-changed" && event.seats.some(s => s.seat === this.poseSeat && !s.connected)) this.clear();
     if (event.type === "shot-prepared") this.prepare(event, seat, cue);
     if (event.type === "shot-cancelled" && event.shotId === this.shotId) this.clear();

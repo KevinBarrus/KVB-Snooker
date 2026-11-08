@@ -5,6 +5,9 @@ import type {
 
 /** 架构 §4.8 登记的 RoomOptions；latency/frameSetup 为服务端内部扩展字段。 */
 export interface RoomOptions {
+  readonly bestOf?: number;
+  readonly firstOpeningPlayer?: SeatIndex;
+  readonly matchId?: string;
   readonly prepareLeadMs: number;
   readonly tickHz: number;
   readonly snapshotHz: number;
@@ -24,6 +27,10 @@ export interface RoomTickResult {
   readonly ack?: AckMessage;
   readonly snapshot: SnapshotMessage | null;
   readonly events: readonly ServerEventMessage[];
+}
+
+export interface RoomCommandResult extends RoomTickResult {
+  readonly ack: AckMessage;
 }
 
 export type RoomJoinOutcome = RoomJoinResult | { readonly reason: RejectReason };

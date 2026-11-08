@@ -3,6 +3,8 @@ import type { LatencyConfig, RejectReason, SeatIndex } from "../net/protocol.js"
 import { RoomSession, type RoomJoinResult, type RoomTickResult } from "./room.js";
 
 export interface RoomManagerOptions {
+  readonly bestOf?: number;
+  readonly firstOpeningPlayer?: SeatIndex;
   readonly prepareLeadMs: number;
   readonly tickHz: number;
   readonly snapshotHz: number;
@@ -83,6 +85,8 @@ export class RoomManager {
     this.roomSequence++;
     const seed = (this.options.seed + this.roomSequence) >>> 0;
     return new RoomSession(roomId, {
+      bestOf: this.options.bestOf,
+      firstOpeningPlayer: this.options.firstOpeningPlayer,
       prepareLeadMs: this.options.prepareLeadMs,
       tickHz: this.options.tickHz,
       snapshotHz: this.options.snapshotHz,

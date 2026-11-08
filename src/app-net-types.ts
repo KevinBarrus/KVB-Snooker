@@ -1,8 +1,9 @@
 import type { NetDiagnostics } from "./app-net-diagnostics.js";
 import type { ShotTimingRecord } from "./net/net-session-state.js";
-import type { ContextView, LatencyConfig, RoomPhase, SeatIndex } from "./net/protocol.js";
+import type { ContextView, LatencyConfig, MatchProgressView, RoomPhase, SeatIndex } from "./net/protocol.js";
 
 interface NetSnapshotView {
+  readonly match: MatchProgressView;
   readonly seat: SeatIndex | null;
   readonly roomId: string | null;
   readonly version: number;
