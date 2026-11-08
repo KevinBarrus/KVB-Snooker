@@ -279,6 +279,13 @@ export class GameMenu {
         { id: "restart", label: "重新开始" }
       ];
     }
+    if (kind === "practice" && this.activeMatch?.customShapeId) {
+      return [
+        { id: "restart", label: "重新开始" },
+        { id: "exit", label: "退出练习" },
+        { id: "guide", label: "操作指南" }
+      ];
+    }
     if (kind === "ai") {
       return [
         { id: "pause", label: "暂停" },

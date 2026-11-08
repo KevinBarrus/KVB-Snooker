@@ -385,7 +385,7 @@ export interface RoomSession {
 
 **窄接口**
 
-- `PracticeOptions.freeScoring?: boolean`：自建练习专用。为 true 时 `GameSession` 跳过斯诺克裁判，任意球合法；进球按球面值加入 `pts` 与 `brk`，未进球的一杆后 `brk=0`；母球落袋不计分、回标准母球点并进入手中球，单杆清零；`context.ballOn=0`，不显示目标球。
+- `PracticeOptions.freeScoring?: boolean`：自建练习专用。为 true 时 `GameSession` 跳过斯诺克裁判，任意球合法；进球按球面值加入 `pts` 与 `brk`，未进球的一杆后 `brk=0`；母球落袋不计分、回标准母球点并进入手中球，单杆清零；`context.ballOn=65535`（任意球合法），HUD 隐藏目标球图标。
 - `CustomShapeRecord { id; name; balls: CustomShapeBall[]; createdAt; deletedAt }`、`CustomShapesSnapshot { active; recycle }` 定义在 `src/core/practice/custom-shapes.ts`；同一模块提供名称校验、`CUSTOM_SHAPE_LIMIT=50`、`CUSTOM_SHAPE_RECYCLE_MS=30天`、过期清理、`toCustomShapeSetup`、`toCustomPracticeOptions`。
 - `src/app-my-shapes.ts` 的 `MyShapesStore` 是 localStorage 适配器（可注入存储、时钟、id 生成以满足 Node 测试），提供 load/create/saveLayout/rename/remove/restore/purge；不进入 core。
 - 菜单 `MatchLaunchRequest` 增加可选 `customShapeId`；启动自建练习时装配根从 `MyShapesStore` 读取记录并转换为 setup + practice options，再调用既有 `setMode`。`syncExternalMatch` 按 customShapeId 把退出目录设为我的球形。

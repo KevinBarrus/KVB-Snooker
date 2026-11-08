@@ -39,6 +39,8 @@ export class ShapeEditor {
   private selected: number | null = null;
   private haloIndex: number | null = null;
   private candidate: { x: number; z: number; valid: boolean } | null = null;
+  private lastPointer: { x: number; y: number } | null = null;
+  private dialogOpen = false;
 
   constructor(private readonly simulator: Simulator, scene: B.Scene, private readonly camera: B.TargetCamera,
     private readonly canvas: HTMLCanvasElement, atlas: B.Texture, mask: B.Texture,
@@ -66,7 +68,11 @@ export class ShapeEditor {
       get editing(): boolean { return self.editingValue; },
       inventory: () => [1, 2, 3, 4, 5, 6, 7].map(number => ({ ballNumber: number, count: this.counts[number] })),
       selectedBall: () => this.selected,
-      selectBall: number => { this.selected = this.selected === number ? null : number; this.panel.sync(); },
+      selectBall: number => {
+        this.selected = this.selected === number ? null : number;
+        if (this.lastPointer && this.selected !== null) this.move(this.lastPointer.x, this.lastPointer.y);
+        this.panel.sync();
+      },
       finish: name => this.callbacks.create(name, this.balls()),
       save: () => { if (this.recordId) this.callbacks.save(this.recordId, this.balls()); },
       exit: () => this.callbacks.exit(),
@@ -77,7 +83,12 @@ export class ShapeEditor {
       })),
       applyColours: numbers => this.applyColours(numbers),
       colourName: number => ({ 2: "黄球", 3: "绿球", 4: "棕球", 5: "蓝球", 6: "粉球", 7: "黑球" })[number] ?? "",
-      focusCanvas: () => this.canvas.focus()
+      focusCanvas: () => this.canvas.focus(),
+      dialogsOpen: open => {
+        this.dialogOpen = open;
+        if (open) this.candidate = null;
+        else if (this.lastPointer && this.selected !== null) this.move(this.lastPointer.x, this.lastPointer.y);
+      }
     }, doc);
     this.panel.element.hidden = true;
   }
@@ -93,6 +104,8 @@ export class ShapeEditor {
     this.selected = null;
     this.haloIndex = null;
     this.candidate = null;
+    this.lastPointer = null;
+    this.dialogOpen = false;
     this.placed.clear();
     for (let number = 1; number <= 7; number++) this.counts[number] = number === 1 ? 15 : 1;
     for (const ball of this.simulator.getBalls()) this.simulator.resetBallPosition(ball, null);
@@ -136,7 +149,8 @@ export class ShapeEditor {
       active: haloView?.active ?? false,
       visible: candidate !== null,
       valid: candidate?.valid ?? false,
-      spot: candidate ?? { x: 0, z: 0 }
+      spot: candidate ?? { x: 0, z: 0 },
+      previewVisible: candidate !== null
     });
     if (halo) { this.markers.origin.position.x = halo.x; this.markers.origin.position.z = halo.z; }
     this.panel.sync();
@@ -198,6 +212,8 @@ export class ShapeEditor {
   }
 
   private move(clientX: number, clientY: number): void {
+    this.lastPointer = { x: clientX, y: clientY };
+    if (this.dialogOpen) { this.candidate = null; return; }
     const point = this.pickPoint(clientX, clientY);
     if (!point || this.selected === null) { this.candidate = null; return; }
     const index = this.nextIndex(this.selected);
@@ -227,6 +243,7 @@ export class ShapeEditor {
   private readonly onContextMenu = (event: MouseEvent): void => {
     if (!this.activeValue) return;
     event.preventDefault();
+    this.candidate = null;
     const point = this.pickPoint(event.clientX, event.clientY);
     if (!point) return;
     const radius = this.simulator.ballRadius * 1.35;
@@ -246,11 +263,13 @@ export class ShapeEditor {
   private recycle(index: number): void {
     const view = this.simulator.getBallView(index);
     if (!view.active || index < 1) return;
+    this.candidate = null;
     this.simulator.resetBallPosition(this.simulator.getBallAtIndex(index), null);
     this.placed.delete(index);
     this.counts[BALL_NUMBER_BY_INDEX(index)]++;
     this.haloIndex = null;
     this.panel.sync();
+    this.canvas.focus();
   }
 
   private applyColours(numbers: readonly number[]): { readonly ok: boolean; readonly occupied: readonly string[] } {
@@ -276,7 +295,9 @@ export class ShapeEditor {
       this.placed.set(index, { index, x: spot.x, z: spot.z });
       this.counts[number] = 0;
     }
+    this.candidate = null;
     this.panel.sync();
+    this.canvas.focus();
     return { ok: true, occupied: [] };
   }
 }

@@ -184,3 +184,6 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .practice-completion-actions button { flex: 1; padding: 9px 10px; border-radius: 7px; background: #1e231d; border: 1px solid rgba(255, 255, 255, 0.14); color: #ecefe8; font-weight: 600; }
 .practice-completion-actions button:hover:not(:disabled) { border-color: rgba(229, 214, 157, 0.5); color: #f7e8b4; }
 .score-container.hide-ball-on .ball-on-icon { display: none; }
+
+.my-shapes-panel .menu-list-top-action { border: 1px solid rgba(229, 214, 157, 0.52); border-radius: 8px; background: linear-gradient(180deg, #283325, #1b221a); padding: 12px 16px; font-size: 15px; color: #f7e8b4; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+.my-shapes-panel .menu-list-top-action:hover { border-color: #e5d69d; filter: brightness(1.08); }

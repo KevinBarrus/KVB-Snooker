@@ -23,6 +23,7 @@ export interface ShapeEditorPort {
   applyColours(ballNumbers: readonly number[]): { readonly ok: boolean; readonly occupied: readonly string[] };
   colourName(ballNumber: number): string;
   focusCanvas(): void;
+  dialogsOpen(open: boolean): void;
 }
 
 const BALL_LABELS: Record<number, string> = {
@@ -128,10 +129,10 @@ export class ShapeEditorPanelDom {
       if (!name) { this.showAlert("名称不能为空"); return; }
       this.closeDialog();
       this.showConfirm(`确认以「${name}」完成创建？`, "确认", () => {
-        this.showAlert("已创建。回到我的球形后点击该球形即可开始练习", () => this.port.finish(name));
+        this.showNotice("已创建。回到我的球形后点击该球形即可开始练习", "返回", () => this.port.finish(name));
       });
     });
-    const cancel = this.makeAction("取消", false, () => this.closeDialog());
+    const cancel = this.makeAction("取消", false, () => { this.closeDialog(); this.port.focusCanvas(); });
     row.append(create, cancel);
     dialog.append(row);
     this.mount(dialog);
@@ -178,11 +179,13 @@ export class ShapeEditorPanelDom {
         return;
       }
       this.closeDialog();
+      this.port.focusCanvas();
     });
-    const cancel = this.makeAction("取消", false, () => this.closeDialog());
+    const cancel = this.makeAction("取消", false, () => { this.closeDialog(); this.port.focusCanvas(); });
     row.append(confirm, cancel);
     dialog.append(grid, row);
     this.mount(dialog);
+    this.port.focusCanvas();
   }
 
   private showConfirm(message: string, confirmLabel: string, onConfirm: () => void): void {
@@ -192,11 +195,24 @@ export class ShapeEditorPanelDom {
     const row = this.doc.createElement("div");
     row.className = "my-shapes-dialog-actions";
     row.append(
-      this.makeAction(confirmLabel, true, () => { this.closeDialog(); onConfirm(); }),
-      this.makeAction("取消", false, () => this.closeDialog())
+      this.makeAction(confirmLabel, true, () => { this.closeDialog(); onConfirm(); this.port.focusCanvas(); }),
+      this.makeAction("取消", false, () => { this.closeDialog(); this.port.focusCanvas(); })
     );
     dialog.append(row);
     this.mount(dialog);
+    this.port.focusCanvas();
+  }
+
+  private showNotice(message: string, actionLabel: string, after: () => void): void {
+    this.closeDialog();
+    const dialog = this.makeDialog(message);
+    const row = this.doc.createElement("div");
+    row.className = "my-shapes-dialog-actions";
+    const action = this.makeAction(actionLabel, true, () => { this.closeDialog(); after(); });
+    row.append(action);
+    dialog.append(row);
+    this.mount(dialog);
+    this.port.focusCanvas();
   }
 
   private showAlert(message: string, after?: () => void): void {
@@ -207,7 +223,7 @@ export class ShapeEditorPanelDom {
     close.className = "my-shapes-dialog-close";
     close.textContent = "×";
     close.setAttribute("aria-label", "关闭");
-    close.addEventListener("click", () => { this.closeDialog(); after?.(); });
+    close.addEventListener("click", () => { this.closeDialog(); this.port.focusCanvas(); after?.(); });
     dialog.prepend(close);
     this.mount(dialog);
   }
@@ -237,11 +253,14 @@ export class ShapeEditorPanelDom {
   private mount(dialog: HTMLElement): void {
     this.doc.body.append(dialog);
     this.dialog = dialog;
+    this.port.dialogsOpen(true);
   }
 
   private closeDialog(): void {
+    const had = this.dialog !== null;
     this.dialog?.remove();
     this.dialog = null;
+    if (had) this.port.dialogsOpen(false);
   }
 
   /** 弹出框不锁镜头；仅把焦点从画布移开，指针拖动仍能重新聚焦。 */

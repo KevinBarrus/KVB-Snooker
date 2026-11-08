@@ -139,3 +139,4 @@
 - 新增 `src/core/practice/custom-shapes.ts`、`src/app-my-shapes.ts`、`src/app-shape-editor.ts`、`src/ui/my-shapes-panel.ts`、`src/ui/shape-editor-panel.ts`、`src/ui/practice-completion.ts`；未改物理、相机算法、正式规则或预设球形布局。
 - 自动验收：`npm run test` 73 文件 660 项通过；`npm run typecheck`、`npm run build` 通过；`npm run test:my-shapes`、`npm run test:practice`、`npm run test:controller` 通过。
 - 限制：小球面板当前为 CSS 球面高光近似；localStorage 清缓存会丢失；写入失败的专门提示未细分；3D 面板与真实手感仍由用户实机确认。
+- 2026-11-08 后续修正：候选环立即可见、回收/点位后 A/D 焦点、创建提示返回按钮、自建练习合法环/无暂停/复位按钮、回收弹窗隐藏候选环、回收站彻底删除即时刷新、创建球形按钮样式、保存确认框镜头解耦。

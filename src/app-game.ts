@@ -413,7 +413,7 @@ export class BrowserGame {
   }
 
   private syncPracticeControls(): void {
-    const restoreVisible = this.shapeId !== null;
+    const restoreVisible = this.shapeId !== null || this.customShape !== null;
     const choice = this.practiceChoicePending
       ? { message: this.practiceChoiceMessage, canRestore: this.session.canRestorePreviousShot }
       : null;

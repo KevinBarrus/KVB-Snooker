@@ -19,7 +19,8 @@ export class PlacementMarkers {
     this.origin.isVisible = this.preview.isVisible = false;
   }
 
-  sync(cue: Point, state: { active: boolean; visible: boolean; valid: boolean; spot: Point; epoch?: number }): void {
+  sync(cue: Point, state: { active: boolean; visible: boolean; valid: boolean; spot: Point; epoch?: number;
+    previewVisible?: boolean }): void {
     const newEpoch = state.epoch !== undefined && state.epoch !== this.lastEpoch;
     if (state.active && (!this.wasActive || newEpoch)) {
       this.origin.position.x = cue.x; this.origin.position.z = cue.z;
@@ -31,7 +32,7 @@ export class PlacementMarkers {
     tintTablePlane(this.origin, TABLE_COLORS.white, state.active ? .75 : 0);
     this.preview.position.x = state.spot.x; this.preview.position.z = state.spot.z;
     tintTablePlane(this.preview, state.valid ? TABLE_COLORS.green : TABLE_COLORS.red,
-      state.active && state.visible ? .8 : 0);
+      (state.previewVisible ?? state.active) && state.visible ? .8 : 0);
   }
 
   dispose(): void { this.origin.dispose(); this.preview.dispose(); this.material.dispose(); }

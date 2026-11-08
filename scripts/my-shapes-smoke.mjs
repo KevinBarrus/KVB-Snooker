@@ -61,6 +61,11 @@ try {
   assert.equal(await page.locator(".shape-editor-ball .shape-editor-count").first().textContent(), "15");
 
   await page.locator(".shape-editor-ball").first().click();
+  await page.mouse.move(640, 420); await advance(2);
+  assert.equal(await page.evaluate(async () => {
+    const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return r.editor.markers.preview.isVisible;
+  }), true, "Selected ball must show a preview ring on the table");
   const placeRed = async (x, y) => {
     await page.mouse.move(x, y); await page.mouse.click(x, y);
     await advance(2);
@@ -70,6 +75,10 @@ try {
   assert.equal((await snapshot()).active, 2);
   await page.mouse.move(640, 420); await page.mouse.click(640, 420, { button: "right" });
   await advance(1);
+  assert.equal(await page.evaluate(async () => {
+    const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return r.editor.markers.preview.isVisible;
+  }), false, "No placement preview while the recycle dialog is open");
   assert.equal(await page.locator(".shape-editor-dialog").count(), 1);
   await page.locator(".shape-editor-dialog").getByRole("button", { name: "回收", exact: true }).click();
   await advance(2);
@@ -87,7 +96,7 @@ try {
   await nameInput.fill("  冒烟球形  ");
   await page.locator(".shape-editor-dialog").getByRole("button", { name: "创建", exact: true }).click();
   await page.locator(".shape-editor-dialog").getByRole("button", { name: "确认", exact: true }).click();
-  await page.locator(".shape-editor-dialog .my-shapes-dialog-close").click();
+  await page.locator(".shape-editor-dialog").getByRole("button", { name: "返回", exact: true }).click();
   await advance(2);
   assert.equal(await page.locator(".my-shapes-item").count(), 1);
   assert.equal(await page.locator(".my-shapes-name").first().textContent(), "冒烟球形");
@@ -99,11 +108,16 @@ try {
   state = await snapshot();
   assert.equal(state.editor, false);
   assert.equal(state.mode, "practice");
-  assert.equal(state.ballOn, 0);
+  assert.equal(state.ballOn, 65535);
   assert.equal(state.inHand, 2);
   assert.equal(state.active, 4);
   assert.equal(state.scoreVisible, true);
   assert.equal(state.ballOnHidden, true);
+  assert.equal(await page.locator(".practice-restore").isVisible(), true);
+  await page.locator(".ingame-menu-trigger").click();
+  const customActions = await page.locator(".ingame-action-btn").allTextContents();
+  assert.equal(customActions.includes("暂停"), false);
+  await page.locator(".ingame-menu-close").click();
 
   // 3) 清完四选项：继续与退出
   await page.evaluate(async () => {
@@ -129,6 +143,18 @@ try {
   await advance(2);
   assert.equal((await snapshot()).editor, true);
   await page.locator(".shape-editor-tools").getByRole("button", { name: "保存", exact: true }).click();
+  await advance(1);
+  const cameraBefore = await page.evaluate(async () => {
+    const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return { x: r.scene.activeCamera.position.x, z: r.scene.activeCamera.position.z };
+  });
+  await page.keyboard.down("a"); await advance(8); await page.keyboard.up("a");
+  const cameraAfter = await page.evaluate(async () => {
+    const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
+    return { x: r.scene.activeCamera.position.x, z: r.scene.activeCamera.position.z };
+  });
+  assert.ok(Math.hypot(cameraAfter.x - cameraBefore.x, cameraAfter.z - cameraBefore.z) > 0.02,
+    "A/D camera orbit must work while the save confirmation is open");
   await page.locator(".menu-choice-dialog").getByRole("button", { name: "保存", exact: true }).click();
   await advance(2);
   assert.equal(await page.locator(".my-shapes-item").count(), 1);

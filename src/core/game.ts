@@ -160,7 +160,7 @@ export class GameSession {
       setup.scores.forEach((score, index) => { this.players[index].pts = score; });
       this.simulator.reset(false, true);
     }
-    if (this.mode === "practice" && this.practiceOptions.freeScoring) this.context.ballOn = 0;
+    if (this.mode === "practice" && this.practiceOptions.freeScoring) this.context.ballOn = this.ref.sysReservedBallOn;
     this.nine?.reset(false);
     const cue = this.simulator.getBallAtIndex(0);
     if (this.nine && this.context.inHand > 0 && (!cue.active ||
