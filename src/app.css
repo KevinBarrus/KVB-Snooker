@@ -198,3 +198,25 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .guide-keys dt { color: #f5f7ef; font-weight: 600; }
 .guide-keys dd { margin: 0; color: #b9c0b1; }
 .guide-dialog-close { position: fixed; top: 18px; right: 22px; width: 38px; height: 38px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.18); background: #1d221b; color: #ecefe8; font-size: 20px; }
+
+/* 主菜单首页：球馆场景上直接叠游戏式大卡片，不使用后台表单布局。 */
+.game-menu-main.menu-home-mode { top: 0; left: 0; transform: none; width: 100%; height: 100%; padding: 6vh 6vw; box-sizing: border-box; align-items: flex-start; justify-content: center; gap: 0; background: linear-gradient(90deg, rgba(5, 7, 5, 0.9) 0%, rgba(5, 7, 5, 0.62) 38%, rgba(5, 7, 5, 0.08) 78%, rgba(5, 7, 5, 0) 100%); }
+.menu-home-mode .menu-stage { width: 100%; height: 100%; display: flex; align-items: center; padding: 0; background: transparent; border: none; box-shadow: none; backdrop-filter: none; }
+.menu-home { width: min(760px, 58vw); display: flex; flex-direction: column; gap: 14px; pointer-events: auto; }
+.menu-home-eyebrow { color: #cdb96f; font-size: 12px; font-weight: 700; letter-spacing: 0.34em; }
+.menu-home-title { margin: 0; color: #f7f2df; font-size: clamp(42px, 6vw, 82px); line-height: .95; letter-spacing: 0.04em; text-shadow: 0 8px 28px rgba(0, 0, 0, 0.65); }
+.menu-home-subtitle { margin: -4px 0 10px; color: #b8c0ae; font-size: 15px; letter-spacing: 0.06em; }
+.menu-home-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.home-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 96px; padding: 16px 18px; overflow: hidden; text-align: left; border: 1px solid rgba(229, 214, 157, 0.22); border-radius: 10px; background: linear-gradient(135deg, rgba(34, 44, 31, 0.94), rgba(13, 16, 12, 0.92)); color: #ecefe4; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42); transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.home-card::after { content: ""; position: absolute; right: -22px; bottom: -30px; width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle, rgba(229, 214, 157, 0.2), transparent 68%); }
+.home-card:hover { transform: translateY(-2px); border-color: rgba(229, 214, 157, 0.65); box-shadow: 0 16px 38px rgba(0, 0, 0, 0.55); }
+.home-card strong { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
+.home-card span { max-width: 86%; color: #aeb8a7; font-size: 12px; line-height: 1.45; }
+.home-card-practice { background: linear-gradient(135deg, rgba(30, 55, 40, 0.92), rgba(12, 17, 13, 0.94)); }
+.home-card-profile { background: linear-gradient(135deg, rgba(45, 40, 29, 0.92), rgba(17, 15, 12, 0.94)); }
+.menu-home-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: #7f887a; font-size: 12px; }
+.home-guide-btn { padding: 8px 14px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 6px; background: rgba(14, 17, 13, 0.72); color: #cbd1c2; }
+.home-guide-btn:hover { border-color: rgba(229, 214, 157, 0.5); color: #f7e8b4; }
+.menu-back-bar { align-self: flex-start; width: min(760px, 92vw); margin-bottom: 10px; }
+.menu-back-btn { padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 6px; background: rgba(12, 15, 11, 0.8); color: #cdd3c5; }
+.menu-back-btn:hover { border-color: rgba(229, 214, 157, 0.55); color: #f7e8b4; }

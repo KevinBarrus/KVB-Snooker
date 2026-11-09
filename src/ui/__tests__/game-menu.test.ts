@@ -69,7 +69,7 @@ describe("ui game menu", () => {
     expect(menu.triggerInGameAction("exit")).toBeNull();
     expect(menu.mainMenuOpen).toBe(true);
     expect(menu.inGameMenuOpen).toBe(false);
-    expect(menu.activeTab).toBe("ai");
+    expect(menu.activeTab).toBeNull();
   });
 
   it("双人对战 · 创建比赛：局数下拉框联动胜场框自动填充，生成比赛 ID 后弹出进入比赛", () => {
@@ -122,8 +122,8 @@ describe("ui game menu", () => {
     menu.openInGameMenu();
     menu.triggerInGameAction("exit");
     expect(menu.mainMenuOpen).toBe(true);
-    expect(menu.activeTab).toBe("two-player");
-    expect(menu.twoPlayerSub).toBe("create");
+    expect(menu.activeTab).toBeNull();
+    expect(menu.twoPlayerSub).toBeNull();
   });
 
   it("双人对战 · 加入比赛：输入任意非空比赛 ID 即点亮进入比赛，走本地双人对局", () => {
@@ -149,8 +149,8 @@ describe("ui game menu", () => {
     menu.openInGameMenu();
     menu.triggerInGameAction("exit");
     expect(menu.mainMenuOpen).toBe(true);
-    expect(menu.activeTab).toBe("two-player");
-    expect(menu.twoPlayerSub).toBe("join");
+    expect(menu.activeTab).toBeNull();
+    expect(menu.twoPlayerSub).toBeNull();
   });
 
   it("练习 · 自由练习与球形练习：10 种预设球形可启动，我的球形展示列表框与未实现提示", () => {
@@ -174,7 +174,7 @@ describe("ui game menu", () => {
     ]);
     menu.triggerInGameAction("exit");
     expect(menu.mainMenuOpen).toBe(true);
-    expect(menu.activeTab).toBe("practice");
+    expect(menu.activeTab).toBeNull();
 
     menu.openShapePractice();
     expect(menu.practiceSub).toBe("shapes");

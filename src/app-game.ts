@@ -65,6 +65,7 @@ export class BrowserGame {
   private customShape: CustomShapeRecord | null = null;
   private startedWithObjectBalls = false;
   private completionPending = false;
+  private suspended = false;
   private readonly disposeBus: () => void;
 
   constructor(readonly simulator: Simulator, private readonly scene: B.Scene,
@@ -306,6 +307,37 @@ export class BrowserGame {
     } : null);
   }
 
+  /** 主菜单/编辑器使用：冻结对局表现并隐藏所有游戏内输入与叠层；不推进物理或计时。 */
+  setSuspended(suspended: boolean): void {
+    this.suspended = suspended;
+    this.controls.input.enabled = !suspended;
+    if (!suspended) {
+      this.hudDom.element.hidden = false;
+      this.practiceControls.element.hidden = false;
+      this.viewNoticeDom.element.hidden = false;
+      this.touchingNoticeDom.element.hidden = false;
+      this.ruleChoice.element.hidden = false;
+      this.nomination.element.hidden = false;
+      return;
+    }
+    this.controls.inHand.exit();
+    this.shots.finish();
+    this.replay.clear();
+    this.closeCompletion();
+    this.human.camera.endShotView();
+    this.hud.foulNotice.close();
+    this.hudDom.element.hidden = true;
+    this.practiceControls.element.hidden = true;
+    this.practiceCompletion.element.hidden = true;
+    this.viewNoticeDom.element.hidden = true;
+    this.touchingNoticeDom.element.hidden = true;
+    this.ruleChoice.element.hidden = true;
+    this.nomination.element.hidden = true;
+    this.controls.input.enabled = false;
+  }
+
+  get isSuspended(): boolean { return this.suspended; }
+
   setMode(mode: GameMode, difficulty: keyof typeof AI_PROFILES = "NORMAL", options: GameOptions = {},
     shapeId: PracticeShapeId | null = null, customShape: CustomShapeRecord | null = null): boolean {
     if (!this.canReset) return false;
@@ -467,6 +499,7 @@ export class BrowserGame {
   }
 
   update(dt: number): void {
+    if (this.suspended) return;
     this.human.camera.shotView.smoothing.aspect = this.scene.getEngine().getAspectRatio(this.camera);
     this.human.camera.shotView.smoothing.verticalFov = this.camera.fov;
     this.viewNotice.update(dt); this.viewNoticeDom.sync(this.viewNotice);

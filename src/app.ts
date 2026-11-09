@@ -99,6 +99,9 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     let menuDom: GameMenuDom;
     const launchFromMenu = (req: MatchLaunchRequest) => {
       audio?.unlockNow();
+      game.setSuspended(false);
+      balls.setHidden(false);
+      menuDom.element.hidden = true;
       if (req.mode === "practice" && req.shapeId) {
         const shapeId = PRACTICE_SHAPE_IDS[req.shapeId];
         const config = makePracticeShapeConfig(shapeId, simulator);
@@ -122,6 +125,9 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     };
     const openEditor = (record: CustomShapeRecord | null): void => {
       if (!editor) return;
+      setMenuMode(false);
+      game.setSuspended(true);
+      balls.setHidden(false);
       menuDom.element.hidden = true;
       game.hudDom.element.hidden = true;
       game.controls.input.enabled = false;
@@ -135,11 +141,15 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       menuState.mainMenuOpen = true;
       menuState.activeTab = "practice";
       menuState.practiceSub = "my-shapes";
+      setMenuMode(true);
       menuDom.sync();
     };
     const startCustomPractice = (id: string, style: "classic" | "red-dot", respotColoursAfterReds: boolean): void => {
       const record = myShapes.load().active.find(item => item.id === id);
       if (!record) return;
+      game.setSuspended(false);
+      balls.setHidden(false);
+      menuDom.element.hidden = true;
       customRespotColours = respotColoursAfterReds;
       game.setCueBallStyle(style);
       game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator),
@@ -160,6 +170,21 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     };
     menuDom = new GameMenuDom(menuState, launchFromMenu, document, myShapesPort);
     document.body.append(menuDom.element);
+    let menuMode = false;
+    const setMenuMode = (active: boolean): void => {
+      if (menuMode === active) return;
+      menuMode = active;
+      game.setSuspended(active);
+      balls.setHidden(active);
+      if (!active) { menuDom.element.hidden = true; return; }
+      menuDom.element.hidden = false;
+      const camera = scene?.activeCamera;
+      if (camera instanceof B.TargetCamera) {
+        camera.position.set(-2.93, 1.7, 1.06);
+        camera.lockedTarget = new B.Vector3(0, .88, 0);
+      }
+    };
+    setMenuMode(true);
     const newGame = options?.querySelector("button");
     const testTools = options && import.meta.env.DEV && import.meta.env.VITE_RULES_TEST !== "0"
       ? (await import("./devtools/rules-test.js")).mountRulesTest(options, game) : undefined;
@@ -177,6 +202,9 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       const mode = values.get("mode") === "single-play" ? "single-play" : "practice";
       const ruleset = values.get("rules") === "snooker-900" ? "snooker-900" : "classic";
       audio?.unlockNow();
+      game.setSuspended(false);
+      balls.setHidden(false);
+      menuDom.element.hidden = true;
       if (game.setMode(mode, difficulty, mode === "single-play" ? { ruleset } : {})) {
         menuState.syncExternalMatch({ kind: mode === "single-play" ? "ai" : "practice", mode, difficulty, ruleset });
         menuDom.sync();
@@ -192,6 +220,15 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
         gunsight.alpha = 0;
         placement.sync(simulator.getCueBallPosition(), { active: false, visible: false, valid: false, spot: simulator.getCueBallPosition() });
         status.textContent = "编辑球形 · 左键放置 · 右键回收 · A/D 环绕";
+        return;
+      }
+      if (menuState.mainMenuOpen) {
+        menuDom.element.hidden = false;
+        game.hudDom.element.hidden = true;
+        cue.isVisible = false;
+        gunsight.alpha = 0;
+        placement.sync(simulator.getCueBallPosition(), { active: false, visible: false, valid: false, spot: simulator.getCueBallPosition() });
+        status.textContent = "";
         return;
       }
       audio?.sync(game.session, simulator.evolution, game.replay.active);
@@ -239,6 +276,12 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       const dt = engine.getDeltaTime() / 1000;
       if (editor?.active) {
         editor.update(dt);
+        balls.sync();
+        scene?.render();
+        return;
+      }
+      setMenuMode(menuState.mainMenuOpen);
+      if (menuMode) {
         balls.sync();
         scene?.render();
         return;

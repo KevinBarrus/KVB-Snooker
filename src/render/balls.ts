@@ -42,12 +42,25 @@ export class BallRenderer {
   }
 
   private dotCueMaterial: BallMaterial | null = null;
+  private hidden = false;
 
   private dottedCue(): BallMaterial {
     return this.dotCueMaterial ??= new BallMaterial(this.scene, 0, this.lighting, true);
   }
 
+  setHidden(hidden: boolean): void { this.hidden = hidden; }
+
+  get isHidden(): boolean { return this.hidden; }
+
   sync(): void {
+    if (this.hidden) {
+      for (let index = 0; index < this.meshes.length; ++index) {
+        this.meshes[index].isVisible = false;
+        this.shadows.hideBall(index);
+      }
+      this.shadows.flush();
+      return;
+    }
     const showDots = this.options.redDots?.() ?? false;
     this.meshes[0].material = showDots ? this.dottedCue() : this.materials.get(0)!;
     for (let index = 0; index < this.meshes.length; ++index) {

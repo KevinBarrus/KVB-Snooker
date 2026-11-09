@@ -120,6 +120,13 @@ export class GameMenu {
       : { prefix: "", middle: "局", suffix: "胜" };
   }
 
+  goHome(): void {
+    this.activeTab = null;
+    this.twoPlayerSub = null;
+    this.practiceSub = null;
+    this.matchIdPopupOpen = false;
+  }
+
   selectTab(tab: MainMenuTab): void {
     if (tab === "guide") return;
     this.activeTab = tab;
@@ -314,10 +321,7 @@ export class GameMenu {
     }
     this.inGameMenuOpen = false;
     this.mainMenuOpen = true;
-    this.activeTab = this.returnDir.tab;
-    this.twoPlayerSub = this.returnDir.twoPlayerSub;
-    this.practiceSub = this.returnDir.practiceSub;
-    this.matchIdPopupOpen = false;
+    this.goHome();
     return null;
   }
 

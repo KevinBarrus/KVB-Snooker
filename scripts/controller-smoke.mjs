@@ -24,6 +24,9 @@ try {
       shots: game.session.players.map(player => player.shootingCount) };
   }, { count, dt });
   await mkdir(".cache/controller", { recursive: true });
+  await page.getByRole("button", { name: "练习", exact: true }).click();
+  await page.getByRole("button", { name: "自由练习", exact: true }).click();
+  await advance(2);
   await page.screenshot({ path: ".cache/controller/stand.png" });
   const opening = await page.evaluate(async () => {
     const { game, scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;

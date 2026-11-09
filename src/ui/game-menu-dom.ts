@@ -13,14 +13,6 @@ import {
 } from "./game-menu";
 import { MyShapesPanelDom, type MyShapesPort } from "./my-shapes-panel";
 
-const MAIN_TABS: readonly { readonly id: MainMenuTab; readonly label: string }[] = [
-  { id: "ai", label: "AI 对战" },
-  { id: "two-player", label: "双人对战" },
-  { id: "practice", label: "练习" },
-  { id: "profile", label: "我的" },
-  { id: "guide", label: "操作指南" }
-];
-
 const MODE_CARDS: readonly { readonly id: MenuRuleset; readonly label: string }[] = [
   { id: "classic", label: "经典斯诺克" },
   { id: "snooker-900", label: "斯诺克 900" }
@@ -35,8 +27,9 @@ const DIFFICULTY_ITEMS: readonly { readonly id: MenuDifficulty; readonly label: 
 export class GameMenuDom {
   readonly element: HTMLElement;
   private readonly mainWrap: HTMLElement;
-  private readonly tabButtons = new Map<MainMenuTab, HTMLButtonElement>();
   private readonly panelHost: HTMLElement;
+  private readonly homePanel: HTMLElement;
+  private readonly backBar: HTMLElement;
 
   private readonly aiPanel: HTMLElement;
   private readonly aiModeButtons = new Map<MenuRuleset, HTMLButtonElement>();
@@ -96,20 +89,16 @@ export class GameMenuDom {
     this.mainWrap.className = "game-menu-main";
     this.mainWrap.setAttribute("aria-label", "游戏主菜单");
 
-    const nav = doc.createElement("nav");
-    nav.className = "menu-top-nav";
-    for (const item of MAIN_TABS) {
-      const btn = this.makeButton("menu-nav-btn", item.label, () => {
-        if (item.id === "guide") { this.openGuide(); return; }
-        this.state.selectTab(item.id);
-        this.sync();
-      });
-      this.tabButtons.set(item.id, btn);
-      nav.append(btn);
-    }
+    this.backBar = doc.createElement("div");
+    this.backBar.className = "menu-back-bar";
+    this.backBar.append(this.makeButton("menu-back-btn", "← 返回首页", () => {
+      this.state.goHome();
+      this.sync();
+    }));
 
     this.panelHost = doc.createElement("div");
     this.panelHost.className = "menu-stage";
+    this.homePanel = this.makeHomePanel();
 
     this.aiPanel = doc.createElement("div");
     this.aiPanel.className = "menu-subpanel";
@@ -310,8 +299,8 @@ export class GameMenuDom {
     }
     this.profilePanel.append(profileBox);
 
-    this.panelHost.append(this.aiPanel, this.twoPlayerPanel, this.practicePanel, this.profilePanel);
-    this.mainWrap.append(nav, this.panelHost);
+    this.panelHost.append(this.homePanel, this.aiPanel, this.twoPlayerPanel, this.practicePanel, this.profilePanel);
+    this.mainWrap.append(this.backBar, this.panelHost);
 
     this.inGameTriggerBtn = this.makeButton("ingame-menu-trigger", "菜单", () => {
       this.state.openInGameMenu();
@@ -402,6 +391,47 @@ export class GameMenuDom {
     if (confirm && proceed) proceed();
   }
 
+  private makeHomePanel(): HTMLElement {
+    const panel = this.doc.createElement("div");
+    panel.className = "menu-home";
+    const eyebrow = this.doc.createElement("span");
+    eyebrow.className = "menu-home-eyebrow";
+    eyebrow.textContent = "KVB · SNOOKER";
+    const title = this.doc.createElement("h1");
+    title.className = "menu-home-title";
+    title.textContent = "斯诺克";
+    const subtitle = this.doc.createElement("p");
+    subtitle.className = "menu-home-subtitle";
+    subtitle.textContent = "经典对局、练习球形与自建球形";
+    const cards = this.doc.createElement("div");
+    cards.className = "menu-home-cards";
+    const items: readonly { id: Exclude<MainMenuTab, "guide">; title: string; detail: string }[] = [
+      { id: "ai", title: "AI 对战", detail: "选择规则与难度，挑战电脑" },
+      { id: "two-player", title: "双人对战", detail: "创建或加入一场对局" },
+      { id: "practice", title: "练习", detail: "自由练习、预设球形与我的球形" },
+      { id: "profile", title: "我的", detail: "账号、统计与好友" }
+    ];
+    for (const item of items) {
+      const card = this.doc.createElement("button");
+      card.type = "button";
+      card.className = `home-card home-card-${item.id}`;
+      card.setAttribute("aria-label", item.title);
+      const name = this.doc.createElement("strong");
+      name.textContent = item.title;
+      const detail = this.doc.createElement("span");
+      detail.textContent = item.detail;
+      card.append(name, detail);
+      card.addEventListener("click", () => { this.state.selectTab(item.id); this.sync(); });
+      cards.append(card);
+    }
+    const guide = this.makeButton("home-guide-btn", "操作指南", () => this.openGuide());
+    const footer = this.doc.createElement("div");
+    footer.className = "menu-home-footer";
+    footer.append(guide, this.doc.createTextNode("  ·  v0.1 个人项目"));
+    panel.append(eyebrow, title, subtitle, cards, footer);
+    return panel;
+  }
+
   private openGuide(): void {
     this.guideDialog.hidden = false;
     this.guideDialog.querySelector<HTMLButtonElement>(".guide-dialog-close")?.focus();
@@ -475,11 +505,7 @@ export class GameMenuDom {
   sync(): void {
     const s = this.state;
     this.mainWrap.hidden = !s.mainMenuOpen;
-    this.panelHost.hidden = s.activeTab === null;
 
-    for (const [id, btn] of this.tabButtons) {
-      btn.setAttribute("aria-pressed", String(s.activeTab === id));
-    }
 
     this.aiPanel.hidden = s.activeTab !== "ai";
     for (const [id, btn] of this.aiModeButtons) {
@@ -525,6 +551,9 @@ export class GameMenuDom {
     if (this.myShapesPanel && !this.myShapesListBox.hidden) this.myShapesPanel.sync();
     if (this.myShapesEmptyText) this.myShapesEmptyText.textContent = s.myShapesStatusText;
 
+    this.homePanel.hidden = s.activeTab !== null;
+    this.backBar.hidden = s.activeTab === null;
+    this.mainWrap.classList.toggle("menu-home-mode", s.activeTab === null);
     this.profilePanel.hidden = s.activeTab !== "profile";
 
     this.inGameTriggerBtn.hidden = s.mainMenuOpen;
