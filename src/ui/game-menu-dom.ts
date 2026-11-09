@@ -71,6 +71,7 @@ export class GameMenuDom {
   private readonly myShapesPanel: MyShapesPanelDom | null;
 
   private readonly profilePanel: HTMLElement;
+  private readonly guideDialog: HTMLElement;
 
   private readonly inGameTriggerBtn: HTMLButtonElement;
   private readonly inGameModal: HTMLElement;
@@ -99,6 +100,7 @@ export class GameMenuDom {
     nav.className = "menu-top-nav";
     for (const item of MAIN_TABS) {
       const btn = this.makeButton("menu-nav-btn", item.label, () => {
+        if (item.id === "guide") { this.openGuide(); return; }
         this.state.selectTab(item.id);
         this.sync();
       });
@@ -354,8 +356,16 @@ export class GameMenuDom {
     const exitCancel = this.makeButton("menu-seg-btn", "取消", () => this.finishExit(false));
     this.exitDialog.append(exitTitle, exitMessage, exitConfirm, exitCancel);
 
+    this.guideDialog = doc.createElement("section");
+    this.guideDialog.className = "guide-dialog";
+    this.guideDialog.setAttribute("aria-label", "操作指南");
+    this.guideDialog.hidden = true;
+    const guideClose = this.makeButton("guide-dialog-close", "×", () => { this.guideDialog.hidden = true; });
+    guideClose.setAttribute("aria-label", "关闭操作指南");
+    this.guideDialog.append(guideClose, this.makeGuideContent("guide-dialog-content"));
+
     this.element.append(this.mainWrap, this.matchIdPopup, this.shapeStyleDialog, this.exitDialog,
-      this.inGameTriggerBtn, this.inGameModal);
+      this.guideDialog, this.inGameTriggerBtn, this.inGameModal);
     this.sync();
   }
 
@@ -390,6 +400,52 @@ export class GameMenuDom {
     this.pendingExit = null;
     this.exitDialog.hidden = true;
     if (confirm && proceed) proceed();
+  }
+
+  private openGuide(): void {
+    this.guideDialog.hidden = false;
+    this.guideDialog.querySelector<HTMLButtonElement>(".guide-dialog-close")?.focus();
+  }
+
+  private makeGuideContent(className: string): HTMLElement {
+    const panel = this.doc.createElement("div");
+    panel.className = className;
+    const title = this.doc.createElement("h2");
+    title.textContent = "操作指南";
+    panel.append(title);
+    const sections: readonly { title: string; items: readonly [string, string][] }[] = [
+      { title: "瞄准与击球", items: [
+        ["W / ↑", "进入瞄准"], ["S / ↓", "起身"], ["Space", "击球"],
+        ["鼠标拖动", "观察或微调方向"], ["A / D 或 ← / →", "环绕镜头"],
+        ["X", "蹲下观察"], ["R", "回到主视角"], ["V", "切换观察视角"]
+      ] },
+      { title: "力度、旋转与摆球", items: [
+        ["滚轮", "调整力度"], ["Alt / Cmd + 拖动", "添加或调整加塞"], ["Alt / Cmd + 滚轮", "调整杆头高度"],
+        ["C", "清除加塞"], ["P", "打开或关闭摆球"], ["Esc", "结束摆球"]
+      ] },
+      { title: "练习与球形", items: [
+        ["自由练习", "任意练习基础击球与走位"], ["预设球形", "十种固定训练球形"],
+        ["我的球形", "创建、编辑、回收和开始自建球形"], ["复位 / 重摆", "回滚上一杆或恢复初始布局"]
+      ] }
+    ];
+    for (const section of sections) {
+      const block = this.doc.createElement("section");
+      block.className = "guide-section";
+      const heading = this.doc.createElement("h3");
+      heading.textContent = section.title;
+      const list = this.doc.createElement("dl");
+      list.className = "guide-keys";
+      for (const [key, text] of section.items) {
+        const dt = this.doc.createElement("dt");
+        dt.textContent = key;
+        const dd = this.doc.createElement("dd");
+        dd.textContent = text;
+        list.append(dt, dd);
+      }
+      block.append(heading, list);
+      panel.append(block);
+    }
+    return panel;
   }
 
   private makeButton(className: string, label: string, onClick: () => void): HTMLButtonElement {
@@ -483,6 +539,7 @@ export class GameMenuDom {
         for (const item of actions) {
           this.inGameActionsBox.append(
             this.makeButton("ingame-action-btn", item.label, () => {
+              if (item.id === "guide") { this.openGuide(); return; }
               const run = (): void => {
                 const req = this.state.triggerInGameAction(item.id);
                 this.sync();

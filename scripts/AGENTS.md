@@ -64,3 +64,5 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 练球球形（2026-11-08）：practice-smoke.mjs（npm run test:practice）在真实浏览器点击菜单启动十个预设球形，验证 22 球/Snake、全台自由摆球、犯规后重摆/复位弹窗、复位后回放仍可用、菜单重新开始重摆、清彩与五分点不计分及五分点母球绿球点。脚本不改核心状态、不替换裁判，截图只写 .cache/practice。需求见 docs/practise.md，实现与验收见 docs/practice-shape-design.md。
 
 我的球形（2026-11-08）：my-shapes-smoke.mjs（npm run test:my-shapes）在真实浏览器创建空台球形、摆放/右键回收、彩球点位、命名完成、自建练习、清完四选项、编辑保存、删除/回收站/恢复/彻底删除、50 个上限告示，以及预设清彩的清完四选项。编辑器直接操作 Simulator 球位，不创建 GameSession；脚本只通过公开页面/运行时入口观察，不改正式规则。需求见 docs/my-shapes-design.md。
+
+菜单操作指南（2026-11-09）：menu-smoke.mjs（npm run test:menu）验证主菜单“操作指南”和局内菜单入口都打开真实说明弹层、内容包含基础键位与练习说明。

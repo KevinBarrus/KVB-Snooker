@@ -33,6 +33,7 @@
 | 900 | `npm run test:900` |
 | 练球球形（菜单、自由摆球、复位、犯规弹窗） | `npm run test:practice`（需要先启动开发服务） |
 | 我的球形（创建/编辑/回收站/自建练习） | `npm run test:my-shapes`（需要先启动开发服务） |
+| 菜单操作指南弹层 | `npm run test:menu`（需要先启动开发服务） |
 | 联机开发原型（两客户端真实击球） | `npm run test:net`（自建服务器与两个浏览器页面；步骤见[联机原型设计](multiplayer-prototype-design.md) §9—§10） |
 | 声音播放 | `npm run test:audio` |
 
