@@ -294,8 +294,10 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 - `src/server/**` 是 Node 基础设施，只允许依赖 `src/core/**`、`src/net/protocol.ts` 与 Node 内置模块；`core` 不导入 `server`、`net` 或任何网络模块。
 - 浏览器网络适配分为纯状态 `src/net/**`（协议、快照缓冲、插值、客户端状态机）与装配根 `src/app-net*.ts`（建立连接、场景/渲染/控制器装配）。`render/ui/controller/audio` 不导入网络或服务端代码。
-- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；当前报文版本 `NET_PROTOCOL_VERSION = 4`。v2增加待击球快照及 `shot-prepared.vars`；v3增加非权威 `cue-pose` 瞄准显示消息；v4增加整场进度与局间命令（§4.10）。旧客户端须刷新、旧服务器须重启，版本不符拒绝连接。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
+- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；当前报文版本 `NET_PROTOCOL_VERSION = 5`。v2增加待击球快照及 `shot-prepared.vars`；v3增加非权威 `cue-pose` 瞄准显示消息；v4增加整场进度与局间命令（§4.10）；v5增加逐步运动采样。旧客户端须刷新、旧服务器须重启，版本不符拒绝连接。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
 - 现有 `GameSession`、`Simulator`、规则与物理是唯一权威；服务端不复制第二套规则，客户端不推进权威物理、不自行结算触球。
+
+联机运动采样（v5）：`SnapshotMessage.motion?:readonly MotionSample[]`，`MotionSample {readonly serverTimeMs:number;readonly balls:readonly SnapshotBall[]}`。每包最多8个有序服务器推进步，时间不晚于包时间，只属于当前尝试/当前杆；静止可省略。位置来自 Simulator.getBallView().position（真实球位），姿态仍消费 renderOrientation；不使用 renderPosition 的速度外推。客户端按中间采样插值，运动包的发送时间不再追加为重复球位节点，结算仍按阶段边界切换。网络频率与物理参数不变；具体范围见原型设计§5。
 
 **服务端窄接口（`src/server/room.ts`）**
 

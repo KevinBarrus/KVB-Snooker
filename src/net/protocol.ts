@@ -7,7 +7,7 @@ import type { SerialData } from "../core/simulator/shot-result.js";
 import type { FrameResult, MatchProgressView, MatchResult } from "../core/match-progress.js";
 export type { FrameResult, MatchProgressView, MatchResult } from "../core/match-progress.js";
 
-export const NET_PROTOCOL_VERSION = 4;
+export const NET_PROTOCOL_VERSION = 5;
 export const DEFAULT_NET_PORT = 8787;
 export const DEFAULT_DEV_TOKEN = "dev-local";
 export const ROOM_RULESET = "classic" as const;
@@ -66,7 +66,6 @@ export interface SnapshotBall {
   readonly index: number;
   readonly number: number;
   readonly active: boolean;
-  /** 显示位置（模拟器 getBallView().renderPosition）。 */
   readonly x: number;
   readonly y: number;
   readonly z: number;
@@ -92,7 +91,13 @@ export interface PendingShotView {
   readonly touchAtServerMs: number;
 }
 
+export interface MotionSample {
+  readonly serverTimeMs: number;
+  readonly balls: readonly SnapshotBall[];
+}
+
 export interface SnapshotMessage {
+  readonly motion?: readonly MotionSample[];
   readonly type: "snapshot";
   readonly match: MatchProgressView;
   readonly version: StateVersion;
@@ -338,4 +343,25 @@ export const DEFAULT_COMMAND_RETRY: CommandRetryPolicy = { ackTimeoutMs: 600, ma
 
 export function isCommandRetryable(reason: RejectReason | undefined): boolean {
   return reason === undefined || reason === REJECT.STALE_VERSION;
+}
+
+export function validMotionSamples(value: unknown, endMs: number, ballCount: number): boolean {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || value.length > 8) return false;
+  let previous = -Infinity;
+  return value.every((entry: unknown) => {
+    if (!entry || typeof entry !== "object") return false;
+    const sample = entry as Partial<MotionSample>;
+    if (typeof sample.serverTimeMs !== "number" || !Number.isFinite(sample.serverTimeMs) ||
+        sample.serverTimeMs <= previous || sample.serverTimeMs > endMs || !Array.isArray(sample.balls) ||
+        sample.balls.length !== ballCount || ballCount > 64) return false;
+    previous = sample.serverTimeMs;
+    return sample.balls.every((value: unknown, index: number) => {
+      if (!value || typeof value !== "object") return false;
+      const ball = value as Partial<SnapshotBall>;
+      return ball.index === index && typeof ball.active === "boolean" &&
+        [ball.number, ball.x, ball.y, ball.z, ball.qx, ball.qy, ball.qz, ball.qw]
+          .every(n => typeof n === "number" && Number.isFinite(n));
+    });
+  });
 }

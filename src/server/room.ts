@@ -14,6 +14,7 @@ import {
 } from "../net/protocol.js";
 import { commandSignature, isDecideTurnAction, isMatchAction, isPrepareShotAction } from "./room-command.js";
 import { ensureCueBallActive } from "./cue-placement.js";
+import { RoomMotion } from "./room-motion.js";
 import { RoomMatch } from "./room-match.js";
 import { RoomCuePose } from "./cue-pose.js";
 import type { CuePoseMessage, CuePoseState } from "../net/protocol.js";
@@ -56,7 +57,6 @@ export class RoomSession {
   private readonly match: RoomMatch;
   get session(): GameSession { return this.match.session; }
   readonly aiDependencies: Required<AIControllerDependencies>;
-
   private readonly options: RoomOptions;
   private readonly seatByConnection = new Map<string, SeatIndex>();
   private readonly connections = new Map<SeatIndex, string>();
@@ -71,6 +71,7 @@ export class RoomSession {
   private lastSnapshotMs: number | null = null;
   private accumulatorMs = 0;
   private closed = false;
+  private readonly motion = new RoomMotion();
   private readonly poses = new RoomCuePose();
 
   constructor(roomId: string, options: RoomOptions, mesh: MeshBody) {
@@ -167,16 +168,18 @@ export class RoomSession {
     this.lastNowMs = nowMs;
     const events = this.flushQueuedEvents();
     if (this.lastTickMs === null) this.lastTickMs = nowMs;
-    if (this.pendingShot && nowMs >= this.pendingShot.touchAtServerMs) this.fire(nowMs, events);
+    const touchAtMs = this.pendingShot?.touchAtServerMs;
+    if (touchAtMs !== undefined && nowMs >= touchAtMs) this.fire(nowMs, events);
 
     const stepMs = 1000 / this.options.tickHz;
-    const elapsed = Math.max(0, nowMs - this.lastTickMs);
+    const elapsed = Math.max(0, nowMs - Math.max(this.lastTickMs, touchAtMs ?? -Infinity));
     this.lastTickMs = nowMs;
     if (this.session.state === GAME_STATE.SIMULATING) {
       this.accumulatorMs = Math.min(this.accumulatorMs + elapsed, stepMs * MAX_CATCH_UP_STEPS);
       while (this.accumulatorMs >= stepMs && this.session.state === GAME_STATE.SIMULATING) {
         this.session.step(stepMs / 1000);
         this.accumulatorMs -= stepMs;
+        if (this.session.state === GAME_STATE.SIMULATING) this.motion.capture(this.simulator, nowMs - this.accumulatorMs);
       }
       if (this.activeShot && this.session.state !== GAME_STATE.SIMULATING) this.settle(nowMs, events);
     } else {
@@ -190,6 +193,7 @@ export class RoomSession {
           (this.lastSnapshotMs === null || nowMs - this.lastSnapshotMs >= interval))) {
       snapshot = this.buildSnapshotNow(nowMs);
       this.lastSnapshotMs = nowMs;
+      this.motion.sent();
     }
     return { events, snapshot };
   }
@@ -208,7 +212,6 @@ export class RoomSession {
     this.dedup.clear();
     this.queuedEvents.length = 0;
   }
-
   private dispatch(seat: SeatIndex, message: CommandMessage, nowMs: number): RoomCommandResult {
     const action = message.action;
     if (!isPrepareShotAction(action) && !isDecideTurnAction(action) && !isMatchAction(action)) {
@@ -221,7 +224,6 @@ export class RoomSession {
       ? this.prepareShot(seat, message, action, nowMs)
       : this.decideTurn(seat, message, action, nowMs);
   }
-
   private matchCommand(seat: SeatIndex, message: CommandMessage, action: MatchAction, nowMs: number): RoomCommandResult {
     if (action.attemptId !== this.match.view.attemptId) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
     let events: readonly ServerEvent[] | null;
@@ -242,7 +244,6 @@ export class RoomSession {
       stateVersion: this.version, serverTimeMs: nowMs, duplicate: false },
       events: messages, snapshot: this.buildSnapshotNow(nowMs) };
   }
-
   private prepareShot(seat: SeatIndex, message: CommandMessage, action: PrepareShotAction, nowMs: number): RoomCommandResult {
     const session = this.session;
     if (this.pendingShot || session.state !== GAME_STATE.READY || session.finished) {
@@ -270,7 +271,6 @@ export class RoomSession {
       prepareLeadMs: this.options.prepareLeadMs, vars: Array.from(vars) }, nowMs);
     return { ack, events: [event], snapshot: this.buildSnapshotNow(nowMs) };
   }
-
   private decideTurn(seat: SeatIndex, message: CommandMessage, action: DecideTurnAction, nowMs: number): RoomCommandResult {
     const session = this.session;
     if (session.state !== GAME_STATE.DECIDING) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
@@ -286,7 +286,6 @@ export class RoomSession {
     };
     return { ack, events: [], snapshot: this.buildSnapshotNow(nowMs) };
   }
-
   private fire(nowMs: number, events: ServerEventMessage[]): void {
     const pending = this.pendingShot;
     if (!pending) return;
@@ -301,6 +300,7 @@ export class RoomSession {
       events.push(this.pushEvent({ type: "shot-cancelled", shotId: pending.shotId, reason: REJECT.WRONG_PHASE }, nowMs));
       return;
     }
+    this.motion.begin(this.match.view.attemptId);
     this.pendingShot = null;
     this.activeShot = { shotId: pending.shotId, seat: pending.seat };
     this.match.progress.recordStrike(pending.shotId);
@@ -310,13 +310,11 @@ export class RoomSession {
       touchAtServerMs: pending.touchAtServerMs, firedAtServerMs: nowMs
     }, nowMs));
   }
-
   private canFire(seat: SeatIndex): RejectReason | null {
     if (this.session.finished || this.session.state !== GAME_STATE.READY) return REJECT.WRONG_PHASE;
     if (seat !== this.session.context.playerIndex) return REJECT.NOT_YOUR_TURN;
     return null;
   }
-
   private settle(nowMs: number, events: ServerEventMessage[]): void {
     const shot = this.activeShot;
     if (!shot) return;
@@ -332,11 +330,9 @@ export class RoomSession {
     events.push(...this.match.settle().map(event => this.pushEvent(event, nowMs)));
     if (this.session.state === GAME_STATE.READY) this.ensureCueBallActive();
   }
-
   private ensureCueBallActive(): boolean {
     return ensureCueBallActive(this.session, this.simulator);
   }
-
   private welcome(seat: SeatIndex, nowMs: number): WelcomeMessage {
     return {
       type: "welcome", protocolVersion: NET_PROTOCOL_VERSION, roomId: this.roomId, seat,
@@ -345,50 +341,42 @@ export class RoomSession {
       stateVersion: this.version, serverTimeMs: nowMs
     };
   }
-
   private seatSnapshot(): LobbySeat[] {
     return [
       { seat: 0, connected: this.connections.has(0) },
       { seat: 1, connected: this.connections.has(1) }
     ];
   }
-
   private pendingView(): PendingShotView | null {
     const pending = this.pendingShot;
     return pending ? { shotId: pending.shotId, seat: pending.seat, touchAtServerMs: pending.touchAtServerMs, vars: Array.from(pending.vars) } : null;
   }
-
   private buildSnapshotNow(nowMs: number): SnapshotMessage {
-    return buildSnapshot(this.session, this.version, this.eventSeq, nowMs, this.pendingView(), this.match.view);
+    return { ...buildSnapshot(this.session, this.version, this.eventSeq, nowMs, this.pendingView(), this.match.view),
+      motion: this.pendingShot ? [] : this.motion.view(this.match.view.attemptId) };
   }
-
   private pushEvent(event: ServerEvent, nowMs: number): ServerEventMessage {
     this.eventSeq++;
     return eventMessage(this.eventSeq, nowMs, event);
   }
-
   private queueSeatChange(nowMs: number): void {
     this.queuedEvents.push({ event: { type: "seat-changed", seats: this.seatSnapshot() }, atMs: nowMs });
   }
-
   private flushQueuedEvents(): ServerEventMessage[] {
     const messages = this.queuedEvents.map(queued => this.pushEvent(queued.event, queued.atMs));
     this.queuedEvents.length = 0;
     return messages;
   }
-
   private cachedReject(message: CommandMessage, reason: RejectReason, nowMs: number): RoomCommandResult {
     const ack = this.rejectAck(message.commandId, reason, nowMs);
     return { ack, events: [], snapshot: null };
   }
-
   private rejectAck(commandId: string, reason: RejectReason, nowMs: number, duplicate = false): AckMessage {
     return {
       type: "ack", commandId, accepted: false, reason, stateVersion: this.version,
       serverTimeMs: nowMs, duplicate
     };
   }
-
   private remember(commandId: string, signature: string, ack: AckMessage): void {
     if (this.dedup.size >= MAX_DEDUP_ENTRIES) {
       const oldest = this.dedup.keys().next();

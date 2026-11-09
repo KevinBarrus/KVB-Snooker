@@ -62,6 +62,7 @@ export class RemoteView {
   private targetServerMs = 0;
   private latestServerMs = 0;
   private latestArrivalMs = 0;
+  private lastPacketTimeMs = -Infinity;
   private attemptId: string | null = null;
   private readonly playback = new PlaybackClock();
   private idleFloorMs = -Infinity;
@@ -91,7 +92,7 @@ export class RemoteView {
     const latest = this.frames[this.frames.length - 1];
     if (latest) {
       if (snapshot.version < latest.version) return false;
-      if (snapshot.version === latest.version && snapshot.serverTimeMs <= latest.serverTimeMs) return false;
+      if (snapshot.version === latest.version && snapshot.serverTimeMs <= this.lastPacketTimeMs) return false;
       const discontinuous = snapshot.match.attemptId !== this.attemptId || snapshot.serverTimeMs < latest.serverTimeMs ||
         snapshot.version > latest.version + MAX_INTERPOLATABLE_VERSION_JUMP;
       if (discontinuous) { this.frames = []; this.playback.reset(); this.idleFloorMs = -Infinity; }
@@ -105,11 +106,25 @@ export class RemoteView {
       this.playback.reset();
       this.idleFloorMs = -Infinity;
     }
+    this.lastPacketTimeMs = snapshot.serverTimeMs;
     this.latestArrivalMs = nowMs;
     this.attemptId = snapshot.match.attemptId;
     this.versionValue = snapshot.version;
     this.phaseValue = snapshot.phase;
-    this.frames.push({
+    if (snapshot.phase === "simulating" || latest?.phase === "simulating") {
+      for (const sample of snapshot.motion ?? []) {
+        const previous = this.frames[this.frames.length - 1];
+        if (sample.serverTimeMs > snapshot.serverTimeMs ||
+            (previous && sample.serverTimeMs <= previous.serverTimeMs)) continue;
+        this.frames.push({ version: snapshot.version, serverTimeMs: sample.serverTimeMs,
+          phase: "simulating", touchAtServerMs: null, balls: sample.balls });
+      }
+    }
+    const sampled = snapshot.phase === "simulating" && (snapshot.motion?.length ?? 0) > 0;
+    if (sampled) {
+      const lastSample = this.frames[this.frames.length - 1];
+      this.latestArrivalMs -= Math.max(0, snapshot.serverTimeMs - lastSample.serverTimeMs);
+    } else this.frames.push({
       version: snapshot.version,
       serverTimeMs: snapshot.serverTimeMs,
       phase: snapshot.phase,
@@ -210,6 +225,7 @@ export class RemoteView {
     this.targetServerMs = 0;
     this.latestServerMs = 0;
     this.latestArrivalMs = 0;
+    this.lastPacketTimeMs = -Infinity;
   }
 
   private interpolate(before: RemoteFrame, after: RemoteFrame, ratio: number): BallView[] {

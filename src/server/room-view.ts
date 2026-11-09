@@ -1,3 +1,4 @@
+import type { Simulator } from "../core/simulator/simulator.js";
 import type { GameSession } from "../core/game.js";
 import { GAME_STATE } from "../core/game.js";
 import type { LatencyConfig, MatchProgressView, PendingShotView, RoomPhase, ServerEvent, ServerEventMessage, SnapshotBall, SnapshotMessage } from "../net/protocol.js";
@@ -38,22 +39,6 @@ export function buildSnapshot(
 ): SnapshotMessage {
   const phase = match.phase === "active" ? roomPhase(session) : match.phase;
   const simulator = session.simulator;
-  const balls: SnapshotBall[] = [];
-  for (let index = 0; index < simulator.getBallCount(); ++index) {
-    const view = simulator.getBallView(index);
-    balls.push({
-      index: view.index,
-      number: view.number,
-      active: view.active,
-      x: view.renderPosition.x,
-      y: view.renderPosition.y,
-      z: view.renderPosition.z,
-      qx: view.renderOrientation.x,
-      qy: view.renderOrientation.y,
-      qz: view.renderOrientation.z,
-      qw: view.renderOrientation.w
-    });
-  }
   return {
     type: "snapshot",
     match,
@@ -68,7 +53,7 @@ export function buildSnapshot(
       scores: [session.getScore(0), session.getScore(1)],
       round: session.context.nRounds
     },
-    balls,
+    balls: snapshotBalls(simulator),
     checkpoint: phase === "simulating" ? null : session.simulator.serialize(),
     pendingShot
   };
@@ -76,4 +61,24 @@ export function buildSnapshot(
 
 export function eventMessage(seq: number, nowMs: number, event: ServerEvent): ServerEventMessage {
   return { type: "event", seq, serverTimeMs: nowMs, event };
+}
+
+export function snapshotBalls(simulator: Simulator): SnapshotBall[] {
+  const balls: SnapshotBall[] = [];
+  for (let index = 0; index < simulator.getBallCount(); ++index) {
+    const view = simulator.getBallView(index);
+    balls.push({
+      index: view.index,
+      number: view.number,
+      active: view.active,
+      x: view.position.x,
+      y: view.position.y,
+      z: view.position.z,
+      qx: view.renderOrientation.x,
+      qy: view.renderOrientation.y,
+      qz: view.renderOrientation.z,
+      qw: view.renderOrientation.w
+    });
+  }
+  return balls;
 }

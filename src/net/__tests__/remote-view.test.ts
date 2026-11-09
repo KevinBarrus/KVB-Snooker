@@ -159,3 +159,39 @@ describe("RemoteView 插值", () => {
     expect(view.getBallView(0).renderPosition.x).toBeCloseTo(0.5, 10);
   });
 });
+
+
+describe("RemoteView 逐步运动采样", () => {
+  it("保留碰撞转折与真实离台高度，不用包末球位抹平中间轨迹", () => {
+    const packet = { ...snapshot(1, 1064, [ball(0, 0, .04, .9, .04)], { phase: "simulating" }),
+      motion: [
+        { serverTimeMs: 1000, balls: [ball(0, 0, 0, .9, 0)] },
+        { serverTimeMs: 1020, balls: [ball(0, 0, .04, .91, 0)] },
+        { serverTimeMs: 1040, balls: [ball(0, 0, .04, .9, .04)] }
+      ] };
+    const view = makeView();
+    view.pushSnapshot(packet, 1064);
+    view.update(1120);
+    expect(view.getBallView(0).renderPosition).toEqual({ x: .04, y: .91, z: 0 });
+    expect(view.pushSnapshot(packet, 1121)).toBe(false);
+    const count = view.frameCount;
+    view.pushSnapshot({ ...packet, serverTimeMs: 1080 }, 1080);
+    expect(view.frameCount).toBe(count);
+    view.update(1140);
+    expect(view.getBallView(0).renderPosition).toEqual({ x: .04, y: .9, z: .04 });
+  });
+
+  it("结算包保留最后的运动步，显示到结算边界才归位", () => {
+    const view = makeView();
+    view.pushSnapshot(snapshot(1, 1000, [ball(0, 0, 0, .9, 0)], { phase: "simulating" }), 1000);
+    const settled = { ...snapshot(2, 1064, [ball(0, 0, -1, .9, 0)]), motion: [
+      { serverTimeMs: 1020, balls: [ball(0, 0, .02, .9, 0)] },
+      { serverTimeMs: 1040, balls: [ball(0, 0, .04, .9, 0)] }
+    ] };
+    view.pushSnapshot(settled, 1064);
+    view.update(1140);
+    expect(view.getCueBallPosition().x).toBe(.04);
+    view.update(1164);
+    expect(view.getCueBallPosition().x).toBe(-1);
+  });
+});

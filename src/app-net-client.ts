@@ -9,7 +9,7 @@ import {
   isSeatIndex,
   isStateVersion,
   isCuePose,
-  isMatchProgressView,
+  isMatchProgressView, validMotionSamples,
   type CuePoseMessage,
   type CuePoseState,
   type ClientMessage,
@@ -223,11 +223,11 @@ export class NetClient {
       case "snapshot": {
         const snapshot = value as { readonly version?: unknown; readonly serverTimeMs?: unknown;
           readonly eventSeq?: unknown; readonly phase?: unknown; readonly context?: unknown;
-          readonly balls?: unknown; readonly checkpoint?: unknown; readonly pendingShot?: unknown; readonly match?: unknown };
+          readonly balls?: unknown; readonly checkpoint?: unknown; readonly pendingShot?: unknown; readonly match?: unknown; readonly motion?: unknown };
         if (!isStateVersion(snapshot.version) || typeof snapshot.serverTimeMs !== "number" ||
             typeof snapshot.eventSeq !== "number" || typeof snapshot.phase !== "string" ||
             !snapshot.context || typeof snapshot.context !== "object" || !Array.isArray(snapshot.balls) ||
-            !isMatchProgressView(snapshot.match)) return null;
+            !isMatchProgressView(snapshot.match) || !validMotionSamples(snapshot.motion, snapshot.serverTimeMs, snapshot.balls.length)) return null;
         return value as ServerMessage;
       }
       case "event": {
