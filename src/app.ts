@@ -232,6 +232,14 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
         return;
       }
       audio?.sync(game.session, simulator.evolution, game.replay.active);
+      audio?.syncReplay({
+        active: game.replay.active,
+        playHead: game.replay.playHead,
+        paused: game.replay.paused,
+        rate: game.replay.rate,
+        revision: game.replay.audioRevision,
+        events: game.replay.audioEvents
+      });
       testTools?.sync();
       menuDom.element.hidden = game.replay.active;
       if (game.replay.active) {

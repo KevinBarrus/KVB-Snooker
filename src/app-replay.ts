@@ -2,7 +2,8 @@ import * as B from "babylonjs/es6.js";
 import { Input } from "./controller/input.js";
 import { ShotReplay } from "./controller/shot-replay.js";
 import { ShotView, type ShotViewMode } from "./controller/shot-view.js";
-import type { ReplayCapture } from "./controller/replay-frame.js";
+import type { ReplayAudioEvent, ReplayCapture } from "./controller/replay-frame.js";
+import type { ImpactEvent } from "./core/simulator/impact.js";
 import { ReplayControls, ReplayControlsDom } from "./ui/replay-controls.js";
 
 export class BrowserReplay {
@@ -39,6 +40,13 @@ export class BrowserReplay {
   }
 
   get active(): boolean { return this.clip.active; }
+  get playHead(): number { return this.clip.playHead; }
+  get paused(): boolean { return this.clip.paused; }
+  get rate(): 1 | .25 { return this.clip.rate; }
+  get audioEvents(): readonly ReplayAudioEvent[] { return this.clip.audioEventsView; }
+  get audioRevision(): number { return this.clip.audioRevision; }
+
+  recordImpact(impact: ImpactEvent): void { this.clip.recordImpact(impact); }
 
   begin(): void { this.clip.begin(this.capture()); this.sync(); }
   record(dt: number): void { if (this.clip.isRecording) this.clip.record(dt, this.capture()); }

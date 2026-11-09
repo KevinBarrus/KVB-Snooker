@@ -68,6 +68,28 @@ describe("Last shot replay", () => {
     expect(interpolateReplayFrame(first, last, 1).balls[0].active).toBe(false);
   });
 
+  it("记录音频事件时间线，clear/restart/seek 重置回放音频游标", () => {
+    const replay = new ShotReplay();
+    replay.begin(frame());
+    const cue = { kind: "cue" as const, time: 0, ballIndex: 0, x: 0, z: 0, speed: 30, tipHeight: 0 };
+    const ball = { kind: "ball" as const, time: 1, ballIndex: 0, x: 0, z: 0, speed: 2 };
+    replay.recordImpact(cue);
+    replay.record(.05, frame(.2, true));
+    replay.recordImpact(ball);
+    for (let i = 0; i < 12; ++i) replay.record(.05, frame(.4, true));
+    replay.finish(frame(.4, true));
+    expect(replay.audioEventsView).toEqual([{ time: 0, impact: cue }, { time: .05, impact: ball }]);
+    const revision = replay.audioRevision;
+    replay.close(); replay.open();
+    expect(replay.audioRevision).toBeGreaterThan(revision);
+    replay.seek(.5);
+    expect(replay.audioRevision).toBeGreaterThan(revision + 1);
+    replay.recordImpact(ball);
+    expect(replay.audioEventsView).toHaveLength(2);
+    replay.begin(frame());
+    expect(replay.audioEventsView).toHaveLength(0);
+  });
+
   it("记录超限或长帧失真时不提供截断回放", () => {
     const limited = new ShotReplay(3); limited.begin(frame());
     for (let i = 0; i < 10; ++i) limited.record(.1, frame(i));

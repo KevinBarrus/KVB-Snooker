@@ -29,6 +29,7 @@
 | 辅助线 | `npm run test:gunsight` |
 | 观察模式及 AI 旁观 | `npm run test:camera`、`npm run test:camera:ai` |
 | 本地上一杆回放 | `npm run test:replay` |
+| 回放音频（触球/碰撞/入袋、暂停/重播） | `npm run test:replay:audio`（需要先启动开发服务） |
 | 规则与开发预设 | `npm run test:rules` |
 | 900 | `npm run test:900` |
 | 练球球形（菜单、自由摆球、复位、犯规弹窗） | `npm run test:practice`（需要先启动开发服务） |

@@ -32,6 +32,10 @@ try {
     return { eye: camera.position.asArray(), target: camera.lockedTarget.asArray() };
   });
   const broadcast = { eye: [3.66 / 2 + 1.6, .88 + 1.2, 0], target: [0, .88, 1e-5] };
+  await page.getByRole("button", { name: "练习", exact: true }).click();
+  await page.getByRole("button", { name: "自由练习", exact: true }).click();
+  await page.evaluate(async () => { await window.replayTestRuntime.audio.ready; });
+  await advance(2);
   assert.equal(await page.locator(".replay-open").isVisible(), false);
   assert.equal(await page.evaluate(() => window.replayTestRuntime.game.replay.open()), false);
   await page.locator("canvas").focus(); await page.keyboard.press("w"); await advance(120);

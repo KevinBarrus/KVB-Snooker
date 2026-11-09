@@ -22,6 +22,7 @@
     "test:camera:ai": "node scripts/ai-camera-smoke.mjs",
     "test:rules": "node scripts/rules-test-smoke.mjs",
     "test:replay": "node scripts/replay-smoke.mjs",
+    "test:replay:audio": "node scripts/replay-audio-smoke.mjs",
     "test:900": "node scripts/nine-hundred-smoke.mjs",
     "test:net": "node scripts/net-smoke.mjs",
     "audio:prepare": "node scripts/prepare-audio-assets.mjs",

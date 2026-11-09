@@ -4,6 +4,22 @@ import { SampleMixer } from "./audio/sample-mixer.js";
 import { parseAudioManifest } from "./audio/sample-manifest.js";
 import { BrowserSoundBackend } from "./audio/browser-backend.js";
 import { AUDIO_CALIBRATION } from "./audio/calibration.js";
+import type { AudioSample } from "./audio/sample-manifest.js";
+import type { ImpactEvent } from "./core/simulator/impact.js";
+
+export interface ReplayAudioEvent {
+  readonly time: number;
+  readonly impact: ImpactEvent;
+}
+
+export interface ReplayAudioView {
+  readonly active: boolean;
+  readonly playHead: number;
+  readonly paused: boolean;
+  readonly rate: number;
+  readonly revision: number;
+  readonly events: readonly ReplayAudioEvent[];
+}
 
 export class BrowserAudio {
   readonly ready: Promise<boolean>;
@@ -15,10 +31,18 @@ export class BrowserAudio {
   private readonly caption = document.createElement("span");
   private readonly slider = document.createElement("input");
   private session: object | null = null;
+  private samples: readonly AudioSample[] | null = null;
+  private replayMixer: SampleMixer | null = null;
+  private replayEvents: readonly ReplayAudioEvent[] = [];
+  private replayActive = false;
+  private replayPaused = false;
+  private replayRevision = -1;
+  private replayCursor = 0;
   private evolution = 0;
   private replay = false;
   private loaded = false;
   private failed = false;
+  private readonly random = (): number => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 
   constructor(private readonly bus: EventBus, host: HTMLElement) {
     this.element.className = "audio-control";
@@ -72,8 +96,8 @@ export class BrowserAudio {
       const samples = parseAudioManifest(await response.json());
       await this.backend!.load(samples);
       if (this.abort.signal.aborted) return false;
-      const random = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
-      this.mixer = new SampleMixer(samples, random);
+      this.samples = samples;
+      this.mixer = new SampleMixer(samples, this.random);
       this.hooks = new AudioHooks(this.backend!, this.mixer); this.hooks.attach(this.bus);
       this.loaded = true; this.updateCaption(); return true;
     } catch (error) {
@@ -87,13 +111,62 @@ export class BrowserAudio {
   }
 
   sync(session: object, evolution: number, replay: boolean): void {
-    if (session !== this.session || evolution < this.evolution || replay !== this.replay) {
+    const replayChanged = replay !== this.replay;
+    if (session !== this.session || evolution < this.evolution || replayChanged) {
       this.backend?.stop(); this.mixer?.reset();
     }
     this.session = session; this.evolution = evolution; this.replay = replay;
-    this.backend?.setEnabled(!replay);
+    if (replayChanged) this.backend?.setEnabled(!replay);
     // 浏览器可能在切模式/失焦后把上下文挂起；每帧尝试恢复，确保第一杆触球声不被整体推迟。
     if (this.backend && !this.backend.running) void this.backend.unlock().catch(() => undefined);
+  }
+
+  /**
+   * 回放音频：按回放 playHead 消费录制好的 impact 事件。
+   * 回放混音器独立于真实对局，seek/restart 时重建；音量共用 backend master。
+   */
+  syncReplay(view: ReplayAudioView): void {
+    if (!view.active) { this.stopReplay(); return; }
+    if (!this.replayActive || view.revision !== this.replayRevision) {
+      this.backend?.stop();
+      this.replayActive = true;
+      this.replayRevision = view.revision;
+      this.replayEvents = view.events;
+      this.replayCursor = 0;
+      this.replayPaused = false;
+      this.replayMixer = this.samples ? new SampleMixer(this.samples, this.random) : null;
+      this.backend?.setEnabled(true);
+      this.consumeReplay(view.playHead, false, false);
+    } else {
+      this.backend?.setEnabled(true);
+    }
+    if (view.paused) {
+      if (!this.replayPaused) { this.replayPaused = true; this.backend?.stop(); }
+      return;
+    }
+    this.replayPaused = false;
+    this.consumeReplay(view.playHead, true, true);
+  }
+
+  private consumeReplay(playHead: number, play: boolean, inclusive: boolean): void {
+    while (this.replayCursor < this.replayEvents.length) {
+      const item = this.replayEvents[this.replayCursor];
+      if (inclusive ? item.time > playHead : item.time >= playHead) break;
+      const decision = this.replayMixer?.mix(item.impact);
+      if (decision && play) this.backend?.play(decision);
+      this.replayCursor++;
+    }
+  }
+
+  private stopReplay(): void {
+    if (!this.replayActive) return;
+    this.backend?.stop();
+    this.replayActive = false;
+    this.replayPaused = false;
+    this.replayRevision = -1;
+    this.replayEvents = [];
+    this.replayCursor = 0;
+    this.replayMixer = null;
   }
 
   private updateCaption(): void {
@@ -102,6 +175,7 @@ export class BrowserAudio {
   }
 
   dispose(): void {
+    this.stopReplay();
     this.abort.abort(); this.hooks?.detach(); this.backend?.dispose(); this.element.remove();
   }
 }

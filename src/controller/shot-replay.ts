@@ -1,9 +1,13 @@
 import type { BallView, ShotResult } from "../core/simulator/shot-result.js";
-import { captureReplayFrame, copyBallView, interpolateReplayFrame, type ReplayCapture, type ReplayFrame } from "./replay-frame.js";
+import type { ImpactEvent } from "../core/simulator/impact.js";
+import { captureReplayFrame, copyBallView, interpolateReplayFrame,
+  type ReplayAudioEvent, type ReplayCapture, type ReplayFrame } from "./replay-frame.js";
 
 // PCOL L6275, L6311-6336, L6810-7060, L7375-7525
 export class ShotReplay {
   private readonly frames: ReplayFrame[] = [];
+  private readonly audioEvents: ReplayAudioEvent[] = [];
+  private audioRevisionValue = 0;
   private clock = 0;
   private cursor = 0;
   private recording = false;
@@ -20,11 +24,20 @@ export class ShotReplay {
   get available(): boolean { return this.complete && this.duration > .5; }
   get isRecording(): boolean { return this.recording; }
   get current(): Readonly<ReplayFrame> | null { return this.sample; }
+  get audioEventsView(): readonly ReplayAudioEvent[] { return this.audioEvents; }
+  get audioRevision(): number { return this.audioRevisionValue; }
 
   clear(): void {
-    this.frames.length = 0; this.clock = this.playHead = this.cursor = 0;
+    this.frames.length = 0; this.audioEvents.length = 0; this.audioRevisionValue++;
+    this.clock = this.playHead = this.cursor = 0;
     this.recording = this.complete = this.active = false;
     this.paused = true; this.rate = 1; this.sample = null;
+  }
+
+  /** 录制本杆触球/碰撞/入袋事件，和回放帧共用同一时钟。 */
+  recordImpact(impact: ImpactEvent): void {
+    if (!this.recording) return;
+    this.audioEvents.push({ time: this.clock, impact });
   }
 
   begin(frame: ReplayCapture): void {
@@ -59,13 +72,14 @@ export class ShotReplay {
   }
 
   close(): void { this.active = false; this.paused = true; }
-  restart(): void { this.playHead = this.cursor = 0; this.paused = false; this.render(); }
+  restart(): void { this.audioRevisionValue++; this.playHead = this.cursor = 0; this.paused = false; this.render(); }
   toggle(): void {
     if (this.playHead >= this.duration) this.restart();
     else this.paused = !this.paused;
   }
   seek(progress: number): void {
     if (!Number.isFinite(progress) || !this.active) return;
+    this.audioRevisionValue++;
     this.playHead = Math.max(0, Math.min(1, progress)) * this.duration;
     this.paused = true; this.render();
   }

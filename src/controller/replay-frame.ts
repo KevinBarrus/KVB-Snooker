@@ -1,6 +1,12 @@
 import * as B from "babylonjs/es6.js";
 import type { BallView } from "../core/simulator/shot-result.js";
+import type { ImpactEvent } from "../core/simulator/impact.js";
 import type { CameraPoint } from "./camera-look.js";
+
+export interface ReplayAudioEvent {
+  readonly time: number;
+  readonly impact: ImpactEvent;
+}
 
 export interface ReplayFrame {
   time: number;

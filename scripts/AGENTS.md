@@ -66,3 +66,5 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 我的球形（2026-11-08）：my-shapes-smoke.mjs（npm run test:my-shapes）在真实浏览器创建空台球形、摆放/右键回收、彩球点位、命名完成、自建练习、清完四选项、编辑保存、删除/回收站/恢复/彻底删除、50 个上限告示，以及预设清彩的清完四选项。编辑器直接操作 Simulator 球位，不创建 GameSession；脚本只通过公开页面/运行时入口观察，不改正式规则。需求见 docs/my-shapes-design.md。
 
 菜单层级与操作指南（2026-11-09）：menu-smoke.mjs（npm run test:menu）验证首页卡片/二级返回、操作指南弹层、退出 900 后回首页且倒计时冻结、对局内指南入口。controller-smoke 从主菜单启动自由练习，不依赖初始页面直接开局。
+
+回放音频（2026-11-09）：replay-audio-smoke.mjs（npm run test:replay:audio）验证回放录制 impact 事件、按 playHead 播放、暂停立即停声、重播/定位不重复旧声；音频使用独立回放混音器与现有 master 音量。

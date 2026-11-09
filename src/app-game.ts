@@ -155,7 +155,10 @@ export class BrowserGame {
         this.controls.input.enabled = !active && !this.shots.inputLocked;
         this.hudDom.element.hidden = active;
       }, () => this.cycleView());
-    const offImpact = simulator.onImpact(event => this.bus.emit("sim/impact", event));
+    const offImpact = simulator.onImpact(event => {
+      this.bus.emit("sim/impact", event);
+      this.replay.recordImpact(event);
+    });
     const offShooting = this.bus.on("sim/shooting-start", () => {
       this.replay.begin();
       this.controls.update();
