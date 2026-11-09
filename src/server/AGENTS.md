@@ -5,6 +5,7 @@
 ## 职责边界
 
 - 仅服务开发原型的 Node 权威房间：每房间一个真实 `Simulator`，整场进度与当前 `GameSession` 分开装配，负责物理推进、规则裁判、版本与去重、唯一一次权威触球。
+- 检查点恢复必须保留整场身份、版本顺序和命令原裁决；不继承连接/瞄准显示/旧进程时钟。未完成动作不能通过导出稳定检查点被丢弃，数据库与正式重连另行接线。
 - 房间码不能代替整场身份；状态版本与事件序号跨局单调，局结果、准备与整场结果由服务器提交，客户端不得提交胜者或局分。命令缓存按席位隔离。
 - 只允许依赖 `src/core/**`、`src/net/protocol.ts` 与 Node 内置模块；禁止导入 DOM、Babylon、浏览器表现层或数据库/账号 SDK。`core` 不得反向依赖本目录。
 - 传输（WebSocket、开发令牌、延迟/故障注入）与裁决分离；延迟注入不得阻塞物理循环或改变房间结果。
@@ -21,6 +22,7 @@
 - [架构契约](../../docs/architecture.md) §4.8 与 §5。
 - [联机开发原型设计](../../docs/multiplayer-prototype-design.md)：命令/版本/去重、出杆时序、延迟注入、双机操作与限制。
 - [联机通信与状态同步](../../docs/multiplayer-protocol-design.md)。
+- [比赛持久化与故障恢复](../../docs/match-persistence-design.md)、架构 §4.12。
 - [整场身份与换局](../../docs/match-progress-design.md)。
 - [核心装配章程](../core/AGENTS.md) 与 [联机客户端章程](../net/AGENTS.md)。
 

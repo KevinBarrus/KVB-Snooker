@@ -418,6 +418,19 @@ RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身�
 - 新增 `src/core/practice/custom-shapes.ts`、`src/app-my-shapes.ts`、`src/app-shape-editor.ts`、`src/ui/my-shapes-panel.ts`、`src/ui/shape-editor-panel.ts`、`src/ui/practice-completion.ts`。
 - 预设球形布局与既有练习行为不变；正式规则、相机、回放、音频不因自建练习改变。
 
+### 4.12 稳定边界完整检查点（2026-11-09）
+
+本单元落实[持久化设计](match-persistence-design.md)的内存/JSON恢复基础，不接数据库、暂停或正式重连。只接受 READY / DECIDING、全部球静止且未 prepareStroke 的边界；运动及已接受待触球动作明确拒绝，不能丢弃后冒充可恢复。
+
+- `Simulator.exportCheckpoint(): SimulatorCheckpoint` / `validateCheckpoint(data: unknown): SimulatorCheckpoint` / `restoreCheckpoint(data: unknown): void` 保存稳定物理状态（含不活跃球姿态、步长余量、滚动摩擦残留和静止接触岛缓存）、上一杆结果和接触证据。旧 serialize/restore 的行为不变。检查点携带场景、几何与物理配置兼容标识；validateCheckpoint只验证并返回独立副本，恢复前完整校验，不匹配拒绝。
+- `WorldClient.exportRestingState(): RestingIslandState[]` / `restoreRestingState(data: readonly RestingIslandState[]): void` 为模拟器检查点内部通道，保存接触岛次序、接触数值/矩阵缓存，按球/多边形ID重连引用；只在稳定边界及Simulator已完成校验后调用，不改变原serialize/restore和求解流程。
+- `GameSession.exportCheckpoint(): GameCheckpoint` / `static fromCheckpoint(simulator: Simulator, data: unknown): GameSession` 保存配置、球权/分数/统计/目标、待选择判罚、手选提名、自由球资格、上一杆 Miss/练习恢复依据，以及900剩余时长和蓝球轮次。恢复新实例，不调用结算，不重发得分。既有 Player.restore 也用于检查点。
+- `MatchProgress.exportCheckpoint(): MatchProgressCheckpoint` / `static fromCheckpoint(data: unknown): MatchProgress` 保存视图及内部杆序号（包括已分配但未计入出杆数的序号）；跨局/尝试/整场结果身份不得重建为新值。未完成的预备杆拒绝导出。
+- `MatchClock.restore(view: MatchClockView): void`、`NineHundredMatch.exportCheckpoint()/restoreCheckpoint(data: NineHundredCheckpoint)` 为核心装配内部恢复方法；保存剩余量而非进程时间戳。`SeededRandom.exportState(): number` / `restoreState(state: number): void` 保存房间独立随机游标，不保存运行中的AI任务。
+- `RoomSession.exportCheckpoint(): RoomCheckpoint` / `static fromCheckpoint(data: unknown, mesh: MeshBody): RoomSession` 包含整场、单局、服务配置、状态版本、事件位置、两席命令去重记录及随机状态。仅由可信服务端调用，不是客户端报文。恢复不继承旧连接/瞄准姿态/插值缓冲/单调时钟；恢复总是推进一次版本并撤销局间准备，已裁决结果不重新发事件。格式、引擎、规则和配置不兼容均拒绝。
+
+检查点是独立的JSON数据，不含对象引用、函数或TypedArray；所有入口对损坏数据先校验。新增格式维护于各 checkpoint 类型文件，不改变网络协议v5。尚未实现的账号、暂停预算、逐杆归档、统计计时及命令日志不伪造占位状态；接入时须升级格式或迁移，运动故障恢复仍需后续命令日志。
+
 ## 5. 目录结构（骨架）
 
 ```

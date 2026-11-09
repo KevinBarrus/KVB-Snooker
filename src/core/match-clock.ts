@@ -1,3 +1,5 @@
+import { readClock } from "./timed-checkpoint.js";
+
 export type ClockPhase = "placement" | "aiming" | "rolling" | "settling" | "frame-expired" | "shot-expired" | "finished";
 export type ClockExpiry = "frame" | "shot";
 
@@ -22,6 +24,14 @@ export class MatchClock {
     if (this.currentPhase === "aiming" || this.currentPhase === "placement") return Math.min(this.shot, this.deciding ? Infinity : this.frame);
     if ((this.currentPhase === "rolling" || this.currentPhase === "settling") && !this.deciding) return this.frame;
     return Infinity;
+  }
+
+  restore(value: MatchClockView): void {
+    const data = readClock(value);
+    this.frame = data.frameSeconds;
+    this.shot = data.shotSeconds;
+    this.currentPhase = data.phase;
+    this.deciding = data.shootout;
   }
 
   reset(): void {

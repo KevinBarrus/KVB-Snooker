@@ -49,6 +49,17 @@ export class ContactRecorder extends Solver {
     return this.balls.length ? { contacts: [...this.cushions.values()].map(contact => ({ ...contact })) } : null;
   }
 
+  restoreSettled(balls: readonly Ball[], contact: ContactEvidence | null, cushion: CushionEvidence | null): void {
+    this.clear();
+    if (contact || cushion) this.balls = balls;
+    if (contact) {
+      this.touching = [...contact.touchingIndices];
+      this.first = [...contact.firstContactIndices];
+      this.pushed = new Set(contact.pushedIndices);
+    }
+    cushion?.contacts.forEach((entry, index) => this.cushions.set(String(index), { ...entry }));
+  }
+
   checkSeparation(): void {
     const cue = this.balls[0];
     if (!cue) return;

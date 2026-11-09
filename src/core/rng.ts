@@ -15,6 +15,13 @@ export class SeededRandom implements RandomSource {
     this.state = seed >>> 0;
   }
 
+  exportState(): number { return this.state >>> 0; }
+
+  restoreState(state: number): void {
+    if (!Number.isInteger(state) || state < 0 || state > 0xffffffff) throw new Error("Invalid random state");
+    this.state = state;
+  }
+
   next(): number {
     // mulberry32
     let t = (this.state += 0x6d2b79f5);

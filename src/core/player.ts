@@ -35,7 +35,6 @@ export class Player {
       scoreCount: this.scoreCount, currentBreak: this.currentBreak, maxBreak: this.maxBreak };
   }
 
-  /** 练习复位用：完整回滚比分/连击/杆数统计；正式比赛不使用本路径。 */
   restore(snapshot: PlayerSnapshot): void {
     this.pts = snapshot.pts;
     this.penalty = snapshot.penalty;

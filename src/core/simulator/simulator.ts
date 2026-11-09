@@ -1,3 +1,6 @@
+import { PHYSICS } from "../physics/constants.js";
+import { TABLE_TUNING } from "../physics/table-tuning.js";
+import { readSimulatorCheckpoint, type SimulatorCheckpoint } from "./checkpoint.js";
 import { Vec3 } from "../math/vec3.js";
 import type { ContactBase } from "../physics/contact.js";
 import type { MeshBody } from "../physics/mesh-body.js";
@@ -22,6 +25,7 @@ export class Simulator {
   private readonly balls: Ball[] = [];
   private readonly shotResult = makeShotResult();
   private syncList: SceneParameters = { sceneId: "", ballSet: [], ballRadius: 0, ballMass: 0 };
+  private readonly checkpointGeometry: string;
   private awakened = 0;
   private scene = "";
   private spotHeight = NaN;
@@ -35,6 +39,10 @@ export class Simulator {
     this.world.setMeshBody(mesh);
     this.world.onTouchPresolve(contact => this.onTouch(contact));
     this.world.onOutOfBounds(ball => this.shotResult.outOfBoundsIndices.push((ball as Ball).index));
+    this.checkpointGeometry = JSON.stringify(mesh.groups.map(group => [group.name, group.polys.map(poly => [
+      poly.normal, poly.edges.map(edge => edge.va), poly.friction, poly.restitution, poly.collisionGroup,
+      poly.ground, poly.sidehard, poly.sidesoft, poly.tunnel, poly.pocket, poly.end, poly.uv, poly.bCenter, poly.bR
+    ])]));
     this.sync(scene);
     this.reset(true, true);
   }
@@ -205,6 +213,47 @@ export class Simulator {
     this.clearResult();
     for (const ball of this.balls) ball.syncStates(0);
     this.awakened = this.world.nAwakened;
+  }
+
+  exportCheckpoint(): SimulatorCheckpoint {
+    if (this.nAwakened || this.balls.some(ball => ball.active && !ball.asleep)) throw new Error("Checkpoint requires settled balls");
+    const data: SimulatorCheckpoint = { format: 1,
+      configuration: JSON.stringify(["physics-1", this.syncList, PHYSICS, TABLE_TUNING, this.checkpointGeometry]),
+      world: this.serialize(), resting: this.world.exportRestingState(), accumulatorSeconds: this.world.accumulator, poses: this.balls.map(ball => [ball.position.x, ball.position.y, ball.position.z,
+        ball.orientation.x, ball.orientation.y, ball.orientation.z, ball.orientation.w]),
+      residuals: this.balls.map(ball => ({ rollingPower: ball.rfPower,
+        rollingDirection: [ball.rfDir.x, ball.rfDir.y, ball.rfDir.z], penetration: ball.penetration,
+        penetrationOffset: [ball.peneOffset.x, ball.peneOffset.y, ball.peneOffset.z] })),
+      result: this.getResult(), contacts: this.getContactEvidence(), cushions: this.getCushionEvidence() };
+    return readSimulatorCheckpoint(data, data.configuration, data.world.mbid, this.balls.length, this.world.meshBody!.nPolygons);
+  }
+
+  validateCheckpoint(value: unknown): SimulatorCheckpoint {
+    const configuration = JSON.stringify(["physics-1", this.syncList, PHYSICS, TABLE_TUNING, this.checkpointGeometry]);
+    return readSimulatorCheckpoint(value, configuration, this.world.meshBody!.id, this.balls.length, this.world.meshBody!.nPolygons);
+  }
+
+  restoreCheckpoint(value: unknown): void {
+    const data = this.validateCheckpoint(value);
+    this.restore(data.world);
+    this.world.accumulator = data.accumulatorSeconds;
+    this.balls.forEach((ball, index) => {
+      const residual = data.residuals[index];
+      ball.rfPower = residual.rollingPower;
+      ball.rfDir.set(residual.rollingDirection[0], residual.rollingDirection[1], residual.rollingDirection[2]);
+      ball.penetration = residual.penetration;
+      ball.peneOffset.set(residual.penetrationOffset[0], residual.penetrationOffset[1], residual.penetrationOffset[2]);
+      if (!ball.active) {
+        const pose = data.poses[index];
+        ball.position.set(pose[0], pose[1], pose[2]);
+        ball.orientation.set(pose[3], pose[4], pose[5], pose[6]);
+        ball.setSleep();
+      }
+      ball.syncStates(0);
+    });
+    this.world.restoreRestingState(data.resting);
+    Object.assign(this.shotResult, data.result);
+    this.contacts.restoreSettled(this.balls, data.contacts, data.cushions);
   }
 
   predict(vars: StrokeVars, maxDist = Infinity): PredictionContext {

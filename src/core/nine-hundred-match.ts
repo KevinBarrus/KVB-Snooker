@@ -1,3 +1,4 @@
+import { readNineHundred, type NineHundredCheckpoint } from "./timed-checkpoint.js";
 import { MatchClock } from "./match-clock.js";
 import type { CushionEvidence } from "./simulator/contact-evidence.js";
 
@@ -30,6 +31,21 @@ export class NineHundredMatch {
 
   get shootout(): ShootoutView | null {
     return this.attempts && { attempts: [...this.attempts], potted: [...this.potted] };
+  }
+
+  exportCheckpoint(): NineHundredCheckpoint {
+    return readNineHundred({ clock: this.clock.view, fullTable: this.fullTable, finished: this.finished,
+      winner: this.winner, shootout: this.shootout });
+  }
+
+  restoreCheckpoint(value: NineHundredCheckpoint): void {
+    const data = readNineHundred(value);
+    this.clock.restore(data.clock);
+    this.fullTable = data.fullTable;
+    this.finished = data.finished;
+    this.winner = data.winner;
+    this.attempts = data.shootout ? [...data.shootout.attempts] : null;
+    this.potted = data.shootout ? [...data.shootout.potted] : [0, 0];
   }
 
   reset(placement: boolean): void {

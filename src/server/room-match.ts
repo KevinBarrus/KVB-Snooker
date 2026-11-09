@@ -7,15 +7,21 @@ import type { SeatIndex, ServerEvent } from "../net/protocol.js";
 import type { RoomOptions } from "./room-types.js";
 
 export class RoomMatch {
-  readonly progress: MatchProgress;
+  private currentProgress: MatchProgress;
   private currentSession: GameSession;
 
   constructor(private readonly simulator: Simulator, options: RoomOptions) {
-    this.progress = new MatchProgress({ matchId: options.matchId ?? randomUUID(), bestOf: options.bestOf ?? 3,
+    this.currentProgress = new MatchProgress({ matchId: options.matchId ?? randomUUID(), bestOf: options.bestOf ?? 3,
       firstOpeningPlayer: options.firstOpeningPlayer ?? (randomInt(2) as SeatIndex) });
     this.currentSession = this.newFrame(options.frameSetup);
   }
 
+  restoreCheckpoint(progress: unknown, game: unknown): void {
+    this.currentProgress = MatchProgress.fromCheckpoint(progress);
+    this.currentSession = GameSession.fromCheckpoint(this.simulator, game);
+  }
+
+  get progress(): MatchProgress { return this.currentProgress; }
   get session(): GameSession { return this.currentSession; }
   get view(): MatchProgressView { return this.progress.view; }
   get active(): boolean { return this.view.phase === "active"; }

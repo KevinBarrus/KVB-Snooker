@@ -1,3 +1,5 @@
+import { CommandLedger } from "./command-ledger.js";
+import { readRoomCheckpoint, type RoomCheckpoint } from "./room-checkpoint.js";
 import { GAME_STATE, GameSession } from "../core/game.js";
 import type { MeshBody } from "../core/physics/mesh-body.js";
 import type { Simulator } from "../core/simulator/simulator.js";
@@ -35,20 +37,12 @@ interface ActiveShot {
   readonly seat: SeatIndex;
 }
 
-interface DedupEntry {
-  readonly signature: string;
-  readonly ack: AckMessage;
-}
-
 interface QueuedEvent {
   readonly event: ServerEvent;
   readonly atMs: number;
 }
-
-const MAX_DEDUP_ENTRIES = 256;
 /** 单次 tick 最多补算的固定步数，避免长时间卡顿后死循环；正常 60Hz 每 tick 一步。 */
 const MAX_CATCH_UP_STEPS = 6;
-
 /** 一个开发房间 = 一个真实 Simulator + 一个 GameSession("single-play", 经典规则)。 */
 export class RoomSession {
   readonly roomId: string;
@@ -60,7 +54,7 @@ export class RoomSession {
   private readonly options: RoomOptions;
   private readonly seatByConnection = new Map<string, SeatIndex>();
   private readonly connections = new Map<SeatIndex, string>();
-  private readonly dedup = new Map<string, DedupEntry>();
+  private readonly dedup = new CommandLedger();
   private readonly queuedEvents: QueuedEvent[] = [];
   private pendingShot: PendingShot | null = null;
   private activeShot: ActiveShot | null = null;
@@ -73,6 +67,7 @@ export class RoomSession {
   private closed = false;
   private readonly motion = new RoomMotion();
   private readonly poses = new RoomCuePose();
+  private readonly random: SeededRandom;
 
   constructor(roomId: string, options: RoomOptions, mesh: MeshBody) {
     if (!Number.isFinite(options.prepareLeadMs) || options.prepareLeadMs < 0 ||
@@ -88,8 +83,8 @@ export class RoomSession {
     };
     this.simulator = new SimulatorClass(mesh);
     this.match = new RoomMatch(this.simulator, options);
-    const seeded = new SeededRandom(options.seed);
-    this.aiDependencies = { routeCache: new RouteCache(), random: () => seeded.next() };
+    this.random = new SeededRandom(options.seed);
+    this.aiDependencies = { routeCache: new RouteCache(), random: () => this.random.next() };
   }
 
   get stateVersion(): number { return this.version; }
@@ -159,7 +154,7 @@ export class RoomSession {
       return { ack, events: queued, snapshot: null };
     }
     const outcome = this.dispatch(seat, message, nowMs);
-    this.remember(key, signature, outcome.ack);
+    this.dedup.remember(key, signature, outcome.ack);
     return { ack: outcome.ack, events: [...queued, ...outcome.events], snapshot: outcome.snapshot };
   }
 
@@ -170,7 +165,6 @@ export class RoomSession {
     if (this.lastTickMs === null) this.lastTickMs = nowMs;
     const touchAtMs = this.pendingShot?.touchAtServerMs;
     if (touchAtMs !== undefined && nowMs >= touchAtMs) this.fire(nowMs, events);
-
     const stepMs = 1000 / this.options.tickHz;
     const elapsed = Math.max(0, nowMs - Math.max(this.lastTickMs, touchAtMs ?? -Infinity));
     this.lastTickMs = nowMs;
@@ -201,6 +195,27 @@ export class RoomSession {
   snapshot(nowMs: number): SnapshotMessage {
     this.lastNowMs = nowMs;
     return this.buildSnapshotNow(nowMs);
+  }
+
+  exportCheckpoint(): RoomCheckpoint {
+    if (this.closed || this.pendingShot || this.activeShot) throw new Error("Room checkpoint requires a stable match");
+    return readRoomCheckpoint({ format: 1, protocolVersion: NET_PROTOCOL_VERSION, roomId: this.roomId,
+      options: { ...this.options, ...this.match.view, seed: this.options.seed >>> 0 }, match: this.match.progress.exportCheckpoint(),
+      game: this.session.exportCheckpoint(), stateVersion: this.version, eventSequence: this.eventSeq,
+      randomState: this.random.exportState(), commands: this.dedup.snapshot() }, this.simulator);
+  }
+
+  static fromCheckpoint(value: unknown, mesh: MeshBody): RoomSession {
+    const data = readRoomCheckpoint(value, new SimulatorClass(mesh));
+    const room = new RoomSession(data.roomId, data.options, mesh);
+    room.match.restoreCheckpoint(data.match, data.game);
+    room.version = data.stateVersion + 1;
+    room.eventSeq = data.eventSequence;
+    room.random.restoreState(data.randomState);
+    data.commands.forEach(entry => room.dedup.remember(entry.key, entry.signature, entry.ack));
+    room.match.progress.clearReady(0);
+    room.match.progress.clearReady(1);
+    return room;
   }
 
   close(): void {
@@ -376,12 +391,5 @@ export class RoomSession {
       type: "ack", commandId, accepted: false, reason, stateVersion: this.version,
       serverTimeMs: nowMs, duplicate
     };
-  }
-  private remember(commandId: string, signature: string, ack: AckMessage): void {
-    if (this.dedup.size >= MAX_DEDUP_ENTRIES) {
-      const oldest = this.dedup.keys().next();
-      if (!oldest.done) this.dedup.delete(oldest.value);
-    }
-    this.dedup.set(commandId, { signature, ack });
   }
 }

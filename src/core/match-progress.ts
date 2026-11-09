@@ -1,3 +1,5 @@
+import { readMatchCheckpoint, type MatchProgressCheckpoint } from "./match-checkpoint.js";
+
 export type MatchPlayer = 0 | 1;
 export const MATCH_LENGTHS: readonly number[] = [1, 3, 5, 7, 9, 11, 17, 19, 25, 33, 35];
 
@@ -78,6 +80,27 @@ export class MatchProgress {
       frames: this.frames.map(frame => ({ ...frame, scores: [...frame.scores] })),
       result: this.result && { ...this.result, frameWins: [...this.result.frameWins] }
     };
+  }
+
+  exportCheckpoint(): MatchProgressCheckpoint {
+    if (this.reservedShotId) throw new Error("Checkpoint cannot discard a reserved shot");
+    return readMatchCheckpoint({ format: 1, view: this.view, shotSequence: this.shotSequence });
+  }
+
+  static fromCheckpoint(value: unknown): MatchProgress {
+    const data = readMatchCheckpoint(value), view = data.view;
+    const match = new MatchProgress(view);
+    match.frameNumber = view.frameNumber;
+    match.attemptNumber = view.attemptNumber;
+    match.wins.splice(0, 2, ...view.frameWins);
+    match.ready.splice(0, 2, ...view.ready);
+    match.frames.push(...view.frames);
+    match.phase = view.phase;
+    match.result = view.result;
+    match.shotSequence = data.shotSequence;
+    match.shotCount = view.shotCount;
+    match.lastShotId = view.lastShotId;
+    return match;
   }
 
   reserveShotId(): string | null {

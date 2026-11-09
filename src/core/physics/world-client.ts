@@ -1,3 +1,4 @@
+import { captureResting, restoreResting, type RestingIslandState } from "./resting-state.js";
 import { Vec3 } from "../math/vec3.js";
 import { ContactBase } from "./contact.js";
 import { Body } from "./body.js";
@@ -101,6 +102,12 @@ export class WorldClient extends World {
     this.simplifiedMeshBody = null;
     this.originMeshBody = null;
     super.emptyMeshBody();
+  }
+
+  exportRestingState(): RestingIslandState[] { return captureResting(this.cActings); }
+
+  restoreRestingState(data: readonly RestingIslandState[]): void {
+    restoreResting(data, this.cActings, this.ssPool, this.spPool, this.balls, this.meshBody!);
   }
 
   save(): void {
