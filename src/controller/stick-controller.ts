@@ -3,6 +3,10 @@ import type { Simulator } from "../core/simulator/simulator.js";
 import { StickObstacles, sphereRayDistance, type Point3 } from "./stick-obstacles.js";
 
 // PCOL L1216-1221
+/** 用户扩展：高力度段增加最高出杆力度；0.8 以下保持原作映射。 */
+const POWER_BOOST_START = .8;
+const POWER_BOOST_RATE = 1;
+
 export const STICK_SPECS = { len: 1.45, tipRadius: 0.005, buttRadius: 0.015 } as const;
 
 // PCOL L5172-5193, L5462-5484
@@ -229,9 +233,13 @@ export class StickController {
   getStrokeVars(power: number): Float32Array {
     const p = this.kissPoint, d = this.kissDir;
     return new Float32Array([p.x, p.y, p.z, d.x, d.y, d.z,
-      this.getTouchSpdWithPower(power) * (3.2 + 6 * power), STICK_SPECS.tipRadius]);
+      this.getStrokeSpdWithPower(power), STICK_SPECS.tipRadius]);
   }
   getTouchSpdWithPower(power: number): number { return 0.5 + 11 * power; }
+  getStrokeSpdWithPower(power: number): number {
+    const boost = 1 + Math.max(0, power - POWER_BOOST_START) * POWER_BOOST_RATE;
+    return this.getTouchSpdWithPower(power) * (3.2 + 6 * power) * boost;
+  }
   getTipRadius(): number { return STICK_SPECS.tipRadius; }
   getSlowDownDistance(power: number, distance: number): number {
     const direction = this.kissDir;

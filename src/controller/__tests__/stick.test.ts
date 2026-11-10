@@ -35,10 +35,11 @@ describe("StickController", () => {
     expect(views[0].position).toEqual(new Vec3(0, 0.90625, 0));
   });
 
-  it("力度端点1.6/105.8，八字段按Float32输出", () => {
+  it("力度低段保持原作映射，高段提升最高出杆速度，八字段按 Float32 输出", () => {
     const { stick } = setup();
     expect(stick.getStrokeVars(0)[6]).toBe(Math.fround(1.6));
-    expect(stick.getStrokeVars(1)[6]).toBe(Math.fround(105.8));
+    expect(stick.getStrokeSpdWithPower(.8)).toBeCloseTo(74.4, 10);
+    expect(stick.getStrokeVars(1)[6]).toBe(Math.fround(126.96));
     expect(stick.getStrokeVars(0.5)).toHaveLength(8);
     expect(stick.getStrokeVars(0.5)[7]).toBe(Math.fround(0.005));
   });

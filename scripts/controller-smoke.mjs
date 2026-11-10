@@ -40,7 +40,7 @@ try {
   assert.equal((await advance(120)).ready, true);
   await page.mouse.move(640, 400);
   await page.mouse.wheel(0, 200);
-  assert.equal((await advance(30)).power, .6);
+  assert.equal((await advance(30)).power, .52);
   await page.keyboard.down("Alt");
   await page.mouse.down(); await page.mouse.move(680, 400); await page.mouse.up();
   await page.keyboard.up("Alt");
@@ -56,7 +56,7 @@ try {
       transform: Array.from(cue.getWorldMatrix().m).every((value, i) => Math.abs(value - game.human.stick.worldMatrix.m[i]) < 1e-6),
       powerWidth: document.querySelector(".power-bar-fill").style.width };
   });
-  assert.deepEqual(cueView, { visible: true, ready: true, transform: true, powerWidth: "60%" });
+  assert.deepEqual(cueView, { visible: true, ready: true, transform: true, powerWidth: "52%" });
   await page.screenshot({ path: ".cache/controller/aim.png" });
   await page.keyboard.press("Space");
   let state = await advance(1);

@@ -31,7 +31,7 @@ try {
   const aim = async (mode, dx, dz) => {
     await page.evaluate(async ({ mode, dx, dz }) => {
       const { game } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
-      if (!game.setMode(mode, "EASY")) throw new Error("Cannot reset while shooting");
+      if (!game.setMode(mode, "EASY", { openingPlayerIndex: 0 })) throw new Error("Cannot reset while shooting");
       game.controls.inHand.exit();
       game.human.camera.resetWithKissDir(dx, dz);
       game.human.gotoState1(true);
@@ -47,6 +47,9 @@ try {
     await page.screenshot({ path: `.cache/controller/gunsight-${name}.png` });
   };
   await mkdir(".cache/controller", { recursive: true });
+  await page.getByRole("button", { name: "练习", exact: true }).click();
+  await page.getByRole("button", { name: "自由练习", exact: true }).click();
+  await advance(2);
   assert.deepEqual((await advance()).visible, []);
   await page.locator("canvas").focus(); await page.keyboard.press("w");
   assert.deepEqual((await advance(15)).visible, []);

@@ -68,3 +68,5 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 菜单层级与操作指南（2026-11-09）：menu-smoke.mjs（npm run test:menu）验证首页卡片/二级返回、操作指南弹层、退出 900 后回首页且倒计时冻结、对局内指南入口。controller-smoke 从主菜单启动自由练习，不依赖初始页面直接开局。
 
 回放音频（2026-11-09）：replay-audio-smoke.mjs（npm run test:replay:audio）验证回放录制 impact 事件、按 playHead 播放、暂停立即停声、重播/定位不重复旧声；音频使用独立回放混音器与现有 master 音量。
+
+力度控制（2026-11-10）：controller-smoke 断言滚轮 200 对应 52% 力度，验证每格 1% 的输入步长；stick 单测覆盖 0/0.8/1 的速度端点与高段倍率。

@@ -43,7 +43,7 @@ export class GamingInput {
       wheel: { states: 4, run: (delta, modifier) => {
         if (this.inHand.active || camera.state === 0) return;
         if (modifier) person.stick.moveAngleV(-2e-4 * delta);
-        else person.strokePower += 5e-4 * delta;
+        else person.strokePower += 1e-4 * delta;
       } },
       move: { states: 4, run: (x, y) => { if (this.inHand.active) this.inHand.move(x, y); } },
       click: { states: 4, run: (x, y) => { if (this.inHand.active) this.inHand.click(x, y); } }
