@@ -12,11 +12,13 @@ import { Gunsight } from "./render/gunsight.js";
 import { PlacementMarkers } from "./render/placement.js";
 import { BrowserGame } from "./app-game.js";
 import { BrowserAudio } from "./app-audio.js";
-import { GameMenu, type MatchLaunchRequest, type PresetShapeId } from "./ui/game-menu.js";
+import { AuthClient } from "./auth/client.js";
+import { BrowserAuthGate } from "./app-auth.js";
+import { GameMenu, type MatchLaunchRequest, type MenuIdentity, type PresetShapeId } from "./ui/game-menu.js";
 import { GameMenuDom } from "./ui/game-menu-dom.js";
 import { makePracticeShapeConfig, type PracticeShapeId } from "./core/practice/shapes.js";
 import { toCustomPracticeOptions, toCustomShapeSetup, type CustomShapeRecord } from "./core/practice/custom-shapes.js";
-import { MyShapesStore } from "./app-my-shapes.js";
+import { MyShapesStore, userShapeStorage } from "./app-my-shapes.js";
 import { ShapeEditor } from "./app-shape-editor.js";
 import type { MyShapesPort } from "./ui/my-shapes-panel.js";
 
@@ -57,6 +59,19 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
   const canvas = document.querySelector("canvas");
   const status = document.querySelector("output");
   if (!canvas || !status) throw new Error("Missing render host");
+  const authRequired = import.meta.env.PROD || import.meta.env.VITE_AUTH_REQUIRED === "true";
+  let auth: AuthClient | undefined;
+  let viewer: MenuIdentity | null = null;
+  if (authRequired) {
+    status.textContent = "检查登录状态…";
+    const client = new AuthClient(import.meta.env.VITE_AUTH_API_BASE ?? "/api");
+    const gate = new BrowserAuthGate(client);
+    try {
+      const session = await gate.requireSession();
+      viewer = { id: session.user.id, email: session.user.email, role: session.user.role };
+      auth = client;
+    } finally { gate.dispose(); }
+  }
   const engine = new B.Engine(canvas, true, { preserveDrawingBuffer: true });
   engine.enableOfflineSupport = false;
   let scene: B.Scene | undefined;
@@ -73,7 +88,8 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     disposeGame = () => game.dispose();
     let editor: ShapeEditor | undefined;
     let customRespotColours = false;
-    const myShapes = new MyShapesStore(localStorage);
+    const legacyShapes = viewer ? new MyShapesStore(localStorage) : null;
+    const myShapes = new MyShapesStore(viewer ? userShapeStorage(localStorage, viewer.id) : localStorage);
     const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(),
       getBallView: index => editor?.active ? editor.getBallView(index) : game.getDisplayBallView(index) },
       DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.cueBallRedDots });
@@ -96,6 +112,8 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     audio = new BrowserAudio(game.bus, options ?? document.body);
     const offAudioUnlock = game.bus.on("sim/shooting-start", () => audio?.unlockNow());
     const menuState = new GameMenu({ onPauseSignal: () => { game.pause.request(); canvas.focus(); } });
+    menuState.viewer = viewer;
+    menuState.onlineEnabled = !authRequired;
     let menuDom: GameMenuDom;
     const launchFromMenu = (req: MatchLaunchRequest) => {
       audio?.unlockNow();
@@ -163,6 +181,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
         customShapeId: id, cueBallStyle: style });
       menuDom.sync();
     };
+    const legacySnapshot = legacyShapes?.load() ?? null;
     const myShapesPort: MyShapesPort = {
       snapshot: () => myShapes.load(),
       create: () => openEditor(null),
@@ -171,9 +190,24 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       rename: (id, name) => myShapes.rename(id, name),
       remove: id => { myShapes.remove(id); menuDom.sync(); },
       restore: id => myShapes.restore(id),
-      purge: id => { myShapes.purge(id); menuDom.sync(); }
+      purge: id => { myShapes.purge(id); menuDom.sync(); },
+      ...(legacyShapes && legacySnapshot && legacySnapshot.active.length + legacySnapshot.recycle.length > 0 ? {
+        legacy: {
+          count: legacySnapshot.active.length + legacySnapshot.recycle.length,
+          import: () => {
+            const snapshot = legacyShapes.load();
+            return myShapes.importRecords([...snapshot.active, ...snapshot.recycle]);
+          }
+        }
+      } : {})
     };
-    menuDom = new GameMenuDom(menuState, launchFromMenu, document, myShapesPort);
+    const logout = (): void => {
+      if (!auth) return;
+      void auth.logout().then(() => location.assign("/")).catch(() => {
+        status.textContent = "退出登录失败，请稍后重试";
+      });
+    };
+    menuDom = new GameMenuDom(menuState, launchFromMenu, document, myShapesPort, logout);
     document.body.append(menuDom.element);
     let menuMode = false;
     const setMenuMode = (active: boolean): void => {

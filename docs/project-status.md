@@ -11,7 +11,8 @@
 | 菜单 | 本地 UI 已有，正式房间、账号及若干按钮仍为占位；菜单设计列出接入缺口 |
 | 900 | 有核心及浏览器实现；不能仅凭旧测试称整体完成，差异见下表 |
 | 音效 | 已有真实播放链路；采集方向先用手机与笔记本实录，不满意时再考虑官方录像音轨；旧试听任务不自动继续 |
-| 正式联机、账号、长期存档、排行榜、高光库 | 产品设计已分章；协议和持久化为工程提案，未实现 |
+| 正式联机、长期存档、排行榜、高光库 | 产品设计已分章；协议和持久化为工程提案，未实现 |
+| 内测身份与服务基础（2026-11-10） | 两个预建账号、PostgreSQL 迁移、Cookie 会话、管理员 CLI、登录门禁、按用户隔离本地球形和部署配置已实现；本地/正式构建验收通过。公网远程部署待服务器/域名，开放注册、邮箱验证、找回密码、云球形、排行榜、正式联机绑定未实现 |
 | 联机开发原型（第 0—3 单元） | 2026-11-07 完成开发原型：Node 权威房间 + 两开发席位 + 真实击球/触球同步 + 单程延迟注入；单机双页面自动验收通过。正式联机、账号、持久化与完整 900 仍未实现；限制与实测见[原型设计](multiplayer-prototype-design.md) §10—§11 |
 | 整场身份与换局（B首单元） | 2026-11-08 接入开发联机：独立整场/局/尝试/杆身份，随机首局与后续轮换、局分、双边准备和唯一整场结果；人工步骤见[整场进度](match-progress-design.md)。完整检查点已实现，数据库未接入 |
 | 暂停与继续（B第三单元） | 本地练习、人机、双人规则测试及经典开发联机已接线；政策和入口见[生命周期](match-lifecycle-design.md) §2，自动验证见本文末尾。长期暂存及正式掉线恢复尚未接入 |
@@ -186,3 +187,21 @@ D03 已于2026-11-08确认：所有正式双人赛制的首局由服务器随机
 - Chrome `test:pause` 连续两次通过：真实菜单点击、不透明模态、Esc/W/Space隔离、暂停不扣两表、900次数及自动恢复、双USER各自预算、AI继续唯一出杆、双方准备、恢复瞄准击球、相机保持、运动结算后暂停及暂停中掉线重进。此前一次瞄准等待超时未在两次复跑中重现，保留失败时状态输出以便后续追查，不声称发现或修复了该超时根因。
 - 本轮浏览器还通过 `test:net` 全专项（含延迟、丢确认、双向出杆、镜头、两房间、三局两胜）、`test:controller`、`test:900`、`test:practice` 与 `test:my-shapes`。软件WebGL运行不代表真实设备帧率；用户尚需人工验收暂停体验。
 - 范围：真实联机仍是经典规则开发入口，900暂停在本地人机/双人规则测试验证。未接数据库、长期暂存入口、正式120秒重连判负或完整联机900；服务器重启不会自动恢复比赛。下一单元接持久化及故障恢复。
+
+## 内测身份与服务基础（2026-11-10）
+
+- 范围与接口：[internal-beta-identity-design.md](internal-beta-identity-design.md)、[identity-session-verifier.md](identity-session-verifier.md)、架构 §4.14。部署步骤见 [deploy/README](../deploy/README.md)。
+- 实现：`src/identity/**`（PostgreSQL 用户/会话、scrypt、HttpOnly Cookie、登录限流、管理员 CLI、静态服务、可选内网会话校验）、`db/migrations/001_identity.sql`、`tests/identity/**`。
+- 浏览器：正式构建默认登录门禁；登录页错误/停用/后端不可用不绕过；主菜单显示邮箱和退出；双人入口明确禁用；`我的球形` 使用 `snk.user.<userId>.practice.shapes.v1`，旧匿名键保留并提供手动导入。
+- 实际账号命令：`npm run identity:create-user -- --email <邮箱>`（密码隐藏输入）；`reset-password`/`disable-user`/`enable-user`/`list-users` 独立执行。账号 ID 为 UUID，重启服务不变。
+- 自动验收：
+  - `npm run typecheck` 通过。
+  - `npm run test`：86 文件、760 项通过（设置 `TEST_DATABASE_URL` 后跑身份真实数据库套件）；不设测试库时为 83 文件、735 通过、25 跳过。`tests/identity` 5 文件 49 项。
+  - `npm run test:identity:browser`：真实 PostgreSQL + 正式 dist + 身份服务，登录、错误密码、预设球形/自由练习真实出杆、人机玩家/AI 回合、900 起表出杆、自建球形保存/刷新/练习、两账号本地球形隔离、退出登录、API 不可用不绕过登录，全部通过。
+  - 既有 `test:menu`、`test:mode-switch`、`test:practice`、`test:my-shapes`、`test:controller`、`test:900`、`test:pause`、`test:replay`、`test:replay:audio`、`test:audio` 通过；音频专项适配主菜单入口后使用真实音频后端探针。
+- 未完成/限制：
+  - 无公网服务器、域名和 TLS 权限：Caddy 证书、公网 DNS/80/443 和真实远程上线未执行；只完成本地与可部署配置演练。
+  - Docker 镜像拉取被本机镜像注册表网络阻止，`docker build`/容器化启动未验证；compose 配置已通过 `docker compose config`。
+  - 登录限流是单实例内存；多实例部署需共享存储。
+  - 本地球形不做云同步，换设备/清缓存会丢失；旧匿名数据需手动导入。
+  - 工作区未提交的 `src/core/physics/table-tuning.ts` 用户调参仍是 `angularRetention: 0.995`；以 HEAD 的 `0.992` 跑全量测试为 83 文件 735 通过，使用 `0.995` 时 `tests/unit/nine-hundred-game.spec.ts` 的压哨进球断言会变为犯规，属于调参影响，不由本单元修改。

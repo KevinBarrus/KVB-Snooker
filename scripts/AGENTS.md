@@ -74,3 +74,9 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 回放入口（2026-11-10）：replay-smoke.mjs 断言母球进入手中球/摆球状态时 `.replay-open` 仍可见；BrowserGame 的回放 canOpen 不再排除 inHand，退出回放保留摆球状态。
 
 模式切换（2026-11-10）：mode-switch-smoke.mjs（npm run test:mode-switch）真实启动人机对局，在球杆尚未触球时从局内菜单退出，再创建双人比赛；验证退出会清理 `pendingShot`/`outSeen`、`canReset` 恢复，新比赛是 USER/USER 的新 GameSession 而不是旧人机对局。脚本只通过页面与运行时入口操作，不改核心规则。
+
+内测身份（2026-11-10）：identity-smoke.mjs（npm run test:identity:browser）在正式 dist + 真实 PostgreSQL + 身份服务上验证登录、错误密码、预设球形和自由练习真实出杆、人机玩家/AI 回合、900 起表出杆、自建球形保存/刷新/练习、两个账号本地球形隔离、退出登录，以及 API 不可用时不绕过登录；脚本自建临时测试库（默认 snk_identity_browser）和 8788 以外的随机端口，不提交密码。deploy-check.mjs 只读校验 render/physics/audio 与 dist/身份编译产物；identity-local.mjs 编排本地 PostgreSQL、身份服务和 Vite，不写死密钥。
+
+内测身份数据库测试：tests/identity/** 使用 TEST_DATABASE_URL 的独立 schema，覆盖迁移幂等、两账号稳定 UUID、create-user 幂等、登录/退出/改密/停用会话撤销、限流、Origin/Content-Type、内部会话校验和静态服务。未设置测试库时数据库套件跳过，纯单元/CLI 仍运行；验收时应显式设置 TEST_DATABASE_URL 并记录跳过的套件。
+
+音频入口适配（2026-11-10）：audio-smoke.mjs 从主菜单启动自由练习再测声音，并通过对实际 `runtime.audio.backend` 的原型探针记录播放决策；不再导入可能产生第二份模块实例的裸 browser-backend 路径。

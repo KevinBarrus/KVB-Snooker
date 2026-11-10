@@ -11,6 +11,11 @@ export interface CreateShapeResult {
 
 export type RestoreShapeResult = "ok" | "full" | "missing";
 
+export interface ImportShapesResult {
+  readonly imported: number;
+  readonly skipped: number;
+}
+
 export interface KeyValueStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -22,6 +27,16 @@ interface StoredFile {
 }
 
 const STORAGE_KEY = "snk.practice.shapes.v1";
+
+/** 登录用户的本地球形命名空间；旧匿名键保持原样，不自动迁移。 */
+export function userShapeStorage(storage: KeyValueStorage, userId: string): KeyValueStorage {
+  const prefix = `snk.user.${userId}.`;
+  const scoped = (key: string): string => prefix + key.replace(/^snk\./, "");
+  return {
+    getItem: key => storage.getItem(scoped(key)),
+    setItem: (key, value) => storage.setItem(scoped(key), value)
+  };
+}
 
 function sortByCreatedAt(records: readonly CustomShapeRecord[]): CustomShapeRecord[] {
   return [...records].sort((left, right) => right.createdAt - left.createdAt);
@@ -101,6 +116,25 @@ export class MyShapesStore {
     if (!record) return false;
     this.write(records.filter(entry => entry.id !== id));
     return true;
+  }
+
+  /** 手动导入旧匿名球形；保留原 id/时间，去重并遵守 50 条活动上限。 */
+  importRecords(source: readonly CustomShapeRecord[]): ImportShapesResult {
+    const records = this.read();
+    const ids = new Set(records.map(entry => entry.id));
+    let active = records.filter(entry => entry.deletedAt === null).length;
+    let imported = 0;
+    let skipped = 0;
+    const additions: CustomShapeRecord[] = [];
+    for (const record of source) {
+      if (ids.has(record.id) || (record.deletedAt === null && active >= CUSTOM_SHAPE_LIMIT)) { skipped++; continue; }
+      additions.push({ ...record, balls: record.balls.map(ball => ({ ...ball })) });
+      ids.add(record.id);
+      if (record.deletedAt === null) active++;
+      imported++;
+    }
+    if (additions.length) this.write([...records, ...additions]);
+    return { imported, skipped };
   }
 
   private read(): CustomShapeRecord[] {

@@ -221,4 +221,27 @@ describe("ui game menu", () => {
     menu.locale = "en";
     expect(menu.frameRuleLabels).toEqual({ prefix: "Best of", middle: "· First to", suffix: "" });
   });
-});
+
+  it("内测正式构建关闭双人入口：不能生成 ID 或进入本地双 USER 测试", () => {
+    const menu = new GameMenu();
+    menu.onlineEnabled = false;
+    menu.selectTab("two-player");
+    menu.selectTwoPlayerSub("create");
+    menu.selectCreateMode("classic");
+    menu.selectCreateFrames(3);
+    expect(menu.canGenerateMatchId).toBe(true);
+    expect(menu.generateMatchId()).toBe(false);
+    expect(menu.matchIdPopupOpen).toBe(false);
+    expect(menu.enterCreatedMatch()).toBeNull();
+    menu.selectTwoPlayerSub("join");
+    menu.setJoinMatchId("ROOM-001");
+    expect(menu.enterJoinedMatch()).toBeNull();
+  });
+
+  it("内测身份只作为只读菜单状态保存", () => {
+    const menu = new GameMenu();
+    expect(menu.viewer).toBeNull();
+    menu.viewer = { id: "u-1", email: "a@example.com", role: "player" };
+    expect(menu.viewer?.id).toBe("u-1");
+  });
+})

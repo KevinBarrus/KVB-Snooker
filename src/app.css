@@ -220,3 +220,35 @@ body:has(.replay-panel:not([hidden])) > output { visibility: hidden; }
 .menu-back-bar { align-self: flex-start; width: min(760px, 92vw); margin-bottom: 10px; }
 .menu-back-btn { padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 6px; background: rgba(12, 15, 11, 0.8); color: #cdd3c5; }
 .menu-back-btn:hover { border-color: rgba(229, 214, 157, 0.55); color: #f7e8b4; }
+
+/* 内测登录：只暴露登录动作，不提供注册、找回或假验证入口。 */
+.login-screen { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; background:
+  radial-gradient(circle at 24% 18%, rgba(83, 106, 63, 0.26), transparent 42%),
+  radial-gradient(circle at 78% 82%, rgba(167, 139, 65, 0.12), transparent 46%), #080b08; }
+.login-screen[hidden] { display: none; }
+.login-card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 32px 30px 28px; border-radius: 14px; border: 1px solid rgba(229, 214, 157, 0.34); background: rgba(18, 23, 17, 0.96); box-shadow: 0 30px 90px rgba(0, 0, 0, 0.72); }
+.login-eyebrow { color: #cdb96f; font-size: 11px; font-weight: 700; letter-spacing: 0.3em; }
+.login-title { margin: 0; color: #f7f2df; font-size: 30px; line-height: 1.1; letter-spacing: 0.04em; }
+.login-hint { margin: -4px 0 8px; color: #8f9889; font-size: 13px; }
+.login-form { display: flex; flex-direction: column; gap: 12px; }
+.login-label { display: flex; flex-direction: column; gap: 6px; color: #cdd3c5; font-size: 13px; font-weight: 600; }
+.login-input { width: 100%; box-sizing: border-box; padding: 11px 12px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.16); background: #101510; color: #f4f5ef; font-size: 15px; }
+.login-input:focus { outline: none; border-color: rgba(229, 214, 157, 0.72); }
+.login-message { min-height: 18px; margin: 0; color: #9ba595; font-size: 13px; }
+.login-message-error { color: #e3a78d; }
+.login-submit { width: 100%; margin-top: 2px; }
+.login-retry { width: 100%; }
+.menu-identity { position: absolute; top: 16px; right: 20px; z-index: 20; display: flex; align-items: center; gap: 10px; padding: 7px 10px 7px 13px; border-radius: 8px; border: 1px solid rgba(229, 214, 157, 0.22); background: rgba(12, 16, 12, 0.82); color: #cdd3c5; pointer-events: auto; font-size: 12px; }
+.menu-identity[hidden] { display: none; }
+.menu-identity-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-logout-btn { padding: 5px 9px; border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.16); background: #1b211a; color: #d8ddcf; font-size: 12px; }
+.menu-logout-btn:hover { border-color: rgba(229, 214, 157, 0.5); color: #f7e8b4; }
+.menu-account { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(229, 214, 157, 0.22); background: #121712; color: #cdd3c5; }
+.menu-account[hidden] { display: none; }
+.menu-account-label { color: #8f9889; font-size: 11px; letter-spacing: 0.08em; }
+.menu-account-email { color: #f1ead2; font-size: 14px; }
+.menu-account-id { color: #7f887a; font-size: 11px; word-break: break-all; }
+.menu-account .menu-seg-btn { margin-top: 6px; align-self: flex-start; }
+.home-card:disabled { opacity: 0.42; cursor: not-allowed; filter: grayscale(0.35); }
+.home-card:disabled:hover { transform: none; border-color: rgba(229, 214, 157, 0.22); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42); }
+.menu-legacy-import { border-color: rgba(255, 255, 255, 0.14) !important; background: #171c17 !important; color: #b7bcae !important; font-size: 13px !important; box-shadow: none !important; }

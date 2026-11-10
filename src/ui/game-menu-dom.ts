@@ -12,6 +12,7 @@ import {
   type PresetShapeId
 } from "./game-menu";
 import { MyShapesPanelDom, type MyShapesPort } from "./my-shapes-panel";
+import { MenuIdentityDom } from "./menu-identity";
 
 const MODE_CARDS: readonly { readonly id: MenuRuleset; readonly label: string }[] = [
   { id: "classic", label: "经典斯诺克" },
@@ -64,6 +65,9 @@ export class GameMenuDom {
   private readonly myShapesPanel: MyShapesPanelDom | null;
 
   private readonly profilePanel: HTMLElement;
+  private readonly identity: MenuIdentityDom;
+  private readonly homeCards = new Map<Exclude<MainMenuTab, "guide">, HTMLButtonElement>();
+  private readonly homeDetails = new Map<Exclude<MainMenuTab, "guide">, HTMLElement>();
   private readonly guideDialog: HTMLElement;
 
   private readonly inGameTriggerBtn: HTMLButtonElement;
@@ -80,7 +84,8 @@ export class GameMenuDom {
     readonly state: GameMenu,
     private readonly onLaunchMatch: (request: MatchLaunchRequest) => void,
     private readonly doc: Document = document,
-    private readonly myShapesPort?: MyShapesPort
+    private readonly myShapesPort?: MyShapesPort,
+    private readonly onLogout?: () => void
   ) {
     this.element = doc.createElement("div");
     this.element.className = "game-menu-layer";
@@ -297,6 +302,8 @@ export class GameMenuDom {
         })
       );
     }
+    this.identity = new MenuIdentityDom(doc, onLogout);
+    profileBox.prepend(this.identity.account);
     this.profilePanel.append(profileBox);
 
     this.panelHost.append(this.homePanel, this.aiPanel, this.twoPlayerPanel, this.practicePanel, this.profilePanel);
@@ -354,7 +361,7 @@ export class GameMenuDom {
     this.guideDialog.append(guideClose, this.makeGuideContent("guide-dialog-content"));
 
     this.element.append(this.mainWrap, this.matchIdPopup, this.shapeStyleDialog, this.exitDialog,
-      this.guideDialog, this.inGameTriggerBtn, this.inGameModal);
+      this.guideDialog, this.inGameTriggerBtn, this.inGameModal, this.identity.chip);
     this.sync();
   }
 
@@ -421,6 +428,8 @@ export class GameMenuDom {
       const detail = this.doc.createElement("span");
       detail.textContent = item.detail;
       card.append(name, detail);
+      this.homeCards.set(item.id, card);
+      this.homeDetails.set(item.id, detail);
       card.addEventListener("click", () => { this.state.selectTab(item.id); this.sync(); });
       cards.append(card);
     }
@@ -505,7 +514,14 @@ export class GameMenuDom {
   sync(): void {
     const s = this.state;
     this.mainWrap.hidden = !s.mainMenuOpen;
-
+    this.identity.sync(s.viewer, s.mainMenuOpen);
+    for (const [id, card] of this.homeCards) {
+      const disabled = id === "two-player" && !s.onlineEnabled;
+      card.disabled = disabled;
+      card.setAttribute("aria-disabled", String(disabled));
+      const detail = this.homeDetails.get(id);
+      if (id === "two-player" && detail) detail.textContent = disabled ? "内测暂未开放" : "创建或加入一场对局";
+    }
 
     this.aiPanel.hidden = s.activeTab !== "ai";
     for (const [id, btn] of this.aiModeButtons) {
@@ -517,6 +533,8 @@ export class GameMenuDom {
     this.aiStartBtn.disabled = !s.canStartAiMatch;
 
     this.twoPlayerPanel.hidden = s.activeTab !== "two-player";
+    this.tpCreateTabBtn.disabled = !s.onlineEnabled;
+    this.tpJoinTabBtn.disabled = !s.onlineEnabled;
     this.tpCreateTabBtn.setAttribute("aria-pressed", String(s.twoPlayerSub === "create"));
     this.tpJoinTabBtn.setAttribute("aria-pressed", String(s.twoPlayerSub === "join"));
     this.tpCreateBox.hidden = s.twoPlayerSub !== "create";
@@ -533,16 +551,17 @@ export class GameMenuDom {
     this.frameSuffixText.hidden = !labels.suffix;
     this.framesSelect.value = s.createTotalFrames === null ? "" : String(s.createTotalFrames);
     this.winFramesBox.textContent = s.createWinFrames === null ? "" : String(s.createWinFrames);
-    this.generateIdBtn.disabled = !s.canGenerateMatchId;
+    this.generateIdBtn.disabled = !s.onlineEnabled || !s.canGenerateMatchId;
 
+    this.joinIdInput.disabled = !s.onlineEnabled;
     if (this.joinIdInput.value !== s.joinMatchId) {
       this.joinIdInput.value = s.joinMatchId;
     }
-    this.joinEnterBtn.disabled = !s.canEnterJoinedMatch;
+    this.joinEnterBtn.disabled = !s.onlineEnabled || !s.canEnterJoinedMatch;
 
     this.matchIdPopup.hidden = !(s.mainMenuOpen && s.activeTab === "two-player" && s.twoPlayerSub === "create" && s.matchIdPopupOpen);
     this.matchIdValue.textContent = s.generatedMatchId;
-    this.createEnterBtn.disabled = false;
+    this.createEnterBtn.disabled = !s.onlineEnabled;
 
     this.practicePanel.hidden = s.activeTab !== "practice";
     this.practiceEntryBox.hidden = s.practiceSub !== null;

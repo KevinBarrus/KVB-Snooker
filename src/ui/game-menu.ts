@@ -47,6 +47,12 @@ export interface MatchLaunchRequest {
   readonly customShapeId?: string;
 }
 
+export interface MenuIdentity {
+  readonly id: string;
+  readonly email: string;
+  readonly role: "player" | "admin";
+}
+
 export interface InGameActionItem {
   readonly id: InGameActionId;
   readonly label: string;
@@ -82,6 +88,8 @@ export class GameMenu {
   createShapeClicked = false;
 
   activeMatch: MatchLaunchRequest | null = null;
+  viewer: MenuIdentity | null = null;
+  onlineEnabled = true;
   private returnDir: ReturnDirectory = { tab: "ai", twoPlayerSub: null, practiceSub: null };
   private readonly onPauseSignal?: () => void;
 
@@ -177,7 +185,7 @@ export class GameMenu {
   }
 
   generateMatchId(): boolean {
-    if (!this.canGenerateMatchId) return false;
+    if (!this.onlineEnabled || !this.canGenerateMatchId) return false;
     this.matchIdPopupOpen = true;
     return true;
   }
@@ -187,7 +195,7 @@ export class GameMenu {
   }
 
   enterCreatedMatch(): MatchLaunchRequest | null {
-    if (!this.canEnterCreatedMatch || !this.createMode || !this.createTotalFrames) return null;
+    if (!this.onlineEnabled || !this.canEnterCreatedMatch || !this.createMode || !this.createTotalFrames) return null;
     const request: MatchLaunchRequest = {
       kind: "two-player",
       mode: "single-play",
@@ -207,7 +215,7 @@ export class GameMenu {
   }
 
   enterJoinedMatch(): MatchLaunchRequest | null {
-    if (!this.canEnterJoinedMatch) return null;
+    if (!this.onlineEnabled || !this.canEnterJoinedMatch) return null;
     const request: MatchLaunchRequest = {
       kind: "two-player",
       mode: "single-play",

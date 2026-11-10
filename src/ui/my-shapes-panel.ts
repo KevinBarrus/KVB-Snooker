@@ -13,6 +13,8 @@ export interface MyShapesPort {
   remove(id: string): void;
   restore(id: string): "ok" | "full" | "missing";
   purge(id: string): void;
+  /** 旧匿名本地球形仍保留；由玩家手动导入当前账号。 */
+  legacy?: { readonly count: number; import(): { imported: number; skipped: number } };
 }
 
 type Section = "mine" | "recycle";
@@ -29,6 +31,7 @@ export function formatRecycleExpiry(deletedAt: number): string {
 export class MyShapesPanelDom {
   readonly element: HTMLElement;
   private readonly createButton: HTMLButtonElement;
+  private readonly legacyButton: HTMLButtonElement;
   private readonly mineButton: HTMLButtonElement;
   private readonly recycleButton: HTMLButtonElement;
   private readonly items: HTMLElement;
@@ -52,6 +55,12 @@ export class MyShapesPanelDom {
     this.createButton.className = "menu-list-top-action";
     this.createButton.textContent = "创建球形";
     this.createButton.addEventListener("click", () => this.requestCreate());
+    this.legacyButton = doc.createElement("button");
+    this.legacyButton.type = "button";
+    this.legacyButton.className = "menu-list-top-action menu-legacy-import";
+    this.legacyButton.textContent = "导入旧版本地球形";
+    this.legacyButton.hidden = true;
+    this.legacyButton.addEventListener("click", () => this.importLegacy());
     const tabs = doc.createElement("div");
     tabs.className = "my-shapes-tabs";
     this.mineButton = this.makeTab("我的球形", () => this.select("mine"));
@@ -59,7 +68,7 @@ export class MyShapesPanelDom {
     tabs.append(this.mineButton, this.recycleButton);
     this.items = doc.createElement("div");
     this.items.className = "my-shapes-items";
-    this.element.append(this.createButton, tabs, this.items);
+    this.element.append(this.createButton, this.legacyButton, tabs, this.items);
     doc.addEventListener("pointerdown", this.onDocumentPointer);
     doc.addEventListener("keydown", this.onDocumentKey);
   }
@@ -73,6 +82,7 @@ export class MyShapesPanelDom {
   sync(): void {
     const snapshot = this.port.snapshot();
     const list = this.section === "mine" ? snapshot.active : snapshot.recycle;
+    this.legacyButton.hidden = !this.port.legacy || this.port.legacy.count === 0;
     this.mineButton.setAttribute("aria-pressed", String(this.section === "mine"));
     this.recycleButton.setAttribute("aria-pressed", String(this.section === "recycle"));
     const next = [this.section,
@@ -105,6 +115,16 @@ export class MyShapesPanelDom {
     this.section = section;
     this.signature = "";
     this.sync();
+  }
+
+  private importLegacy(): void {
+    const legacy = this.port.legacy;
+    if (!legacy) return;
+    const result = legacy.import();
+    this.signature = "";
+    this.sync();
+    if (result.imported === 0) this.showAlert("没有可导入的新球形。");
+    else this.showAlert(`已导入 ${result.imported} 个球形${result.skipped ? `，跳过 ${result.skipped} 个` : ""}。`);
   }
 
   private requestCreate(): void {

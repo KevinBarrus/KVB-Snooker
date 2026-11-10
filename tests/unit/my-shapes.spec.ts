@@ -9,7 +9,7 @@ import {
   normalizeShapeName, parseCustomShape, toCustomPracticeOptions, toCustomShapeSetup, validateCustomShapeBalls,
   type CustomShapeRecord
 } from "../../src/core/practice/custom-shapes.js";
-import { MyShapesStore, type KeyValueStorage } from "../../src/app-my-shapes.js";
+import { MyShapesStore, userShapeStorage, type KeyValueStorage } from "../../src/app-my-shapes.js";
 
 class MemoryStorage implements KeyValueStorage {
   private readonly values = new Map<string, string>();
@@ -159,5 +159,26 @@ describe("custom practice free scoring", () => {
     settle(game);
     expect(game.players[0].brk).toBe(0);
     expect(game.players[0].pts).toBe(1);
+  });
+});
+
+describe("user scoped shape storage", () => {
+  it("isolates accounts and imports legacy records without moving them", () => {
+    const base = new MemoryStorage();
+    const legacy = new MyShapesStore(base, () => 1000, () => "legacy-1");
+    expect(legacy.create("旧匿名球形", []).ok).toBe(true);
+    const alice = new MyShapesStore(userShapeStorage(base, "user-a"), () => 2000, () => "a-1");
+    const bob = new MyShapesStore(userShapeStorage(base, "user-b"), () => 3000, () => "b-1");
+    expect(alice.load().active).toHaveLength(0);
+    expect(bob.load().active).toHaveLength(0);
+
+    const imported = alice.importRecords(legacy.load().active);
+    expect(imported).toEqual({ imported: 1, skipped: 0 });
+    expect(alice.load().active.map(item => item.name)).toEqual(["旧匿名球形"]);
+    expect(bob.load().active).toHaveLength(0);
+    expect(legacy.load().active.map(item => item.name)).toEqual(["旧匿名球形"]);
+
+    expect(alice.importRecords(legacy.load().active)).toEqual({ imported: 0, skipped: 1 });
+    expect(alice.load().active).toHaveLength(1);
   });
 });
