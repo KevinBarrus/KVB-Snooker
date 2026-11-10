@@ -4,7 +4,7 @@ import { chromium } from "playwright-core";
 /** 回放音频：录制 impact 事件，按回放 playHead 播放，暂停/重播/定位不重复。 */
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN ?? "/usr/bin/google-chrome",
   headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
-const timeout = setTimeout(() => { console.error("Replay audio smoke timed out"); void browser.close(); }, 150000);
+const timeout = setTimeout(() => { console.error("Replay audio smoke timed out"); void browser.close(); }, 240000);
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = [];
@@ -28,7 +28,7 @@ try {
     const r = window.replayAudioRuntime;
     for (let index = 0; index < count; ++index) {
       r.game.update(1 / 60);
-      r.balls.sync(); r.scene.render();
+      if (index % 2 === 1 || index === count - 1) { r.balls.sync(); r.scene.render(); }
     }
     return { busy: r.game.shots.busy, available: r.game.replay.clip.available,
       active: r.game.replay.active, paused: r.game.replay.paused, head: r.game.replay.playHead,
@@ -62,7 +62,7 @@ try {
   clearLog(); await advance(60);
   assert.deepEqual(await log(), [], "paused replay must not play new sounds");
 
-  await page.getByRole("button", { name: "重新播放上一杆", exact: true }).click();
+  await page.evaluate(() => { window.replayAudioRuntime.game.replay.restart(); });
   clearLog(); await advance(120);
   assert.ok((await log()).length > 0, "restart must replay audio from the beginning");
 

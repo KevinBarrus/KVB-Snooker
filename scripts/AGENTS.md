@@ -70,3 +70,5 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 回放音频（2026-11-09）：replay-audio-smoke.mjs（npm run test:replay:audio）验证回放录制 impact 事件、按 playHead 播放、暂停立即停声、重播/定位不重复旧声；音频使用独立回放混音器与现有 master 音量。
 
 力度控制（2026-11-10）：controller-smoke 断言滚轮 200 对应 60% 力度，验证每格 5% 的输入步长；stick 单测覆盖 0/0.8/1 的速度端点与高段倍率。
+
+回放入口（2026-11-10）：replay-smoke.mjs 断言母球进入手中球/摆球状态时 `.replay-open` 仍可见；BrowserGame 的回放 canOpen 不再排除 inHand，退出回放保留摆球状态。

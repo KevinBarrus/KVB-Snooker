@@ -47,6 +47,11 @@ try {
   for (let i = 0; i < 120 && state.busy; ++i) state = await advance(30);
   assert.equal(state.busy, false); assert.equal(state.available, true);
   assert.equal(await page.locator(".replay-open").isVisible(), true);
+  await page.evaluate(() => window.replayTestRuntime.game.controls.inHand.enter());
+  await advance(2);
+  assert.equal(await page.locator(".replay-open").isVisible(), true,
+    "Replay must stay available while the cue ball is waiting to be placed");
+  await page.evaluate(() => window.replayTestRuntime.game.controls.inHand.exit());
   const before = await snapshot();
   await page.getByRole("button", { name: "回看上一杆", exact: true }).click();
   state = await advance(0); assert.equal(state.active, true);

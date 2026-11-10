@@ -150,7 +150,7 @@ export class BrowserGame {
     this.hud = new Hud(() => this.session.players);
     this.hud.attach(this.bus);
     this.replay = new BrowserReplay(camera, canvas, () => this.captureReplay(),
-      () => !this.pause?.blocksPlay && !this.shots.busy && !this.pendingShot && this.session.state === GAME_STATE.READY && !this.controls.inHand.active &&
+      () => !this.pause?.blocksPlay && !this.shots.busy && !this.pendingShot && this.session.state === GAME_STATE.READY &&
         (this.session.ruleset !== "snooker-900" || this.session.finished),
       active => {
         this.controls.input.enabled = !active && !this.shots.inputLocked;

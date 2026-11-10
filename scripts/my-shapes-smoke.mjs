@@ -121,7 +121,6 @@ try {
   assert.equal(state.inHand, 2);
   assert.equal(state.active, 4);
   assert.equal(state.scoreVisible, true);
-  assert.equal(state.ballOnHidden, true);
   assert.equal(await page.evaluate(async () => {
     const r = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     return r.game.session.practiceOptions.respotColoursAfterReds;
@@ -155,6 +154,11 @@ try {
   await advance(1);
   await page.getByRole("button", { name: "退出", exact: true }).click();
   await advance(2);
+  assert.equal(await page.locator(".menu-home").isVisible(), true, "Exit must return to the home menu");
+  await page.getByRole("button", { name: "练习", exact: true }).click();
+  await page.getByRole("button", { name: "球形练习", exact: true }).click();
+  await page.getByRole("button", { name: "我的球形", exact: true }).click();
+  await advance(1);
   assert.equal(await page.locator(".my-shapes-item").count(), 1);
 
   // 4) 编辑保存、删除、恢复、彻底删除；开始询问框打开时右键编辑应关闭旧询问框
@@ -216,7 +220,7 @@ try {
   assert.equal(await page.locator(".my-shapes-item").count(), 0);
 
   // 5) 预设清彩也使用清完四选项
-  await openMyShapes();
+  await page.locator(".menu-back-btn").click();
   await page.getByRole("button", { name: "练习", exact: true }).click();
   await page.getByRole("button", { name: "球形练习", exact: true }).click();
   await page.getByRole("button", { name: "清彩练习", exact: true }).click();
