@@ -17,6 +17,7 @@
 | 重置密码 / 停用 / 启用 / 列出账号 | `npm run identity:reset-password` / `identity:disable-user` / `identity:enable-user` / `identity:list-users`（均带 `--email`） |
 | 启动身份服务 | `DATABASE_URL=... STATIC_DIR=dist npm run identity:dev`（开发只提供 `/api` 时可省略 STATIC_DIR） |
 | 部署资源与产物检查 | `npm run deploy:check`、`npm run deploy:check -- --prod` |
+| 生成预构建部署包（dist + 身份编译 + 生产依赖） | `npm run deploy:bundle`（输出 `.cache/deploy/*.tar.gz`，服务器操作见 [deploy/REMOTE-DAY1.md](../deploy/REMOTE-DAY1.md)） |
 | Node 人机演示 | `npm run demo` |
 | Node 自由练习演示 | `npm run demo -- --mode practice` |
 | 生产构建 | `npm run build` |
@@ -45,6 +46,7 @@
 | 退出后重新开始新模式（未触球出杆清理） | `npm run test:mode-switch`（需要先启动开发服务） |
 | 身份数据库/HTTP/会话与管理员命令 | `TEST_DATABASE_URL=... npm run test:identity`（真实 PostgreSQL；未设库时数据库套件跳过） |
 | 正式构建登录 → 练习/人机/900/自建球形/账号隔离 | `npm run test:identity:browser`（先构建 dist；脚本自建临时测试库和服务） |
+| 已部署远程站点登录/练习/退出 | `REMOTE_URL=... REMOTE_EMAIL=... REMOTE_PASSWORD=... npm run test:identity:remote`（不打印密码） |
 | 暂停与恢复（本地经典/900、双窗口协商） | `npm run test:pause`（先启动开发服务，脚本自建独立联机服务器） |
 | 联机开发原型（两客户端真实击球） | `npm run test:net`（自建服务器与两个浏览器页面；步骤见[联机原型设计](multiplayer-prototype-design.md) §9—§10） |
 | 声音播放 | `npm run test:audio` |

@@ -1,0 +1,24 @@
+# 原生部署（不使用 Docker 构建时的同源 HTTPS 反代）。
+# 站点地址来自 PUBLIC_ORIGIN，例如 https://snk.example.com 或 https://snk.duckdns.org。
+# Caddy 自动申请/续期证书，需要域名解析到服务器且 80/443 可达。
+#
+# 用法：sudo cp deploy/Caddyfile.native /etc/caddy/Caddyfile
+#       sudo systemctl reload caddy
+
+{$PUBLIC_ORIGIN} {
+	encode zstd gzip
+
+	@internal path /api/internal/*
+	respond @internal 404
+
+	reverse_proxy 127.0.0.1:8788 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+	}
+}

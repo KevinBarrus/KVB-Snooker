@@ -198,6 +198,7 @@ D03 已于2026-11-08确认：所有正式双人赛制的首局由服务器随机
   - `npm run typecheck` 通过。
   - `npm run test`：86 文件、760 项通过（设置 `TEST_DATABASE_URL` 后跑身份真实数据库套件）；不设测试库时为 83 文件、735 通过、25 跳过。`tests/identity` 5 文件 49 项。
   - `npm run test:identity:browser`：真实 PostgreSQL + 正式 dist + 身份服务，登录、错误密码、预设球形/自由练习真实出杆、人机玩家/AI 回合、900 起表出杆、自建球形保存/刷新/练习、两账号本地球形隔离、退出登录、API 不可用不绕过登录，全部通过。
+  - `npm run deploy:bundle`：生成 10.9 MiB 运行包并校验 dist/身份编译/迁移/生产依赖；解压后用真实数据库启动，`npm run test:identity:remote` 对包站点通过登录、自由练习真实出杆和退出。服务器到位后的步骤见 [deploy/REMOTE-DAY1.md](../deploy/REMOTE-DAY1.md)。
   - 既有 `test:menu`、`test:mode-switch`、`test:practice`、`test:my-shapes`、`test:controller`、`test:900`、`test:pause`、`test:replay`、`test:replay:audio`、`test:audio` 通过；音频专项适配主菜单入口后使用真实音频后端探针。
 - 未完成/限制：
   - 无公网服务器、域名和 TLS 权限：Caddy 证书、公网 DNS/80/443 和真实远程上线未执行；只完成本地与可部署配置演练。

@@ -9,6 +9,10 @@
 并在本机用真实 PostgreSQL 验证了身份服务运行时路径。Docker 镜像拉取在本构建机被镜像注册表网络阻止，
 `docker build` 未完成，属未验证项，见 §9。
 
+服务器到位后的逐步操作见 [REMOTE-DAY1.md](REMOTE-DAY1.md)。如果目标服务器 Docker 镜像拉取失败，
+可使用预构建运行包：本机 `npm run deploy:bundle` 生成 `.cache/deploy/kvb-snooker-*.tar.gz`，上传解压后
+按 [REMOTE-DAY1.md](REMOTE-DAY1.md) §4 用原生 Node/PostgreSQL/Caddy 启动。
+
 ## 1. 运行边界
 
 ```

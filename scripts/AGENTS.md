@@ -80,3 +80,5 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 内测身份数据库测试：tests/identity/** 使用 TEST_DATABASE_URL 的独立 schema，覆盖迁移幂等、两账号稳定 UUID、create-user 幂等、登录/退出/改密/停用会话撤销、限流、Origin/Content-Type、内部会话校验和静态服务。未设置测试库时数据库套件跳过，纯单元/CLI 仍运行；验收时应显式设置 TEST_DATABASE_URL 并记录跳过的套件。
 
 音频入口适配（2026-11-10）：audio-smoke.mjs 从主菜单启动自由练习再测声音，并通过对实际 `runtime.audio.backend` 的原型探针记录播放决策；不再导入可能产生第二份模块实例的裸 browser-backend 路径。
+
+部署包与远程验收（2026-11-10）：deploy-bundle.mjs（npm run deploy:bundle）在 deploy-check --prod 通过后，把 dist、身份编译产物、迁移和生产依赖打成忽略目录中的 tar.gz，不包含 env/密码；identity-remote-smoke.mjs（npm run test:identity:remote）用 REMOTE_URL/REMOTE_EMAIL/REMOTE_PASSWORD 验证已部署站点的登录、自由练习真实出杆、退出和双人入口禁用，不打印密码。服务器步骤见 deploy/REMOTE-DAY1.md。

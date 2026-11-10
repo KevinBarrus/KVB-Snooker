@@ -1,0 +1,24 @@
+[Unit]
+Description=KVB-Snooker identity and static site
+Documentation=file:/opt/kvb-snooker/deploy/README.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kvb
+Group=kvb
+WorkingDirectory=/opt/kvb-snooker
+EnvironmentFile=/etc/kvb-snooker/identity.env
+ExecStart=/usr/bin/env node .cache/identity/identity/main.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/kvb-snooker/.cache
+
+[Install]
+WantedBy=multi-user.target

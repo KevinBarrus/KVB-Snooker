@@ -2,3 +2,5 @@
 # 示例文件（*.env.example）保留，可提交。
 production.env
 dev.env
+
+identity.env
