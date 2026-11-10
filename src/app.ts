@@ -102,26 +102,31 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       game.setSuspended(false);
       balls.setHidden(false);
       menuDom.element.hidden = true;
+      const reopenMenu = (): void => {
+        // setMode 拒绝时旧对局仍在；重新展开菜单，不能把旧球局当成新模式。
+        menuState.mainMenuOpen = true;
+        menuDom.sync();
+      };
       if (req.mode === "practice" && req.shapeId) {
         const shapeId = PRACTICE_SHAPE_IDS[req.shapeId];
         const config = makePracticeShapeConfig(shapeId, simulator);
         game.setCueBallStyle(req.cueBallStyle ?? "classic");
-        game.setMode("practice", "NORMAL", { setup: config.setup, practice: config.practice }, shapeId);
+        if (!game.setMode("practice", "NORMAL", { setup: config.setup, practice: config.practice }, shapeId)) reopenMenu();
         return;
       }
       if (req.mode === "practice" && req.customShapeId) {
         const record = myShapes.load().active.find(item => item.id === req.customShapeId);
-        if (!record) return;
+        if (!record) { reopenMenu(); return; }
         game.setCueBallStyle(req.cueBallStyle ?? "classic");
-        game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator),
-          practice: toCustomPracticeOptions(customRespotColours) }, null, record);
+        if (!game.setMode("practice", "NORMAL", { setup: toCustomShapeSetup(record, simulator),
+          practice: toCustomPracticeOptions(customRespotColours) }, null, record)) { reopenMenu(); return; }
         menuState.syncExternalMatch(req);
         menuDom.sync();
         return;
       }
       game.setCueBallStyle("classic");
-      game.setMode(req.mode, req.difficulty, req.mode === "single-play"
-        ? { ruleset: req.ruleset, ...(req.players ? { players: req.players } : {}) } : {});
+      if (!game.setMode(req.mode, req.difficulty, req.mode === "single-play"
+        ? { ruleset: req.ruleset, ...(req.players ? { players: req.players } : {}) } : {})) reopenMenu();
     };
     const openEditor = (record: CustomShapeRecord | null): void => {
       if (!editor) return;

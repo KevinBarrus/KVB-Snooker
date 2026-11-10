@@ -35,6 +35,7 @@
 | 练球球形（菜单、自由摆球、复位、犯规弹窗） | `npm run test:practice`（需要先启动开发服务） |
 | 我的球形（创建/编辑/回收站/自建练习） | `npm run test:my-shapes`（需要先启动开发服务） |
 | 菜单层级、操作指南、退出后 900 冻结 | `npm run test:menu`（需要先启动开发服务） |
+| 退出后重新开始新模式（未触球出杆清理） | `npm run test:mode-switch`（需要先启动开发服务） |
 | 暂停与恢复（本地经典/900、双窗口协商） | `npm run test:pause`（先启动开发服务，脚本自建独立联机服务器） |
 | 联机开发原型（两客户端真实击球） | `npm run test:net`（自建服务器与两个浏览器页面；步骤见[联机原型设计](multiplayer-prototype-design.md) §9—§10） |
 | 声音播放 | `npm run test:audio` |

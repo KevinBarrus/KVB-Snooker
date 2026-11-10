@@ -17,6 +17,7 @@
     "test:practice": "node scripts/practice-smoke.mjs",
     "test:my-shapes": "node scripts/my-shapes-smoke.mjs",
     "test:menu": "node scripts/menu-smoke.mjs",
+    "test:mode-switch": "node scripts/mode-switch-smoke.mjs",
     "test:gunsight": "node scripts/gunsight-smoke.mjs",
     "test:camera": "node scripts/camera-smoke.mjs",
     "test:camera:ai": "node scripts/ai-camera-smoke.mjs",

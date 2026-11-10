@@ -72,3 +72,5 @@ audio-smoke.mjs（npm run test:audio）在真实Chrome解码全部素材，观�
 力度控制（2026-11-10）：controller-smoke 断言滚轮 200 对应 60% 力度，验证每格 5% 的输入步长；stick 单测覆盖 0/0.8/1 的速度端点与高段倍率。
 
 回放入口（2026-11-10）：replay-smoke.mjs 断言母球进入手中球/摆球状态时 `.replay-open` 仍可见；BrowserGame 的回放 canOpen 不再排除 inHand，退出回放保留摆球状态。
+
+模式切换（2026-11-10）：mode-switch-smoke.mjs（npm run test:mode-switch）真实启动人机对局，在球杆尚未触球时从局内菜单退出，再创建双人比赛；验证退出会清理 `pendingShot`/`outSeen`、`canReset` 恢复，新比赛是 USER/USER 的新 GameSession 而不是旧人机对局。脚本只通过页面与运行时入口操作，不改核心规则。

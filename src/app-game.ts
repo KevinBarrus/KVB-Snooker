@@ -258,7 +258,8 @@ export class BrowserGame {
   private syncRuleChoice(): void { this.display.syncRules(this.canShoot(this.human.playerIndex)); }
   setSuspended(suspended: boolean): void {
     this.suspended = suspended;
-    if (suspended) this.practice.close();
+    // 退出菜单会终止尚未触球的出杆；遗留 pendingShot 会让新 setMode 被 canReset 拒绝。
+    if (suspended) { this.pendingShot = false; this.outSeen = 0; this.practice.close(); }
     this.display.suspend(suspended);
   }
   get isSuspended(): boolean { return this.suspended; }
