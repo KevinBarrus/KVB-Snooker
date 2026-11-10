@@ -38,13 +38,18 @@ try {
   assert.equal(await page.evaluate(async () => {
     const runtime = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     window.audioRuntime = runtime; runtime.engine.stopRenderLoop();
-    const { BrowserSoundBackend } = await import("/src/audio/browser-backend.ts");
-    const play = BrowserSoundBackend.prototype.play;
+    const backend = runtime.audio.backend;
+    if (!backend) throw new Error("Audio backend missing");
+    const prototype = Object.getPrototypeOf(backend);
+    const play = prototype.play;
     window.decisions = [];
-    BrowserSoundBackend.prototype.play = function (decision) { window.decisions.push(decision); return play.call(this, decision); };
+    prototype.play = function (decision) { window.decisions.push(decision); return play.call(this, decision); };
     window.impacts = []; runtime.game.bus.on("sim/impact", event => window.impacts.push(event));
     return runtime.audio.ready;
   }), true, "All 79 samples must load and decode");
+  await page.getByRole("button", { name: "练习", exact: true }).click();
+  await page.getByRole("button", { name: "自由练习", exact: true }).click();
+  await page.waitForFunction(() => document.querySelector(".game-menu-main")?.hidden, undefined, { timeout: 10000 });
   await page.locator("canvas").click({ position: { x: 600, y: 400 } });
   await page.waitForFunction(() => document.querySelector(".audio-control span").textContent === "音量");
   await page.locator("canvas").focus(); await page.keyboard.press("w");
@@ -72,7 +77,9 @@ try {
     const balls = Array.from({ length: simulator.getBallCount() }, (_, index) => ({ index,
       x: index === 0 ? cue[0] : object?.[0] ?? 0, z: index === 0 ? cue[1] : object?.[1] ?? 0,
       active: index === 0 || (index === 1 && object !== null) }));
-    game.setMode("single-play", "NORMAL", { players: ["USER", "USER"], setup: { balls, ballOn: 2, inHand: 0, playerIndex: 0, scores: [0, 0] } });
+    if (!game.setMode("single-play", "NORMAL", { players: ["USER", "USER"], setup: { balls, ballOn: 2, inHand: 0, playerIndex: 0, scores: [0, 0] } })) {
+      throw new Error(`Test setup rejected: busy=${game.shots.busy} replay=${game.replay.active}`);
+    }
     audio.sync(game.session, simulator.evolution, false);
     window.impacts = []; window.decisions = [];
     const before = window.soundProbe.starts.length;
