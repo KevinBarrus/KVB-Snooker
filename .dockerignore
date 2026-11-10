@@ -1,0 +1,28 @@
+# 构建上下文排除项：只保留源码、构建配置和构建机已准备的 public/assets。
+# 不解除 .gitignore；node_modules、.cache、dist 等由镜像内重新生成。
+.git
+.gitignore
+node_modules
+dist
+build
+out
+.cache
+analysis
+vendor-original
+local-audio
+local-audio-new
+tmp
+*.log
+*.chunk.js
+*.evidence.json
+.env
+.env.*
+deploy/production.env
+deploy/dev.env
+tests
+docs
+.github
+.vscode
+.idea
+.DS_Store
+Thumbs.db

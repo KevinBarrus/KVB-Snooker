@@ -10,6 +10,13 @@
 | 启动网页开发服务 | `npm run dev`，访问终端实际输出的地址 |
 | 启动局域网网页开发服务 | `npm run dev:lan`（监听 0.0.0.0，用于双机开发测试） |
 | 启动联机开发原型服务器 | `npm run net:server -- --host 127.0.0.1 --port 8787 --dev-token dev-local`；双机把 host 改为 `0.0.0.0`，见[联机原型设计](multiplayer-prototype-design.md) §9 |
+| 本地身份 PostgreSQL + 身份服务 + Vite 演练 | `node scripts/identity-local.mjs --db local`（使用本机 PostgreSQL；Docker 模式受镜像网络限制时改用 local） |
+| 编译身份服务 | `npm run identity:build` |
+| 应用数据库迁移 | `DATABASE_URL=... npm run identity:migrate` |
+| 创建内测账号（密码隐藏输入） | `DATABASE_URL=... npm run identity:create-user -- --email <邮箱> [--role player]` |
+| 重置密码 / 停用 / 启用 / 列出账号 | `npm run identity:reset-password` / `identity:disable-user` / `identity:enable-user` / `identity:list-users`（均带 `--email`） |
+| 启动身份服务 | `DATABASE_URL=... STATIC_DIR=dist npm run identity:dev`（开发只提供 `/api` 时可省略 STATIC_DIR） |
+| 部署资源与产物检查 | `npm run deploy:check`、`npm run deploy:check -- --prod` |
 | Node 人机演示 | `npm run demo` |
 | Node 自由练习演示 | `npm run demo -- --mode practice` |
 | 生产构建 | `npm run build` |
@@ -36,6 +43,8 @@
 | 我的球形（创建/编辑/回收站/自建练习） | `npm run test:my-shapes`（需要先启动开发服务） |
 | 菜单层级、操作指南、退出后 900 冻结 | `npm run test:menu`（需要先启动开发服务） |
 | 退出后重新开始新模式（未触球出杆清理） | `npm run test:mode-switch`（需要先启动开发服务） |
+| 身份数据库/HTTP/会话与管理员命令 | `TEST_DATABASE_URL=... npm run test:identity`（真实 PostgreSQL；未设库时数据库套件跳过） |
+| 正式构建登录 → 练习/人机/900/自建球形/账号隔离 | `npm run test:identity:browser`（先构建 dist；脚本自建临时测试库和服务） |
 | 暂停与恢复（本地经典/900、双窗口协商） | `npm run test:pause`（先启动开发服务，脚本自建独立联机服务器） |
 | 联机开发原型（两客户端真实击球） | `npm run test:net`（自建服务器与两个浏览器页面；步骤见[联机原型设计](multiplayer-prototype-design.md) §9—§10） |
 | 声音播放 | `npm run test:audio` |

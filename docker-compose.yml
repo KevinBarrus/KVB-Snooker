@@ -1,0 +1,97 @@
+# KVB-Snooker 内测同源部署：PostgreSQL + 身份服务（含静态 dist），可选 Caddy 终止 HTTPS。
+#
+# 配置全部来自环境变量/受控 env 文件；本文件不写密码。
+#   cp deploy/production.env.example deploy/production.env   # 填写后 chmod 600
+#   docker compose config                                    # 校验（不启动）
+#   docker compose build
+#   docker compose run --rm identity node .cache/identity/identity/cli.js migrate
+#   docker compose up -d
+#   docker compose --profile https up -d caddy               # 有域名后启用
+#
+# 数据库与身份服务不映射公网端口：postgres 只在 internal 网络；identity 只 expose 8788，
+# 由 Caddy 反向代理到 identity:8788。只暴露 80/443。
+name: kvb-snooker
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - path: ./deploy/production.env
+        required: false
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - snk-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER:-snk}\" -d \"$${POSTGRES_DB:-snk}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - internal
+
+  identity:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${IDENTITY_IMAGE:-kvb-snooker-identity:local}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: ./deploy/production.env
+        required: false
+    environment:
+      # 容器内监听所有接口；宿主机/公网不可直接访问该端口（不映射 ports）。
+      HOST: 0.0.0.0
+      PORT: "8788"
+      STATIC_DIR: /app/dist
+      # MIGRATIONS_DIR 默认按进程工作目录解析为 /app/db/migrations。
+    expose:
+      - "8788"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8788/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks:
+      - internal
+
+  # 可选：终止 HTTPS 并同源反代到身份服务；未配置域名前不启用。
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      identity:
+        condition: service_healthy
+    env_file:
+      - path: ./deploy/production.env
+        required: false
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - snk-caddy-data:/data
+      - snk-caddy-config:/config
+    networks:
+      - edge
+      - internal
+
+networks:
+  edge:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  snk-pgdata:
+  snk-caddy-data:
+  snk-caddy-config:

@@ -1,0 +1,4 @@
+# 真实环境文件只留在受控构建机/服务器，不提交。
+# 示例文件（*.env.example）保留，可提交。
+production.env
+dev.env

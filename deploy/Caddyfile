@@ -1,0 +1,28 @@
+# KVB-Snooker 内测同源反向代理。
+#
+# 由 docker compose 的 caddy 服务（profile: https）挂载到 /etc/caddy/Caddyfile。
+# 站点地址来自受控 env 文件中的 PUBLIC_ORIGIN，例如 https://snk.example.com；
+# Caddy 会为该域名自动申请并续期 Let's Encrypt 证书（需要 80/443 可达、DNS 已解析）。
+#
+# 未设置 PUBLIC_ORIGIN 时 Caddy 启动会报错，这是有意的：不提供无域名的隐式 HTTP 站点。
+
+{$PUBLIC_ORIGIN} {
+	encode zstd gzip
+
+	# 设计 §7：内网会话校验端点不对公网开放。即使误设 INTERNAL_TOKEN 也不经反代暴露。
+	@internal path /api/internal/*
+	respond @internal 404
+
+	# 静态文件与 /api/* 同源反代到身份服务；身份服务按 STATIC_DIR=/app/dist 提供 dist。
+	reverse_proxy identity:8788 {
+		# 保留真实来源；身份服务仅在 TRUST_PROXY=1 时读取 X-Forwarded-For。
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+	}
+}

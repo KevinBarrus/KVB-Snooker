@@ -34,7 +34,8 @@
 | 我的球形 | [我的球形设计](my-shapes-design.md) | 架构 §4.11；存储仅 localStorage |
 | 音效接入 | [声音第一版](audio-v1-design.md) | audio 章程、架构 §9 |
 | 声音采集与试听 | [重采样](audio-resampling.md)、[试听交接](audio-v2-listening-handoff.md) | 历史素材方案不自动成为当前运行配置 |
-| 登录与游客 | [账号与游客](accounts-and-guests-design.md) | 不维护比赛结算规则 |
+| 登录与游客 | [账号与游客](accounts-and-guests-design.md)、[内测身份与部署](internal-beta-identity-design.md)、[联机会话校验](identity-session-verifier.md) | 不维护比赛结算规则 |
+| 部署与运维 | [部署说明](../deploy/README.md) | 不复制身份/协议规则 |
 | 正式双人对局 | [房间与玩家流程](multiplayer-design.md) | [通信协议](multiplayer-protocol-design.md) |
 | 联机开发原型（第 0—3 单元） | [原型工程边界与验收](multiplayer-prototype-design.md) | 架构 §4.8、协议 §1—§5 的窄接口子集 |
 | 整场身份与换局 | [整场进度](match-progress-design.md) | 架构 §4.10 |

@@ -1,0 +1,20 @@
+# 本地演练用的 compose override：把 PostgreSQL 映射到 127.0.0.1:55433 供本机 Node 身份服务连接。
+# 使用 55433 而不是常见测试库端口，避免与已在本机 5432/55432 运行的 PostgreSQL 冲突。
+#
+#   cp deploy/dev.env.example deploy/dev.env    # 填写本机占位值
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.dev.yml up -d postgres
+#   node scripts/identity-local.mjs             # 已自动编排上述步骤
+#
+# 仅绑定回环地址，不向局域网暴露端口；production.env 不被读取。
+services:
+  postgres:
+    env_file:
+      - path: ./deploy/dev.env
+        required: false
+    ports:
+      - "127.0.0.1:55433:5432"
+
+  identity:
+    env_file:
+      - path: ./deploy/dev.env
+        required: false

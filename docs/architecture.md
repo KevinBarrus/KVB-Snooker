@@ -443,6 +443,48 @@ RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身�
 - `BrowserGame.pause` 提供本地 `request()/ready()/view/blocksPlay` 装配入口；`app-local-pause.ts` 驱动本地暂停，AI及单机双人测试由一个操作方确认。`app-game-hud.ts`、`app-practice.ts`、`app-net-scene.ts` 只拆分既有装配职责，保持原有算法。
 - `ui/pause-panel.ts` 只接只读状态与动作回调。paused/resuming 使用不透明全屏模态遮挡并约束焦点，禁止回放、菜单或快捷键穿透；本地菜单按钮接入相同流程。恢复清理 Input 按键/指针残留，保持瞄准与摆球实际状态。
 
+### 4.14 可玩经典联机接线（2026-11-10）
+
+范围与分工见 [内测联机接线](multiplayer-playable-design.md)。网络协议v7扩展经典规则操作与只读展示，不改变GameSession接口：
+
+- `RuleAction`：`place-cue {x,z}`、`nominate {ballIndex:number|null}`、`replace-shot`，均携带attemptId，复用CommandMessage的版本、席位与去重。服务端使用GameSession公开操作，暂停/已准备/运动/非持权者拒绝；place-cue仅校验最终落点，不做路径障碍判定。
+- `SnapshotMessage.rules:RulesView`：双方pts/penalty/brk、犯规待选项、自由球资格、手动提名与可选球、贴球编号；只读展示，不授权客户端判罚。自动彩球提名仍由prepareStroke以真实方向判定。
+- `shot-impact`事件包含shotId及原ImpactEvent，事件时间来自权威运动推进的显示时间；声音在客户端播放游标到达时消费一次，预测和重连不补播旧音效。
+- 房间与身份契约在具体适配交付时补充，不允许使用自报userId或开发令牌冒充正式鉴权。
+
+### 4.14 内测身份、会话与部署（2026-11-10 施工契约）
+
+产品范围见[内测身份设计](internal-beta-identity-design.md)。本轮只完成两个预建内测账号、PostgreSQL 会话、登录门禁、按用户隔离本地球形和部署基础；不开放注册、不接正式联机权限、不修改联机协议/房间/席位。
+
+**依赖与边界**
+
+- 新增 `src/identity/**` 基础设施，只依赖 Node 内置模块与 `pg`；不得依赖 DOM、Babylon、`src/core/**`、`src/net/**`、`src/server/**` 或浏览器表现层。
+- 新增 `db/migrations/**` 只管理身份必要表；不提前建排行榜、高光、比赛存档或云球形表。
+- 浏览器只通过同源 `/api/auth/*` 和 HttpOnly Cookie 访问身份；用户 ID、角色、状态由服务端会话裁决。
+- 现有 `src/server/**` 不导入身份服务或数据库；未来由独立装配注入 `SessionVerifier` 或调用内网校验入口，房间裁决仍不直接查库。服务端由会话取得 `userId/displayName/role` 的窄契约见 [identity-session-verifier.md](identity-session-verifier.md)：`SessionVerifier.verify(token): Promise<VerifiedIdentity|null>`，`VerifiedIdentity { userId; displayName; role }`，不含邮箱。
+- 正式构建必须登录；开发构建默认关闭门禁以保留现有无登录测试，`VITE_AUTH_REQUIRED=true` 可开启。身份后端不可用时显示错误，不绕过。
+
+**HTTP 与身份契约**
+
+- `POST /api/auth/login` `{email,password}` → `200 IdentitySessionView` 并设置 `snk_session`；错误统一 `401 invalid_credentials`，限流 `429`。
+- `GET /api/auth/me` → `200 IdentitySessionView`；未登录 `401 unauthenticated`。
+- `POST /api/auth/logout` → `204`，撤销当前服务端会话并清 Cookie。
+- `GET /api/health` → `200 {ok,database}`；数据库不可用 `503`。
+- `IdentityUser { id; email; displayName; role: "player"|"admin"; createdAt }`；`id` 为稳定 UUID，是后续联机和存档唯一用户身份，`displayName` 只用于展示。`IdentitySessionView { user; expiresAt }`。
+- 密码使用 `crypto.scrypt` 哈希；会话 token 随机生成，数据库只存 SHA-256。Cookie 为 `HttpOnly; Path=/; SameSite=Lax; Max-Age`，生产加 `Secure`。退出、改密、停用都撤销旧会话。
+- 管理员命令 `migrate/create-user/reset-password/disable-user/enable-user/list-users` 通过 CLI 执行；`create-user` 重复运行不重建 ID、不覆盖密码。密码仅交互隐藏输入，不写 Git、日志或命令行参数。
+
+**本地球形**
+
+- 登录用户的 `MyShapesStore` 使用 `snk.user.<userId>.practice.shapes.v1` 命名空间；旧匿名键 `snk.practice.shapes.v1` 原样保留，提供手动导入入口，不自动归属第一个登录账号。
+- 正式构建中双人创建/加入入口明确不可用；`GameMenu` 在状态层拒绝进入，不能接受房间码后启动本地双 USER 测试。
+
+**部署**
+
+- 同源 HTTPS；PostgreSQL 与身份服务不暴露公网端口，反向代理只暴露 80/443。数据卷持久化账号。
+- `public/assets/**` 保持 Git 忽略；部署前准备并校验资源，缺失即失败。配置示例、迁移、健康检查、更新和回滚见设计 §6—§7。
+- 本地/正式构建浏览器验收记录写入项目状态；无公网服务器时远程上线列为待完成，不虚报。
+
 ## 5. 目录结构（骨架）
 
 ```
