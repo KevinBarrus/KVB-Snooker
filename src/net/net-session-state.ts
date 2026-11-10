@@ -73,6 +73,7 @@ export class NetSessionState {
   get matchConfig(): MatchConfigView | null { return this.matchValue; }
   get latencyConfig(): LatencyConfig | null { return this.latencyValue; }
   get version(): StateVersion { return this.versionValue; }
+  get paused(): boolean { return this.snapshotValue?.pause.phase === "paused" || this.snapshotValue?.pause.phase === "resuming"; }
   get phase(): RoomPhase { return this.phaseValue; }
   get context(): ContextView | null { return this.contextValue; }
   get latestSnapshot(): SnapshotMessage | null { return this.snapshotValue; }
@@ -99,13 +100,13 @@ export class NetSessionState {
 
   /** 犯规/选择阶段：本地席位是否拥有下一步选择权（最简 decide-turn）。 */
   canDecide(): boolean {
-    return this.connectionValue === "ready" && this.phaseValue === "deciding" &&
+    return !this.paused && this.connectionValue === "ready" && this.phaseValue === "deciding" &&
       this.seatValue !== null && this.contextValue !== null && this.contextValue.playerIndex === this.seatValue;
   }
 
   /** 是否允许在本机发起新出杆意图：稳定阶段、本地球权、无未完成意图。 */
   canLaunch(): boolean {
-    return this.connectionValue === "ready" && this.phaseValue === "ready" &&
+    return !this.paused && this.connectionValue === "ready" && this.phaseValue === "ready" &&
       this.versionValue >= 0 && this.tracker.readyForNewShot && this.isLocalTurn();
   }
 

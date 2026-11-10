@@ -39,7 +39,8 @@
 | 联机开发原型（第 0—3 单元） | [原型工程边界与验收](multiplayer-prototype-design.md) | 架构 §4.8、协议 §1—§5 的窄接口子集 |
 | 整场身份与换局 | [整场进度](match-progress-design.md) | 架构 §4.10 |
 | 稳定边界完整检查点 | [持久化 §2.1](match-persistence-design.md#21-第一版可序列化的稳定边界检查点) | 架构 §4.12；核心及服务端检查点测试 |
-| 暂停、重摆、暂存、掉线 | [比赛生命周期](match-lifecycle-design.md) | [持久化](match-persistence-design.md) |
+| 暂停与继续（架构 §4.13） | [比赛生命周期 §2](match-lifecycle-design.md#2-暂停与-900-时钟) | `npm run test:pause`；本地经典/900和经典联机 |
+| 重摆、暂存、掉线 | [比赛生命周期](match-lifecycle-design.md) | [持久化](match-persistence-design.md) |
 | 个人成绩与排行榜 | [统计](stats-design.md) | 持久化的幂等写入 |
 | 收藏与拼接 | [高光](highlights-design.md) | 持久化的对象引用与任务机制 |
 

@@ -34,6 +34,11 @@
     "src/audio/browser-backend.ts",
     "src/app-audio.ts",
     "src/app-shape-editor.ts",
-    "src/app-my-shapes.ts"
+    "src/app-my-shapes.ts",
+    "src/app-net-pause.ts",
+    "src/app-net-scene.ts",
+    "src/app-practice.ts",
+    "src/app-local-pause.ts",
+    "src/app-game-hud.ts"
   ]
 }

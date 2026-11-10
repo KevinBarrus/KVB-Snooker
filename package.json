@@ -30,7 +30,8 @@
     "audio:final": "node scripts/audio-final-set.mjs",
     "audio:install": "node scripts/audio-final-set.mjs --install",
     "audio:cut": "node scripts/audio-cut.mjs",
-    "test:audio": "node scripts/audio-smoke.mjs"
+    "test:audio": "node scripts/audio-smoke.mjs",
+    "test:pause": "node scripts/pause-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

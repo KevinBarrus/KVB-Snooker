@@ -281,6 +281,7 @@ export class GameMenu {
     const kind = this.activeMatch?.kind ?? "practice";
     if (kind === "two-player") {
       return [
+        { id: "pause", label: "暂停" },
         { id: "exit", label: "退出对局" },
         { id: "guide", label: "操作指南" },
         { id: "restart", label: "重新开始" }
@@ -312,6 +313,7 @@ export class GameMenu {
   triggerInGameAction(action: InGameActionId): MatchLaunchRequest | null {
     if (action === "guide") return null;
     if (action === "pause") {
+      this.inGameMenuOpen = false;
       this.onPauseSignal?.();
       return null;
     }

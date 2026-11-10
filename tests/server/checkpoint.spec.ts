@@ -124,7 +124,7 @@ describe("权威房间完整检查点", () => {
       action: { type: "decide-turn", takeOver: true } }, 10);
     const data = room.exportCheckpoint();
     for (const invalid of [
-      { ...data, format: 2 }, { ...data, protocolVersion: 4 }, { ...data, randomState: -1 },
+      { ...data, format: 99 }, { ...data, protocolVersion: 4 }, { ...data, randomState: -1 },
       { ...data, game: { ...data.game, rulesVersion: "later" } },
       { ...data, match: { ...data.match, view: { ...data.match.view, frameWins: [1, 0] } } },
       { ...data, commands: [...data.commands, ...data.commands] },

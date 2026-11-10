@@ -1,3 +1,4 @@
+import type { PauseView } from "../core/match-pause.js";
 /**
  * 联机开发原型窄接口 v0（2026-11-07 登记于 docs/architecture.md §4.8）。
  * 仅覆盖第 0—3 单元的双开发席位真实击球原型；不是正式账号、房间、存档或排行榜 API。
@@ -7,7 +8,7 @@ import type { SerialData } from "../core/simulator/shot-result.js";
 import type { FrameResult, MatchProgressView, MatchResult } from "../core/match-progress.js";
 export type { FrameResult, MatchProgressView, MatchResult } from "../core/match-progress.js";
 
-export const NET_PROTOCOL_VERSION = 5;
+export const NET_PROTOCOL_VERSION = 6;
 export const DEFAULT_NET_PORT = 8787;
 export const DEFAULT_DEV_TOKEN = "dev-local";
 export const ROOM_RULESET = "classic" as const;
@@ -97,6 +98,7 @@ export interface MotionSample {
 }
 
 export interface SnapshotMessage {
+  readonly pause: PauseView;
   readonly motion?: readonly MotionSample[];
   readonly type: "snapshot";
   readonly match: MatchProgressView;
@@ -109,6 +111,17 @@ export interface SnapshotMessage {
   /** 仅局面稳定（ready/deciding/finished）时携带，供客户端恢复本地预测模拟器。 */
   readonly checkpoint: SerialData | null;
   readonly pendingShot: PendingShotView | null;
+}
+
+export function isPauseView(value: unknown): value is PauseView {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Partial<PauseView>;
+  return ["running", "requested", "waiting", "paused", "resuming"].includes(String(v.phase)) &&
+    (v.requester === null || isSeatIndex(v.requester)) &&
+    Array.isArray(v.used) && v.used.length === 2 && v.used.every(n => Number.isSafeInteger(n) && n >= 0) &&
+    Array.isArray(v.ready) && v.ready.length === 2 && v.ready.every(n => typeof n === "boolean") &&
+    (v.remainingSeconds === null || (typeof v.remainingSeconds === "number" && Number.isFinite(v.remainingSeconds) && v.remainingSeconds >= 0)) &&
+    typeof v.countdownSeconds === "number" && Number.isFinite(v.countdownSeconds) && v.countdownSeconds >= 0;
 }
 
 export function isMatchProgressView(value: unknown): value is MatchProgressView {
@@ -249,7 +262,11 @@ export interface MatchAction {
   readonly attemptId: string;
 }
 
-export type ClientCommandAction = PrepareShotAction | DecideTurnAction | MatchAction;
+export interface PauseAction {
+  readonly type: "pause-request" | "pause-accept" | "pause-decline" | "pause-cancel" | "pause-ready";
+  readonly attemptId: string;
+}
+export type ClientCommandAction = PrepareShotAction | DecideTurnAction | MatchAction | PauseAction;
 
 export interface CommandMessage {
   readonly type: "command";

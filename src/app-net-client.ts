@@ -1,3 +1,4 @@
+import { isPauseView } from "./net/protocol.js";
 /**
  * 联机开发原型的浏览器传输层：原生 WebSocket 收发、hello、1 秒 ping、
  * prepare-shot 未确认时的同 ID 自动重试（超时/次数可配置），以及最小结构校验。
@@ -223,11 +224,11 @@ export class NetClient {
       case "snapshot": {
         const snapshot = value as { readonly version?: unknown; readonly serverTimeMs?: unknown;
           readonly eventSeq?: unknown; readonly phase?: unknown; readonly context?: unknown;
-          readonly balls?: unknown; readonly checkpoint?: unknown; readonly pendingShot?: unknown; readonly match?: unknown; readonly motion?: unknown };
+          readonly balls?: unknown; readonly checkpoint?: unknown; readonly pendingShot?: unknown; readonly match?: unknown; readonly motion?: unknown; readonly pause?: unknown };
         if (!isStateVersion(snapshot.version) || typeof snapshot.serverTimeMs !== "number" ||
             typeof snapshot.eventSeq !== "number" || typeof snapshot.phase !== "string" ||
             !snapshot.context || typeof snapshot.context !== "object" || !Array.isArray(snapshot.balls) ||
-            !isMatchProgressView(snapshot.match) || !validMotionSamples(snapshot.motion, snapshot.serverTimeMs, snapshot.balls.length)) return null;
+            !isPauseView(snapshot.pause) || !isMatchProgressView(snapshot.match) || !validMotionSamples(snapshot.motion, snapshot.serverTimeMs, snapshot.balls.length)) return null;
         return value as ServerMessage;
       }
       case "event": {

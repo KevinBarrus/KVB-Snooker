@@ -1,6 +1,7 @@
 import type { Simulator } from "../core/simulator/simulator.js";
 import type { GameSession } from "../core/game.js";
 import { GAME_STATE } from "../core/game.js";
+import type { PauseView } from "../core/match-pause.js";
 import type { LatencyConfig, MatchProgressView, PendingShotView, RoomPhase, ServerEvent, ServerEventMessage, SnapshotBall, SnapshotMessage } from "../net/protocol.js";
 
 /** welcome.latency 的缺省值：未开启延迟注入。 */
@@ -35,12 +36,14 @@ export function buildSnapshot(
   eventSeq: number,
   nowMs: number,
   pendingShot: PendingShotView | null,
-  match: MatchProgressView
+  match: MatchProgressView,
+  pause: PauseView
 ): SnapshotMessage {
   const phase = match.phase === "active" ? roomPhase(session) : match.phase;
   const simulator = session.simulator;
   return {
     type: "snapshot",
+    pause,
     match,
     version,
     eventSeq,

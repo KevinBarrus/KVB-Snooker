@@ -68,6 +68,8 @@ export class GameSession {
   }
   get openingPlayerIndex(): number { return this.openingIndex; }
   get state(): GameState { return this.currentState; }
+  get canPause(): boolean { return !this.prepared && !this.finished && this.simulator.nAwakened === 0 &&
+    (this.state === GAME_STATE.READY || this.state === GAME_STATE.DECIDING); }
   get finished(): boolean { return this.nine ? this.nine.finished : this.mode === "single-play" && this.context.ballOn === 0; }
   get clock(): MatchClockView | null { return this.nine ? this.nine.clock.view : null; }
   get timeUntilExpiry(): number { return this.nine ? this.nine.clock.untilExpiry : Infinity; }
@@ -123,7 +125,6 @@ export class GameSession {
     if (data.nine) game.nine!.restoreCheckpoint(data.nine);
     return game;
   }
-
   reset(): void {
     // PCOL L3700-3714
     if (this.currentState !== GAME_STATE.PENDING && this.mode !== "practice" && !this.initialSetup) {
@@ -168,7 +169,6 @@ export class GameSession {
         !this.canPlaceCueBall(cue.position.x, cue.position.y, cue.position.z))) this.nine.clock.beginPlacement();
     this.response();
   }
-
   advanceTime(seconds: number): "shot" | "frame" | null {
     const nine = this.nine;
     if (!nine || this.finished) return null;

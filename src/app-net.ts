@@ -1,6 +1,7 @@
+import { loadSimulator, createDisplaySource, withTimeout } from "./app-net-scene.js";
+import { NetPausePanel } from "./app-net-pause.js";
 import * as B from "babylonjs/es6.js";
-import { MeshBody, type CollisionMeshData } from "./core/physics/mesh-body.js";
-import { Simulator } from "./core/simulator/simulator.js";
+import type { Simulator } from "./core/simulator/simulator.js";
 import { DEFAULT_SCENE } from "./core/simulator/scene.js";
 import type { PredictionContext } from "./core/simulator/shot-result.js";
 import { EventBus } from "./core/event-bus.js";
@@ -33,7 +34,6 @@ import {
   type SnapshotMessage
 } from "./net/protocol.js";
 
-interface DisplaySource extends Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "getResult" | "predict"> {}
 const ZERO_LATENCY: LatencyConfig = { enabled: false, inboundMs: 0, outboundMs: 0, jitterMs: 0, appliesTo: "one-way-per-direction" };
 const NO_PLACEMENT: PlacementCommands = {
   ray: () => ({ origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 0 } }),
@@ -43,41 +43,6 @@ const NO_PLACEMENT: PlacementCommands = {
   focus: () => null,
   end: () => false
 };
-const DIGEST = "04acfb245368bc1762cdcdf94f0bb81ab82dd82f785af661a4f63d3de9ccbbc9";
-
-async function loadSimulator(): Promise<Simulator> {
-  const response = await fetch("/assets/physics/table.json");
-  if (!response.ok) throw new Error(`Physics table: HTTP ${response.status}`);
-  const bytes = await response.arrayBuffer();
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  const hash = Array.from(digest, byte => byte.toString(16).padStart(2, "0")).join("");
-  if (hash !== DIGEST) throw new Error("Physics table digest mismatch");
-  const mesh = new MeshBody(JSON.parse(new TextDecoder().decode(bytes)) as CollisionMeshData);
-  mesh.id = "tiger-club-sno-rgb";
-  return new Simulator(mesh);
-}
-
-function createDisplaySource(remote: RemoteView, simulator: Simulator): DisplaySource {
-  return {
-    getBallCount: () => remote.getBallCount(),
-    getBallView: index => remote.getBallView(index),
-    getCueBallPosition: () => remote.getCueBallPosition(),
-    getResult: () => remote.getResult(),
-    predict: (vars, maxDist) => {
-      const checkpoint = remote.getCheckpoint();
-      if (checkpoint) simulator.restore(checkpoint);
-      return simulator.predict(vars, maxDist);
-    }
-  };
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label}超时（${ms}ms）`)), ms);
-    promise.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
-  });
-}
-
 async function main(): Promise<void> {
   const config = parseConfig(location.search);
   if (!config) throw new Error("联机入口需要 ?net=<roomId>");
@@ -95,6 +60,7 @@ async function main(): Promise<void> {
   const hud = new NetHud(() => { diagnostics.download(session.seat); canvas.focus(); });
   let client: NetClient | null = null;
   const matchPanel = new NetMatchPanel(session, command => client?.sendCommand(command) ?? false, () => canvas.focus());
+  const pausePanel = new NetPausePanel(session, command => client?.sendCommand(command) ?? false, () => canvas.focus());
   let person: PersonController | null = null;
   let launcher: NetShotLauncher | null = null;
   let resolveReady: () => void = () => {};
@@ -138,6 +104,7 @@ async function main(): Promise<void> {
     }
     const cueBall = session.latestSnapshot?.balls[0];
     matchPanel.receive(message);
+    pausePanel.receive(message);
     if (accepted && cueBall) remoteCue.receive(message, session.seat, cueBall, nowMs);
     diagnostics.message(message, nowMs, session.clockOffsetMs, accepted);
   };
@@ -198,6 +165,7 @@ async function main(): Promise<void> {
     url: config.server, roomId: config.roomId, devToken: config.token,
     ...(config.requestedSeat === undefined ? {} : { requestedSeat: config.requestedSeat }),
     onMessage: handleMessage,
+    onStateChange: state => { if (state === "closed" || state === "error") session.onClose(); },
     retrySource: nowMs => session.pollRetry(nowMs)
   });
   client.connect();
@@ -273,7 +241,8 @@ async function main(): Promise<void> {
       },
       canAim: () => session.canLaunch() && turnReady && !shotLauncher.busy && remote.getBallView(0).active,
       canPlace: () => false,
-      cycleView
+      cycleView,
+      locked: () => session.paused
     }, NO_PLACEMENT);
     await waitForScene(scene);
     scene.render();
@@ -303,7 +272,9 @@ async function main(): Promise<void> {
       remote.update(nowMs);
       personController.camera.shotView.smoothing.aspect = scene!.getEngine().getAspectRatio(camera);
       personController.camera.shotView.smoothing.verticalFov = camera.fov;
-      const canLaunch = session.canLaunch();
+      pausePanel.sync(nowMs);
+      controls.update();
+      const canLaunch = session.paused ? wasCanLaunch : session.canLaunch();
       const attempt = session.latestSnapshot?.match.attemptId ?? null;
       if (canLaunch && (!wasCanLaunch || attempt !== displayAttempt)) turnResetPending = true;
       displayAttempt = attempt;
@@ -317,8 +288,8 @@ async function main(): Promise<void> {
         turnReady = true;
       }
       personController.active = turnReady;
-      personController.update(dt);
-      if (turnReady && personController.camera.state === 1) personController.updatePrediction();
+      if (!session.paused) personController.update(dt);
+      if (!session.paused && turnReady && personController.camera.state === 1) personController.updatePrediction();
       camera.position.copyFrom(personController.camera.position);
       camera.lockedTarget = personController.camera.target;
       cue.isVisible = personController.camera.stateRatio > 0;
@@ -376,6 +347,7 @@ async function main(): Promise<void> {
       viewNoticeDom.element.remove();
       decision.remove();
       matchPanel.element.remove();
+      pausePanel.dispose();
       opponentCue.dispose();
       cue.material?.dispose(); cue.dispose();
       gunsight.dispose();

@@ -1,3 +1,4 @@
+import { RoomPause } from "./room-pause.js";
 import { CommandLedger } from "./command-ledger.js";
 import { readRoomCheckpoint, type RoomCheckpoint } from "./room-checkpoint.js";
 import { GAME_STATE, GameSession } from "../core/game.js";
@@ -11,10 +12,10 @@ import {
   DEFAULT_STROKE_BOUNDS, NET_PROTOCOL_VERSION, REJECT, ROOM_RULESET,
   isSeatIndex, validateCueContact, validateStrokeVars,
   type AckMessage, type CommandMessage, type DecideTurnAction, type LobbySeat,
-  type MatchAction, type MatchConfigView, type PendingShotView, type PrepareShotAction, type RejectReason,
+  type MatchAction, type PauseAction, type MatchConfigView, type PendingShotView, type PrepareShotAction, type RejectReason,
   type SeatIndex, type ServerEvent, type ServerEventMessage, type SnapshotMessage, type WelcomeMessage
 } from "../net/protocol.js";
-import { commandSignature, isDecideTurnAction, isMatchAction, isPrepareShotAction } from "./room-command.js";
+import { commandSignature, isDecideTurnAction, isMatchAction, isPauseAction, isPrepareShotAction } from "./room-command.js";
 import { ensureCueBallActive } from "./cue-placement.js";
 import { RoomMotion } from "./room-motion.js";
 import { RoomMatch } from "./room-match.js";
@@ -22,28 +23,22 @@ import { RoomCuePose } from "./cue-pose.js";
 import type { CuePoseMessage, CuePoseState } from "../net/protocol.js";
 import { NO_LATENCY, buildSnapshot, eventMessage } from "./room-view.js";
 import type { RoomCommandResult, RoomJoinOutcome, RoomOptions, RoomTickResult } from "./room-types.js";
-
 export type { RoomJoinOutcome, RoomJoinResult, RoomOptions, RoomTickResult } from "./room-types.js";
-
 interface PendingShot {
   readonly shotId: string;
   readonly seat: SeatIndex;
   readonly vars: Float32Array;
   readonly touchAtServerMs: number;
 }
-
 interface ActiveShot {
   readonly shotId: string;
   readonly seat: SeatIndex;
 }
-
 interface QueuedEvent {
   readonly event: ServerEvent;
   readonly atMs: number;
 }
-/** 单次 tick 最多补算的固定步数，避免长时间卡顿后死循环；正常 60Hz 每 tick 一步。 */
 const MAX_CATCH_UP_STEPS = 6;
-/** 一个开发房间 = 一个真实 Simulator + 一个 GameSession("single-play", 经典规则)。 */
 export class RoomSession {
   readonly roomId: string;
   readonly config: MatchConfigView;
@@ -68,7 +63,7 @@ export class RoomSession {
   private readonly motion = new RoomMotion();
   private readonly poses = new RoomCuePose();
   private readonly random: SeededRandom;
-
+  private readonly pause = new RoomPause();
   constructor(roomId: string, options: RoomOptions, mesh: MeshBody) {
     if (!Number.isFinite(options.prepareLeadMs) || options.prepareLeadMs < 0 ||
         !Number.isFinite(options.tickHz) || options.tickHz <= 0 ||
@@ -86,25 +81,21 @@ export class RoomSession {
     this.random = new SeededRandom(options.seed);
     this.aiDependencies = { routeCache: new RouteCache(), random: () => this.random.next() };
   }
-
   get stateVersion(): number { return this.version; }
   get eventSequence(): number { return this.eventSeq; }
   get seats(): readonly LobbySeat[] { return this.seatSnapshot(); }
-
   get cuePose(): CuePoseState | null {
     const pose = this.poses.latest;
-    return this.match.active && !this.closed && !this.pendingShot && this.session.state === GAME_STATE.READY &&
+    return !this.pause.blocksPlay && this.match.active && !this.closed && !this.pendingShot && this.session.state === GAME_STATE.READY &&
       !this.session.finished && pose?.version === this.version &&
       pose.seat === this.session.context.playerIndex ? pose : null;
   }
-
   receiveCuePose(connectionId: string, message: CuePoseMessage, nowMs: number): CuePoseState | null {
     const seat = this.seatByConnection.get(connectionId);
-    if (!this.match.active || this.closed || this.pendingShot || this.session.finished || this.session.state !== GAME_STATE.READY ||
+    if (this.pause.blocksPlay || !this.match.active || this.closed || this.pendingShot || this.session.finished || this.session.state !== GAME_STATE.READY ||
         seat === undefined || seat !== this.session.context.playerIndex || message.expectedVersion !== this.version) return null;
     return this.poses.accept(connectionId, seat, message, nowMs);
   }
-
   join(connectionId: string, requestedSeat?: SeatIndex, nowMs = 0): RoomJoinOutcome {
     if (this.closed) return { reason: REJECT.ROOM_FULL };
     this.lastNowMs = nowMs;
@@ -125,25 +116,25 @@ export class RoomSession {
     this.queueSeatChange(nowMs);
     return { seat, welcome: this.welcome(seat, nowMs) };
   }
-
   release(connectionId: string): void {
     this.poses.forget(connectionId);
     const seat = this.seatByConnection.get(connectionId);
     if (seat === undefined) return;
     if (this.match.view.ready[seat]) this.version++;
     this.match.progress.clearReady(seat);
+    if (this.pause.disconnect(seat)) this.version++;
     this.seatByConnection.delete(connectionId);
     this.connections.delete(seat);
     this.queueSeatChange(this.lastNowMs);
   }
-
   command(connectionId: string, message: CommandMessage, nowMs: number): RoomTickResult {
     if (this.closed) return { events: [], snapshot: null };
     this.lastNowMs = nowMs;
     if (this.lastTickMs === null) this.lastTickMs = nowMs;
-    const queued = this.flushQueuedEvents();
+    const progressed = isPauseAction(message.action) ? this.tick(nowMs) : null;
+    const queued = progressed?.events ?? this.flushQueuedEvents();
     const seat = this.seatByConnection.get(connectionId);
-    if (seat === undefined) return { ack: this.rejectAck(message.commandId, REJECT.NOT_YOUR_TURN, nowMs), events: queued, snapshot: null };
+    if (seat === undefined) return { ack: this.rejectAck(message.commandId, REJECT.NOT_YOUR_TURN, nowMs), events: queued, snapshot: progressed?.snapshot ?? null };
     const signature = commandSignature(message.action);
     const key = `${seat}:${message.commandId}`;
     const cached = this.dedup.get(key);
@@ -151,13 +142,12 @@ export class RoomSession {
       const ack = cached.signature === signature
         ? { ...cached.ack, duplicate: true }
         : this.rejectAck(message.commandId, REJECT.DUPLICATE_MISMATCH, nowMs, true);
-      return { ack, events: queued, snapshot: null };
+      return { ack, events: queued, snapshot: progressed?.snapshot ?? null };
     }
     const outcome = this.dispatch(seat, message, nowMs);
     this.dedup.remember(key, signature, outcome.ack);
-    return { ack: outcome.ack, events: [...queued, ...outcome.events], snapshot: outcome.snapshot };
+    return { ack: outcome.ack, events: [...queued, ...outcome.events], snapshot: outcome.snapshot ?? progressed?.snapshot ?? null };
   }
-
   tick(nowMs: number): RoomTickResult {
     if (this.closed) return { events: [], snapshot: null };
     this.lastNowMs = nowMs;
@@ -166,7 +156,8 @@ export class RoomSession {
     const touchAtMs = this.pendingShot?.touchAtServerMs;
     if (touchAtMs !== undefined && nowMs >= touchAtMs) this.fire(nowMs, events);
     const stepMs = 1000 / this.options.tickHz;
-    const elapsed = Math.max(0, nowMs - Math.max(this.lastTickMs, touchAtMs ?? -Infinity));
+    const pauseBefore = this.pause.view.phase;
+    const elapsed = 1000 * this.pause.advance(Math.max(0, nowMs - Math.max(this.lastTickMs, touchAtMs ?? -Infinity)) / 1000, false, !this.match.active);
     this.lastTickMs = nowMs;
     if (this.session.state === GAME_STATE.SIMULATING) {
       this.accumulatorMs = Math.min(this.accumulatorMs + elapsed, stepMs * MAX_CATCH_UP_STEPS);
@@ -179,10 +170,13 @@ export class RoomSession {
     } else {
       this.accumulatorMs = 0;
     }
-
+    this.pause.advance(0, !this.pendingShot && !this.activeShot && this.session.canPause, !this.match.active);
+    const pauseChanged = pauseBefore !== this.pause.view.phase;
+    if (pauseChanged) this.version++;
     let snapshot: SnapshotMessage | null = null;
     const interval = 1000 / this.options.snapshotHz;
-    if (events.length > 0 ||
+    if (events.length > 0 || pauseChanged ||
+        (this.pause.blocksPlay && (this.lastSnapshotMs === null || nowMs - this.lastSnapshotMs >= 250)) ||
         (this.session.state === GAME_STATE.SIMULATING &&
           (this.lastSnapshotMs === null || nowMs - this.lastSnapshotMs >= interval))) {
       snapshot = this.buildSnapshotNow(nowMs);
@@ -191,20 +185,17 @@ export class RoomSession {
     }
     return { events, snapshot };
   }
-
   snapshot(nowMs: number): SnapshotMessage {
     this.lastNowMs = nowMs;
     return this.buildSnapshotNow(nowMs);
   }
-
   exportCheckpoint(): RoomCheckpoint {
     if (this.closed || this.pendingShot || this.activeShot) throw new Error("Room checkpoint requires a stable match");
-    return readRoomCheckpoint({ format: 1, protocolVersion: NET_PROTOCOL_VERSION, roomId: this.roomId,
+    return readRoomCheckpoint({ format: 2, pause: this.pause.exportCheckpoint(), protocolVersion: NET_PROTOCOL_VERSION, roomId: this.roomId,
       options: { ...this.options, ...this.match.view, seed: this.options.seed >>> 0 }, match: this.match.progress.exportCheckpoint(),
       game: this.session.exportCheckpoint(), stateVersion: this.version, eventSequence: this.eventSeq,
       randomState: this.random.exportState(), commands: this.dedup.snapshot() }, this.simulator);
   }
-
   static fromCheckpoint(value: unknown, mesh: MeshBody): RoomSession {
     const data = readRoomCheckpoint(value, new SimulatorClass(mesh));
     const room = new RoomSession(data.roomId, data.options, mesh);
@@ -212,12 +203,12 @@ export class RoomSession {
     room.version = data.stateVersion + 1;
     room.eventSeq = data.eventSequence;
     room.random.restoreState(data.randomState);
+    room.pause.restoreCheckpoint(data.pause);
     data.commands.forEach(entry => room.dedup.remember(entry.key, entry.signature, entry.ack));
     room.match.progress.clearReady(0);
     room.match.progress.clearReady(1);
     return room;
   }
-
   close(): void {
     this.closed = true;
     this.pendingShot = null;
@@ -229,15 +220,27 @@ export class RoomSession {
   }
   private dispatch(seat: SeatIndex, message: CommandMessage, nowMs: number): RoomCommandResult {
     const action = message.action;
-    if (!isPrepareShotAction(action) && !isDecideTurnAction(action) && !isMatchAction(action)) {
+    if (!isPrepareShotAction(action) && !isDecideTurnAction(action) && !isMatchAction(action) && !isPauseAction(action)) {
       return this.cachedReject(message, REJECT.UNKNOWN_ACTION, nowMs);
     }
     if (message.expectedVersion !== this.version) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
+    if (isPauseAction(action)) return this.pauseCommand(seat, message, action, nowMs);
+    if (this.pause.blocksPlay) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
     if (isMatchAction(action)) return this.matchCommand(seat, message, action, nowMs);
     if (!this.match.active) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
     return isPrepareShotAction(action)
       ? this.prepareShot(seat, message, action, nowMs)
       : this.decideTurn(seat, message, action, nowMs);
+  }
+  private pauseCommand(seat: SeatIndex, message: CommandMessage, action: PauseAction, nowMs: number): RoomCommandResult {
+    if (action.attemptId !== this.match.view.attemptId) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
+    if (!this.match.active || this.session.finished || this.connections.size !== 2 || !this.pause.command(seat, action)) {
+      return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
+    }
+    this.pause.advance(0, !this.pendingShot && !this.activeShot && this.session.canPause, false);
+    this.version++;
+    return { ack: { type: "ack", commandId: message.commandId, accepted: true,
+      stateVersion: this.version, serverTimeMs: nowMs, duplicate: false }, events: [], snapshot: this.buildSnapshotNow(nowMs) };
   }
   private matchCommand(seat: SeatIndex, message: CommandMessage, action: MatchAction, nowMs: number): RoomCommandResult {
     if (action.attemptId !== this.match.view.attemptId) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
@@ -253,6 +256,8 @@ export class RoomSession {
       events = this.match.finish(seat === 0 ? 1 : 0, "conceded");
     }
     if (events === null) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
+    if (events.some(event => event.type === "frame-started")) this.pause.resetFrame();
+    this.pause.advance(0, false, !this.match.active);
     this.version++;
     const messages = events.map(event => this.pushEvent(event, nowMs));
     return { ack: { type: "ack", commandId: message.commandId, accepted: true,
@@ -367,7 +372,7 @@ export class RoomSession {
     return pending ? { shotId: pending.shotId, seat: pending.seat, touchAtServerMs: pending.touchAtServerMs, vars: Array.from(pending.vars) } : null;
   }
   private buildSnapshotNow(nowMs: number): SnapshotMessage {
-    return { ...buildSnapshot(this.session, this.version, this.eventSeq, nowMs, this.pendingView(), this.match.view),
+    return { ...buildSnapshot(this.session, this.version, this.eventSeq, nowMs, this.pendingView(), this.match.view, this.pause.view),
       motion: this.pendingShot ? [] : this.motion.view(this.match.view.attemptId) };
   }
   private pushEvent(event: ServerEvent, nowMs: number): ServerEventMessage {

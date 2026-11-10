@@ -40,7 +40,7 @@ function snapshot(version: StateVersion, serverTimeMs: number,
   options: { balls?: readonly SnapshotBall[]; phase?: RoomPhase; eventSeq?: number; context?: ContextView;
     checkpoint?: SerialData | null; pendingShot?: PendingShotView | null } = {}): SnapshotMessage {
   return {
-    type: "snapshot", match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version, eventSeq: options.eventSeq ?? version, serverTimeMs,
+    type: "snapshot", pause: { phase: "running", requester: null, used: [0, 0], ready: [false, false], remainingSeconds: null, countdownSeconds: 0 }, match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version, eventSeq: options.eventSeq ?? version, serverTimeMs,
     phase: options.phase ?? "ready", context: options.context ?? CONTEXT,
     balls: options.balls ?? [ball(0, 0, 0, 0.9, 0), ball(1, 1, 0.5, 0.9, 0)],
     checkpoint: options.checkpoint === undefined ? null : options.checkpoint,
@@ -67,6 +67,21 @@ function readySession(seat: SeatIndex = 0, playerIndex = 0): NetSessionState {
 }
 
 describe("NetSessionState 连接与快照", () => {
+  it("暂停快照阻断本机击球及犯规选择，请求期间照常，继续后恢复原球权", () => {
+    const session = readySession();
+    const ready = snapshot(4, 6000);
+    session.onSnapshot({ ...ready, pause: { ...ready.pause, phase: "requested", requester: 0 } }, 4);
+    expect(session.canLaunch()).toBe(true);
+    const paused = { ...ready.pause, phase: "paused" as const, requester: 0, used: [1, 0] };
+    session.onSnapshot({ ...ready, version: 5, pause: paused }, 5);
+    expect(session.canLaunch()).toBe(false);
+    expect(session.beginShot([0, .9, 0, 1, 0, 0, 20, .005], 6)).toBeNull();
+    session.onSnapshot({ ...ready, version: 6, phase: "deciding", pause: paused }, 7);
+    expect(session.canDecide()).toBe(false);
+    session.onSnapshot({ ...ready, version: 7, phase: "deciding" }, 8);
+    expect(session.canDecide()).toBe(true);
+    expect(session.context?.playerIndex).toBe(0);
+  });
   it("welcome 建立席位、版本与时钟种子", () => {
     const session = makeSession();
     session.beginConnect(0);

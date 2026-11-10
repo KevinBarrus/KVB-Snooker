@@ -6,9 +6,12 @@ import type { AckMessage } from "../net/protocol.js";
 import { NET_PROTOCOL_VERSION, REJECT } from "../net/protocol.js";
 import type { RoomOptions } from "./room-types.js";
 import type { CommandReceipt } from "./command-ledger.js";
+import { readPauseCheckpoint, type PauseCheckpoint } from "../core/match-pause.js";
+import { RoomPause } from "./room-pause.js";
 
 export interface RoomCheckpoint {
-  readonly format: 1;
+  readonly format: 2;
+  readonly pause: PauseCheckpoint;
   readonly protocolVersion: number;
   readonly roomId: string;
   readonly options: RoomOptions;
@@ -22,7 +25,9 @@ export interface RoomCheckpoint {
 
 export function readRoomCheckpoint(value: unknown, simulator: Simulator): RoomCheckpoint {
   const data = record(value), opts = record(data.options);
-  requireCheckpoint(data.format === 1 && data.protocolVersion === NET_PROTOCOL_VERSION);
+  requireCheckpoint(data.format === 2 && data.protocolVersion === NET_PROTOCOL_VERSION);
+  const pause = readPauseCheckpoint(data.pause);
+  new RoomPause().restoreCheckpoint(pause);
   const roomId = text(data.roomId);
   const match = readMatchCheckpoint(data.match), game = readGameCheckpoint(data.game, simulator);
   requireCheckpoint(game.mode === "single-play" && game.options.ruleset === "classic" &&
@@ -56,6 +61,7 @@ export function readRoomCheckpoint(value: unknown, simulator: Simulator): RoomCh
     requireCheckpoint(last.scores[0] === game.players[0].pts - game.players[1].penalty &&
       last.scores[1] === game.players[1].pts - game.players[0].penalty);
   } else requireCheckpoint(game.context.ballOn !== 0);
-  return { format: 1, protocolVersion: NET_PROTOCOL_VERSION, roomId, options, match, game,
+  requireCheckpoint(match.view.phase === "active" || pause.view.phase === "running");
+  return { format: 2, pause, protocolVersion: NET_PROTOCOL_VERSION, roomId, options, match, game,
     stateVersion, eventSequence, randomState: integer(data.randomState, 0, 0xffffffff), commands };
 }

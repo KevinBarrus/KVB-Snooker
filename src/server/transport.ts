@@ -1,3 +1,4 @@
+import { isPauseAction } from "./room-command.js";
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { Duplex } from "node:stream";
@@ -65,7 +66,8 @@ function isCommandMessage(message: ClientMessage): message is CommandMessage {
   if (typeof record.commandId !== "string" || record.commandId.length === 0 || record.commandId.length > 128) return false;
   if (!isStateVersion(record.expectedVersion)) return false;
   const action = rawRecord(record.action);
-  return action !== null && ["prepare-shot", "decide-turn", "ready-next-frame", "concede-frame"].includes(String(action.type));
+  return action !== null && (isPauseAction(action) ||
+    ["prepare-shot", "decide-turn", "ready-next-frame", "concede-frame"].includes(String(action.type)));
 }
 
 function isPingMessage(message: ClientMessage): boolean {

@@ -64,7 +64,7 @@ export class NetMatchPanel {
       this.retryVersion = null;
     }
     const between = match.phase === "between-frames";
-    const stable = match.phase === "active" && !snapshot.pendingShot && !shotBusy &&
+    const stable = !this.session.paused && match.phase === "active" && !snapshot.pendingShot && !shotBusy &&
       (snapshot.phase === "ready" || snapshot.phase === "deciding");
     if (!stable) this.confirming = false;
     if (this.pending && ((this.pending.action.type === "ready-next-frame" && match.ready[seat]) ||

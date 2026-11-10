@@ -95,7 +95,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const options = document.querySelector<HTMLFormElement>(".game-options");
     audio = new BrowserAudio(game.bus, options ?? document.body);
     const offAudioUnlock = game.bus.on("sim/shooting-start", () => audio?.unlockNow());
-    const menuState = new GameMenu({ onPauseSignal: () => {} });
+    const menuState = new GameMenu({ onPauseSignal: () => { game.pause.request(); canvas.focus(); } });
     let menuDom: GameMenuDom;
     const launchFromMenu = (req: MatchLaunchRequest) => {
       audio?.unlockNow();
@@ -192,7 +192,8 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       event.preventDefault();
       if (!options) return;
       if (testTools?.start()) {
-        menuState.syncExternalMatch({ kind: "two-player", mode: "single-play", difficulty: "NORMAL", ruleset: "classic", players: ["USER", "USER"] });
+        setMenuMode(false);
+        menuState.syncExternalMatch({ kind: "two-player", mode: "single-play", difficulty: "NORMAL", ruleset: game.session.ruleset, players: ["USER", "USER"] });
         menuDom.sync();
         return;
       }

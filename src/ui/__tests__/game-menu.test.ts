@@ -55,7 +55,8 @@ describe("ui game menu", () => {
 
     expect(menu.triggerInGameAction("pause")).toBeNull();
     expect(pauseSpy).toHaveBeenCalledTimes(1);
-    expect(menu.inGameMenuOpen).toBe(true);
+    expect(menu.inGameMenuOpen).toBe(false);
+    menu.openInGameMenu();
 
     expect(menu.triggerInGameAction("guide")).toBeNull();
     expect(menu.inGameMenuOpen).toBe(true);
@@ -112,6 +113,7 @@ describe("ui game menu", () => {
 
     menu.openInGameMenu();
     expect(menu.getInGameActions().map(a => a.label)).toEqual([
+      "暂停",
       "退出对局",
       "操作指南",
       "重新开始"

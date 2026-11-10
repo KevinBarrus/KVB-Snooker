@@ -264,7 +264,7 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 ### 4.7 斯诺克 900（设计阶段，2026-11-02）
 
-规则行为见 [900 设计](snooker-900-design.md)，摆球交互见 [摆球设计](cue-ball-placement-design.md)，实现及待解决差异见 [项目状态](project-status.md)。本节只登记已批准接口；正式联机的暂停、协议与完整存档尚待独立实现，不因文档引用而宣称已接通。
+规则行为见 [900 设计](snooker-900-design.md)，摆球交互见 [摆球设计](cue-ball-placement-design.md)，实现及待解决差异见 [项目状态](project-status.md)。本节只登记已批准接口；正式联机的完整协议、持久化与恢复仍待后续接线；暂停子集见§4.13，不因文档引用而宣称已接通。
 
 - 规则类型独立于对局方式：经典为默认，900 首版用于人机和独立双人测试。通过 `GameOptions`规则配置，不给 `GameMode`添加测试模式；自由练习维持原行为。
 - 900 的局时 900 秒、出杆时限 20 秒；初始台面准备就绪且允许操作时两表立即启动，不等待 W、摆球确认或首次触球。摆球消耗两表；实际触球停止本杆出杆表，全部球静止、结算及必要归位完成且允许操作后才开始下一杆 20 秒。局时自比赛开始持续运行，直到到期或终局；Space/预备动画不算完成出杆，截止前已触球的杆完整结算。
@@ -294,7 +294,7 @@ PersonController.playerIndex可在非出杆阶段重绑，新增只读locallyCon
 
 - `src/server/**` 是 Node 基础设施，只允许依赖 `src/core/**`、`src/net/protocol.ts` 与 Node 内置模块；`core` 不导入 `server`、`net` 或任何网络模块。
 - 浏览器网络适配分为纯状态 `src/net/**`（协议、快照缓冲、插值、客户端状态机）与装配根 `src/app-net*.ts`（建立连接、场景/渲染/控制器装配）。`render/ui/controller/audio` 不导入网络或服务端代码。
-- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；当前报文版本 `NET_PROTOCOL_VERSION = 5`。v2增加待击球快照及 `shot-prepared.vars`；v3增加非权威 `cue-pose` 瞄准显示消息；v4增加整场进度与局间命令（§4.10）；v5增加逐步运动采样。旧客户端须刷新、旧服务器须重启，版本不符拒绝连接。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
+- 共享报文类型唯一维护位置是 `src/net/protocol.ts`；当前报文版本 `NET_PROTOCOL_VERSION = 6`。v2增加待击球快照及 `shot-prepared.vars`；v3增加非权威 `cue-pose` 瞄准显示消息；v4增加整场进度与局间命令（§4.10）；v5增加逐步运动采样；v6增加暂停协商与状态（§4.13）。旧客户端须刷新、旧服务器须重启，版本不符拒绝连接。开发令牌与固定两席位不是正式鉴权，不能替代账号与房间权限。
 - 现有 `GameSession`、`Simulator`、规则与物理是唯一权威；服务端不复制第二套规则，客户端不推进权威物理、不自行结算触球。
 
 联机运动采样（v5）：`SnapshotMessage.motion?:readonly MotionSample[]`，`MotionSample {readonly serverTimeMs:number;readonly balls:readonly SnapshotBall[]}`。每包最多8个有序服务器推进步，时间不晚于包时间，只属于当前尝试/当前杆；静止可省略。位置来自 Simulator.getBallView().position（真实球位），姿态仍消费 renderOrientation；不使用 renderPosition 的速度外推。客户端按中间采样插值，运动包的发送时间不再追加为重复球位节点，结算仍按阶段边界切换。网络频率与物理参数不变；具体范围见原型设计§5。
@@ -420,7 +420,7 @@ RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身�
 
 ### 4.12 稳定边界完整检查点（2026-11-09）
 
-本单元落实[持久化设计](match-persistence-design.md)的内存/JSON恢复基础，不接数据库、暂停或正式重连。只接受 READY / DECIDING、全部球静止且未 prepareStroke 的边界；运动及已接受待触球动作明确拒绝，不能丢弃后冒充可恢复。
+本单元落实[持久化设计](match-persistence-design.md)的内存/JSON恢复基础，不接数据库或正式重连；暂停扩展见§4.13。只接受 READY / DECIDING、全部球静止且未 prepareStroke 的边界；运动及已接受待触球动作明确拒绝，不能丢弃后冒充可恢复。
 
 - `Simulator.exportCheckpoint(): SimulatorCheckpoint` / `validateCheckpoint(data: unknown): SimulatorCheckpoint` / `restoreCheckpoint(data: unknown): void` 保存稳定物理状态（含不活跃球姿态、步长余量、滚动摩擦残留和静止接触岛缓存）、上一杆结果和接触证据。旧 serialize/restore 的行为不变。检查点携带场景、几何与物理配置兼容标识；validateCheckpoint只验证并返回独立副本，恢复前完整校验，不匹配拒绝。
 - `WorldClient.exportRestingState(): RestingIslandState[]` / `restoreRestingState(data: readonly RestingIslandState[]): void` 为模拟器检查点内部通道，保存接触岛次序、接触数值/矩阵缓存，按球/多边形ID重连引用；只在稳定边界及Simulator已完成校验后调用，不改变原serialize/restore和求解流程。
@@ -429,7 +429,19 @@ RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身�
 - `MatchClock.restore(view: MatchClockView): void`、`NineHundredMatch.exportCheckpoint()/restoreCheckpoint(data: NineHundredCheckpoint)` 为核心装配内部恢复方法；保存剩余量而非进程时间戳。`SeededRandom.exportState(): number` / `restoreState(state: number): void` 保存房间独立随机游标，不保存运行中的AI任务。
 - `RoomSession.exportCheckpoint(): RoomCheckpoint` / `static fromCheckpoint(data: unknown, mesh: MeshBody): RoomSession` 包含整场、单局、服务配置、状态版本、事件位置、两席命令去重记录及随机状态。仅由可信服务端调用，不是客户端报文。恢复不继承旧连接/瞄准姿态/插值缓冲/单调时钟；恢复总是推进一次版本并撤销局间准备，已裁决结果不重新发事件。格式、引擎、规则和配置不兼容均拒绝。
 
-检查点是独立的JSON数据，不含对象引用、函数或TypedArray；所有入口对损坏数据先校验。新增格式维护于各 checkpoint 类型文件，不改变网络协议v5。尚未实现的账号、暂停预算、逐杆归档、统计计时及命令日志不伪造占位状态；接入时须升级格式或迁移，运动故障恢复仍需后续命令日志。
+检查点是独立的JSON数据，不含对象引用、函数或TypedArray；所有入口对损坏数据先校验。新增格式维护于各 checkpoint 类型文件；房间暂停扩展及协议版本见§4.13。尚未实现的账号、逐杆归档、统计计时及命令日志不伪造占位状态；接入时须升级格式或迁移，运动故障恢复仍需后续命令日志。
+
+### 4.13 暂停与继续（2026-11-09 施工契约）
+
+产品行为唯一来源为 [比赛生命周期](match-lifecycle-design.md) §2。暂停是外层生命周期，不改物理、规则状态或回放快照；本单元不接数据库暂存、账号或掉线判负。
+
+- `core/match-pause.ts` 的 `MatchPause(policy)` 独立维护 running/requested/waiting/paused/resuming；`request(player)`、`respond(player, accepted)`、`cancel(player)`、`ready(player)` 返回是否接受；`disconnect(player)` 撤销未生效请求或该席旧准备，但不延长已经开始的恢复倒计时；`advance(seconds, stable, finished)` 返回本次可用于真实比赛推进的秒数。只有 stable 才能从 waiting 生效，finished 优先撤销请求；已接受待触球动作不属于稳定边界。
+- `PausePolicy { players: number; maxPerPlayer: number|null; maxSeconds: number|null; countdownSeconds: number }` 由装配固定，不接受客户端自定。`view: PauseView` 为独立快照，含阶段、发起人、每人已使用次数、继续准备状态、暂停剩余时长及恢复倒计时。`blocksPlay` 只在 paused/resuming 为 true。`resetFrame()` 仅在新局调用，重摆不重置预算。限额以生命周期的已确认条款为准。
+- `exportCheckpoint()` / `restoreCheckpoint(unknown)` 保存暂停阶段、剩余量和预算；恢复必须撤销旧准备，不能用旧连接许可自动继续。时间只接受外部有限非负秒数，无 DOM 或网络依赖。
+- `GameSession.canPause` 只读判定 READY/DECIDING、所有球静止、无已准备出杆且未终局。浏览器与服务器在共同安全边界冻结调度；恢复不重建 GameSession、不重算分数、不重置剩余时间或相机。
+- 联机协议升级 v6：快照新增 `pause: PauseView`，命令新增 `pause-request/pause-accept/pause-decline/pause-cancel/pause-ready`，均带 attemptId，复用席位校验、版本和命令去重。暂停阻断新出杆、判罚选择、认输和瞄准广播；请求期间动作照常。暂停/恢复变化更新快照版本，间隔广播剩余量。房间检查点格式升级 2，包含暂停状态，旧格式显式拒绝。
+- `BrowserGame.pause` 提供本地 `request()/ready()/view/blocksPlay` 装配入口；`app-local-pause.ts` 驱动本地暂停，AI及单机双人测试由一个操作方确认。`app-game-hud.ts`、`app-practice.ts`、`app-net-scene.ts` 只拆分既有装配职责，保持原有算法。
+- `ui/pause-panel.ts` 只接只读状态与动作回调。paused/resuming 使用不透明全屏模态遮挡并约束焦点，禁止回放、菜单或快捷键穿透；本地菜单按钮接入相同流程。恢复清理 Input 按键/指针残留，保持瞄准与摆球实际状态。
 
 ## 5. 目录结构（骨架）
 

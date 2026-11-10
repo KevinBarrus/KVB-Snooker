@@ -41,3 +41,14 @@ export function placementCommands(sim: Simulator, session: () => GameSession, pl
     begin: () => !session().clock || session().beginPlacement(player())
   };
 }
+
+export function placeForAI(session: GameSession, simulator: Simulator, playerIndex: number): void {
+    const y = simulator.spotY;
+    const candidates: Array<[number, number]> = [[-1.04, 0]];
+    for (let x = -1.6; x <= 1.6; x += 0.2) for (let z = -0.8; z <= 0.8; z += 0.2) candidates.push([x, z]);
+    for (const [x, z] of candidates) {
+      if (!session.canPlaceCueBall(x, y, z) || !session.placeCueBall(x, y, z)) continue;
+      session.confirmPlacement(playerIndex);
+      return;
+    }
+}
