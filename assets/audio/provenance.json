@@ -1,0 +1,1148 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-03T15:54:04.719Z",
+  "note": "按用户逐组指定生成的最终候选集；不含未指定的槽位判断（页面已标记）",
+  "config": {
+    "preRollMs": 25,
+    "highpassHz": 150,
+    "peakTargetDb": -0.5,
+    "fade": {
+      "loudMs": 120,
+      "mediumMs": 60,
+      "quietMs": 30,
+      "loudAboveDb": -25,
+      "mediumAboveDb": -40
+    },
+    "ir": {
+      "sampleRate": 48000,
+      "durationSeconds": 2,
+      "preDelayMs": 25,
+      "rt60Seconds": 1.4,
+      "highRt60Scale": 0.7,
+      "crossHz": 1500,
+      "earlyTaps": 8,
+      "seed": 20261028
+    }
+  },
+  "groups": [
+    {
+      "group": "cue-low",
+      "slots": [
+        {
+          "group": "cue-low",
+          "band": 0.1,
+          "peakDb": -14,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-low-010-1-sample-44.wav",
+              "note": "低杆小力",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.55,
+              "sourceId": "sample-44",
+              "source": "杆头与母球/低杆/低杆中小力/低杆中小力1/低杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.135,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -14,
+              "durationSeconds": 0.735,
+              "peakDb": -8.89,
+              "tailRelDb": -63.4,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -7.57,
+              "groupOffsetDb": 5.11,
+              "slotTrimDb": 0,
+              "rmsDb": -32.8
+            }
+          ]
+        },
+        {
+          "group": "cue-low",
+          "band": 0.3,
+          "peakDb": -10,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-low-030-1-sample-44.wav",
+              "note": "低杆中小力",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.65,
+              "sourceId": "sample-44",
+              "source": "杆头与母球/低杆/低杆中小力/低杆中小力1/低杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.135,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -10,
+              "durationSeconds": 0.835,
+              "peakDb": -4.89,
+              "tailRelDb": -67.5,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -3.57,
+              "groupOffsetDb": 5.11,
+              "slotTrimDb": 0,
+              "rmsDb": -28.8
+            }
+          ]
+        },
+        {
+          "group": "cue-low",
+          "band": 0.5,
+          "peakDb": -7,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-low-050-1-sample-44.wav",
+              "note": "低杆中力（未指定，同一素材）",
+              "unspecified": true,
+              "fadeMs": 30,
+              "wet": 0.38,
+              "tailExtraSeconds": 0.8,
+              "sourceId": "sample-44",
+              "source": "杆头与母球/低杆/低杆中小力/低杆中小力1/低杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.135,
+              "highpassHz": 150,
+              "crestTrimDb": -0.02,
+              "targetPeakDb": -7.02,
+              "durationSeconds": 0.985,
+              "peakDb": -1.91,
+              "tailRelDb": -73.5,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -0.59,
+              "groupOffsetDb": 5.11,
+              "slotTrimDb": 0,
+              "rmsDb": -25.8
+            }
+          ]
+        },
+        {
+          "group": "cue-low",
+          "band": 0.75,
+          "peakDb": -4.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-low-075-1-sample-47.wav",
+              "note": "低杆中大力（未指定，暂用大力素材）",
+              "unspecified": true,
+              "fadeMs": 30,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.95,
+              "sourceId": "sample-47",
+              "source": "杆头与母球/低杆/低杆大力/长台低杆大力2/长台低杆大力2.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.075,
+              "highpassHz": 150,
+              "crestTrimDb": -5.04,
+              "targetPeakDb": -9.54,
+              "durationSeconds": 1.494,
+              "peakDb": -4.43,
+              "tailRelDb": -67.5,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -4.44,
+              "groupOffsetDb": 5.11,
+              "slotTrimDb": 0,
+              "rmsDb": -17.6
+            }
+          ]
+        },
+        {
+          "group": "cue-low",
+          "band": 1,
+          "peakDb": -0.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-low-100-1-sample-47.wav",
+              "note": "低杆大力（长台低杆大力2）",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.45,
+              "tailExtraSeconds": 1.2,
+              "sourceId": "sample-47",
+              "source": "杆头与母球/低杆/低杆大力/长台低杆大力2/长台低杆大力2.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.075,
+              "highpassHz": 150,
+              "crestTrimDb": -5.11,
+              "targetPeakDb": -5.61,
+              "durationSeconds": 1.744,
+              "peakDb": -0.5,
+              "tailRelDb": -80.8,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -0.51,
+              "groupOffsetDb": 5.11,
+              "slotTrimDb": 0,
+              "rmsDb": -13.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "cue-mid-low",
+      "slots": [
+        {
+          "group": "cue-mid-low",
+          "band": 0.1,
+          "peakDb": -14,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-mid-low-010-1-sample-33.wav",
+              "note": "中低杆小力",
+              "unspecified": false,
+              "fadeMs": 60,
+              "wet": 0.15,
+              "tailExtraSeconds": 0.55,
+              "sourceId": "sample-33",
+              "source": "杆头与母球/中低杆/中低杆小力/中低杆小力2/中低杆小力2.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -14,
+              "durationSeconds": 0.785,
+              "peakDb": -14,
+              "tailRelDb": -70.6,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -4.78,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -37.8
+            }
+          ]
+        },
+        {
+          "group": "cue-mid-low",
+          "band": 0.3,
+          "peakDb": -10,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-mid-low-030-1-sample-33.wav",
+              "note": "中低杆中小力",
+              "unspecified": false,
+              "fadeMs": 60,
+              "wet": 0.15,
+              "tailExtraSeconds": 0.55,
+              "sourceId": "sample-33",
+              "source": "杆头与母球/中低杆/中低杆小力/中低杆小力2/中低杆小力2.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -10,
+              "durationSeconds": 0.785,
+              "peakDb": -10,
+              "tailRelDb": -70.6,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -0.78,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -33.8
+            }
+          ]
+        },
+        {
+          "group": "cue-mid-low",
+          "band": 0.5,
+          "peakDb": -4,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-mid-low-050-1-sample-33.wav",
+              "note": "中低杆中力（加响 + 加长尾）",
+              "unspecified": true,
+              "fadeMs": 60,
+              "wet": 0.35,
+              "tailExtraSeconds": 1,
+              "sourceId": "sample-33",
+              "source": "杆头与母球/中低杆/中低杆小力/中低杆小力2/中低杆小力2.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": -0.11,
+              "targetPeakDb": -4.11,
+              "durationSeconds": 1.235,
+              "peakDb": -4.11,
+              "tailRelDb": -84.2,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": 5.11,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -27.6
+            }
+          ]
+        },
+        {
+          "group": "cue-mid-low",
+          "band": 0.75,
+          "peakDb": -4.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-mid-low-075-1-cue-low.wav",
+              "note": "中低杆中大力（直接沿用低杆中大力音频）",
+              "copyFrom": {
+                "group": "cue-low",
+                "band": 0.75
+              },
+              "unspecified": false,
+              "durationSeconds": 1.494,
+              "peakDb": -4.43,
+              "tailRelDb": -67.5,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -4.44,
+              "groupOffsetDb": 0,
+              "rmsDb": -17.6,
+              "targetPeakDb": -9.54,
+              "copiedFrom": "cue-low@0.75"
+            }
+          ]
+        },
+        {
+          "group": "cue-mid-low",
+          "band": 1,
+          "peakDb": -0.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-mid-low-100-1-cue-low.wav",
+              "note": "中低杆大力（直接沿用低杆大力音频）",
+              "copyFrom": {
+                "group": "cue-low",
+                "band": 1
+              },
+              "unspecified": false,
+              "durationSeconds": 1.744,
+              "peakDb": -0.5,
+              "tailRelDb": -80.7,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -0.51,
+              "groupOffsetDb": 0,
+              "rmsDb": -13.5,
+              "targetPeakDb": -5.61,
+              "copiedFrom": "cue-low@1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "cue-center",
+      "slots": [
+        {
+          "group": "cue-center",
+          "band": 0.1,
+          "peakDb": -14,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-center-010-1-sample-36.wav",
+              "note": "中杆小力",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.15,
+              "tailExtraSeconds": 0.45,
+              "sourceId": "sample-36",
+              "source": "杆头与母球/中杆/中杆中小力/中杆中小力1/中杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.005,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -14,
+              "durationSeconds": 0.829,
+              "peakDb": -14,
+              "tailRelDb": -72.5,
+              "onsetSeconds": 0.03,
+              "appliedGainDb": -11.47,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -39.8
+            }
+          ]
+        },
+        {
+          "group": "cue-center",
+          "band": 0.3,
+          "peakDb": -10,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-center-030-1-sample-36.wav",
+              "note": "中杆中小力",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.2,
+              "tailExtraSeconds": 0.6,
+              "sourceId": "sample-36",
+              "source": "杆头与母球/中杆/中杆中小力/中杆中小力1/中杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.005,
+              "highpassHz": 150,
+              "crestTrimDb": -0.02,
+              "targetPeakDb": -10.02,
+              "durationSeconds": 0.979,
+              "peakDb": -10.02,
+              "tailRelDb": -79,
+              "onsetSeconds": 0.03,
+              "appliedGainDb": -7.49,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -35.8
+            }
+          ]
+        },
+        {
+          "group": "cue-center",
+          "band": 0.5,
+          "peakDb": -2,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-center-050-1-sample-36.wav",
+              "note": "中杆中力（加响 + 加长尾）",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.35,
+              "tailExtraSeconds": 1,
+              "sourceId": "sample-36",
+              "source": "杆头与母球/中杆/中杆中小力/中杆中小力1/中杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.005,
+              "highpassHz": 150,
+              "crestTrimDb": -0.12,
+              "targetPeakDb": -2.12,
+              "durationSeconds": 1.379,
+              "peakDb": -2.12,
+              "tailRelDb": -92.2,
+              "onsetSeconds": 0.03,
+              "appliedGainDb": 0.41,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -27.6
+            }
+          ]
+        },
+        {
+          "group": "cue-center",
+          "band": 0.75,
+          "peakDb": -4.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-center-075-1-cue-high.wav",
+              "note": "中杆中大力（直接沿用中高杆中大力音频）",
+              "copyFrom": {
+                "group": "cue-high",
+                "band": 0.75
+              },
+              "unspecified": false,
+              "durationSeconds": 1.505,
+              "peakDb": -4.43,
+              "tailRelDb": -74,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -4.43,
+              "groupOffsetDb": 0,
+              "rmsDb": -18.7,
+              "targetPeakDb": -10.28,
+              "copiedFrom": "cue-high@0.75"
+            }
+          ]
+        },
+        {
+          "group": "cue-center",
+          "band": 1,
+          "peakDb": -0.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-center-100-1-cue-high.wav",
+              "note": "中杆大力（直接沿用中高杆大力音频）",
+              "copyFrom": {
+                "group": "cue-high",
+                "band": 1
+              },
+              "unspecified": false,
+              "durationSeconds": 1.755,
+              "peakDb": -0.5,
+              "tailRelDb": -84.3,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -0.5,
+              "groupOffsetDb": 0,
+              "rmsDb": -14.5,
+              "targetPeakDb": -6.35,
+              "copiedFrom": "cue-high@1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "cue-high",
+      "slots": [
+        {
+          "group": "cue-high",
+          "band": 0.1,
+          "peakDb": -14,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-high-010-1-sample-44.wav",
+              "note": "中高杆小力",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.15,
+              "tailExtraSeconds": 0.45,
+              "sourceId": "sample-44",
+              "source": "杆头与母球/低杆/低杆中小力/低杆中小力1/低杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.135,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -14,
+              "durationSeconds": 0.635,
+              "peakDb": -8.15,
+              "tailRelDb": -65.4,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -6.83,
+              "groupOffsetDb": 5.85,
+              "slotTrimDb": 0,
+              "rmsDb": -32.4
+            }
+          ]
+        },
+        {
+          "group": "cue-high",
+          "band": 0.3,
+          "peakDb": -10,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-high-030-1-sample-44.wav",
+              "note": "中高杆中小力",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.2,
+              "tailExtraSeconds": 0.6,
+              "sourceId": "sample-44",
+              "source": "杆头与母球/低杆/低杆中小力/低杆中小力1/低杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.135,
+              "highpassHz": 150,
+              "crestTrimDb": -0.02,
+              "targetPeakDb": -10.02,
+              "durationSeconds": 0.785,
+              "peakDb": -4.17,
+              "tailRelDb": -69.5,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -2.85,
+              "groupOffsetDb": 5.85,
+              "slotTrimDb": 0,
+              "rmsDb": -28.3
+            }
+          ]
+        },
+        {
+          "group": "cue-high",
+          "band": 0.5,
+          "peakDb": -7,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-high-050-1-sample-44.wav",
+              "note": "中高杆中力",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.27,
+              "tailExtraSeconds": 0.75,
+              "sourceId": "sample-44",
+              "source": "杆头与母球/低杆/低杆中小力/低杆中小力1/低杆中小力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.135,
+              "highpassHz": 150,
+              "crestTrimDb": -0.06,
+              "targetPeakDb": -7.06,
+              "durationSeconds": 0.935,
+              "peakDb": -1.21,
+              "tailRelDb": -74.5,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": 0.11,
+              "groupOffsetDb": 5.85,
+              "slotTrimDb": 0,
+              "rmsDb": -25.3
+            }
+          ]
+        },
+        {
+          "group": "cue-high",
+          "band": 0.75,
+          "peakDb": -4.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-high-075-1-sample-40.wav",
+              "note": "中高杆中大力（长台中高杆中大力2）",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.95,
+              "sourceId": "sample-40",
+              "source": "杆头与母球/中高杆/中高杆中大力/长台中高杆中大力2/长台中高杆中大力2.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": -5.78,
+              "targetPeakDb": -10.28,
+              "durationSeconds": 1.505,
+              "peakDb": -4.43,
+              "tailRelDb": -74,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -4.43,
+              "groupOffsetDb": 5.85,
+              "slotTrimDb": 0,
+              "rmsDb": -18.7
+            }
+          ]
+        },
+        {
+          "group": "cue-high",
+          "band": 1,
+          "peakDb": -0.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/cue-high-100-1-sample-40.wav",
+              "note": "中高杆大力（同上）",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.45,
+              "tailExtraSeconds": 1.2,
+              "sourceId": "sample-40",
+              "source": "杆头与母球/中高杆/中高杆中大力/长台中高杆中大力2/长台中高杆中大力2.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": -5.85,
+              "targetPeakDb": -6.35,
+              "durationSeconds": 1.755,
+              "peakDb": -0.5,
+              "tailRelDb": -84.4,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -0.5,
+              "groupOffsetDb": 5.85,
+              "slotTrimDb": 0,
+              "rmsDb": -14.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "ball",
+      "slots": [
+        {
+          "group": "ball",
+          "band": 0.1,
+          "peakDb": -14,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/ball-010-1-sample-54.wav",
+              "note": "球球小力",
+              "unspecified": false,
+              "fadeMs": 60,
+              "wet": 0.15,
+              "tailExtraSeconds": 0.45,
+              "sourceId": "sample-54",
+              "source": "母球与子球/中力/中力1/中力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -14,
+              "durationSeconds": 0.621,
+              "peakDb": -13.84,
+              "tailRelDb": -66.4,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -13.84,
+              "groupOffsetDb": 0.16,
+              "slotTrimDb": 0,
+              "rmsDb": -39.4
+            }
+          ]
+        },
+        {
+          "group": "ball",
+          "band": 0.3,
+          "peakDb": -10,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/ball-030-1-sample-54.wav",
+              "note": "球球中小力",
+              "unspecified": false,
+              "fadeMs": 60,
+              "wet": 0.2,
+              "tailExtraSeconds": 0.6,
+              "sourceId": "sample-54",
+              "source": "母球与子球/中力/中力1/中力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": -0.02,
+              "targetPeakDb": -10.02,
+              "durationSeconds": 0.771,
+              "peakDb": -9.86,
+              "tailRelDb": -71.9,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -9.87,
+              "groupOffsetDb": 0.16,
+              "slotTrimDb": 0,
+              "rmsDb": -35.4
+            }
+          ]
+        },
+        {
+          "group": "ball",
+          "band": 0.5,
+          "peakDb": -7,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/ball-050-1-sample-54.wav",
+              "note": "球球中力",
+              "unspecified": false,
+              "fadeMs": 60,
+              "wet": 0.27,
+              "tailExtraSeconds": 0.75,
+              "sourceId": "sample-54",
+              "source": "母球与子球/中力/中力1/中力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": -0.05,
+              "targetPeakDb": -7.05,
+              "durationSeconds": 0.921,
+              "peakDb": -6.89,
+              "tailRelDb": -77.2,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -6.9,
+              "groupOffsetDb": 0.16,
+              "slotTrimDb": 0,
+              "rmsDb": -32.3
+            }
+          ]
+        },
+        {
+          "group": "ball",
+          "band": 0.75,
+          "peakDb": -4.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/ball-075-1-sample-54.wav",
+              "note": "球球中大力（未指定，同一素材加长尾）",
+              "unspecified": true,
+              "fadeMs": 60,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.95,
+              "sourceId": "sample-54",
+              "source": "母球与子球/中力/中力1/中力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": -0.09,
+              "targetPeakDb": -4.59,
+              "durationSeconds": 1.121,
+              "peakDb": -4.43,
+              "tailRelDb": -84.1,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -4.44,
+              "groupOffsetDb": 0.16,
+              "slotTrimDb": 0,
+              "rmsDb": -29.7
+            }
+          ]
+        },
+        {
+          "group": "ball",
+          "band": 1,
+          "peakDb": -0.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/ball-100-1-sample-54.wav",
+              "note": "球球大力（未指定，同一素材加长尾）",
+              "unspecified": true,
+              "fadeMs": 60,
+              "wet": 0.45,
+              "tailExtraSeconds": 1.2,
+              "sourceId": "sample-54",
+              "source": "母球与子球/中力/中力1/中力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": -0.16,
+              "targetPeakDb": -0.66,
+              "durationSeconds": 1.371,
+              "peakDb": -0.5,
+              "tailRelDb": -92.7,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -0.51,
+              "groupOffsetDb": 0.16,
+              "slotTrimDb": 0,
+              "rmsDb": -25.6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "pocket-clean",
+      "slots": [
+        {
+          "group": "pocket-clean",
+          "band": 0.5,
+          "peakDb": -4.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/pocket-clean-050-1-pocket-clean-mid.wav",
+              "note": "空心入袋中力（保持原样）",
+              "unspecified": false,
+              "fadeMs": null,
+              "wet": 0.15,
+              "tailExtraSeconds": null,
+              "sourceId": null,
+              "source": null,
+              "reviewKey": "pocket-clean-mid|D-wet0.15",
+              "reviewFile": "samples/q98.wav",
+              "trimSeconds": null,
+              "highpassHz": null,
+              "crestTrimDb": -0.28,
+              "targetPeakDb": -4.78,
+              "durationSeconds": 0.976,
+              "peakDb": -4.78,
+              "tailRelDb": -64.3,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -4.21,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -20
+            }
+          ]
+        },
+        {
+          "group": "pocket-clean",
+          "band": 0.75,
+          "peakDb": -2.5,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/pocket-clean-075-1-pocket-clean-mid.wav",
+              "note": "空心入袋中大力（保持原样）",
+              "unspecified": false,
+              "fadeMs": null,
+              "wet": 0.15,
+              "tailExtraSeconds": null,
+              "sourceId": null,
+              "source": null,
+              "reviewKey": "pocket-clean-mid|D-wet0.15",
+              "reviewFile": "samples/q98.wav",
+              "trimSeconds": null,
+              "highpassHz": null,
+              "crestTrimDb": -0.28,
+              "targetPeakDb": -2.78,
+              "durationSeconds": 0.976,
+              "peakDb": -2.78,
+              "tailRelDb": -64.3,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -2.21,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -18
+            }
+          ]
+        },
+        {
+          "group": "pocket-clean",
+          "band": 1,
+          "peakDb": -0.5,
+          "gainTrimDb": -3.5,
+          "items": [
+            {
+              "file": "samples/pocket-clean-100-1-sample-16.wav",
+              "note": "空心入袋大力1",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.65,
+              "sourceId": "sample-16",
+              "source": "子球与袋口/空心入袋/大力/大力1/大力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.005,
+              "highpassHz": 150,
+              "crestTrimDb": -0.86,
+              "targetPeakDb": -1.36,
+              "durationSeconds": 0.922,
+              "peakDb": -4.86,
+              "tailRelDb": -54.9,
+              "onsetSeconds": 0.02,
+              "appliedGainDb": -5.35,
+              "groupOffsetDb": 0,
+              "slotTrimDb": -3.5,
+              "rmsDb": -20.1
+            },
+            {
+              "file": "samples/pocket-clean-100-2-sample-17.wav",
+              "note": "空心入袋大力2",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.65,
+              "sourceId": "sample-17",
+              "source": "子球与袋口/空心入袋/大力/大力2/大力2.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0,
+              "highpassHz": 150,
+              "crestTrimDb": -0.11,
+              "targetPeakDb": -0.61,
+              "durationSeconds": 0.97,
+              "peakDb": -4.11,
+              "tailRelDb": -51.4,
+              "onsetSeconds": 0,
+              "appliedGainDb": -4.11,
+              "groupOffsetDb": 0,
+              "slotTrimDb": -3.5,
+              "rmsDb": -16
+            },
+            {
+              "file": "samples/pocket-clean-100-3-sample-18.wav",
+              "note": "空心入袋大力3",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.65,
+              "sourceId": "sample-18",
+              "source": "子球与袋口/空心入袋/大力/大力3/大力3.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.005,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -0.5,
+              "durationSeconds": 0.922,
+              "peakDb": -4,
+              "tailRelDb": -55.3,
+              "onsetSeconds": 0.03,
+              "appliedGainDb": -4.04,
+              "groupOffsetDb": 0,
+              "slotTrimDb": -3.5,
+              "rmsDb": -18.8
+            },
+            {
+              "file": "samples/pocket-clean-100-4-sample-13.wav",
+              "note": "空心入袋中大力1",
+              "unspecified": false,
+              "fadeMs": 60,
+              "wet": 0.35,
+              "tailExtraSeconds": 0.65,
+              "sourceId": "sample-13",
+              "source": "子球与袋口/空心入袋/大力/中大力1/中大力1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.035,
+              "highpassHz": 150,
+              "crestTrimDb": -2.03,
+              "targetPeakDb": -2.53,
+              "durationSeconds": 1.02,
+              "peakDb": -6.03,
+              "tailRelDb": -59.1,
+              "onsetSeconds": 0.03,
+              "appliedGainDb": -6.62,
+              "groupOffsetDb": 0,
+              "slotTrimDb": -3.5,
+              "rmsDb": -20
+            },
+            {
+              "file": "samples/pocket-clean-100-5-pocket-clean-hard.wav",
+              "note": "空心入袋大力 · D-wet0.35",
+              "unspecified": false,
+              "fadeMs": null,
+              "wet": 0.35,
+              "tailExtraSeconds": null,
+              "sourceId": null,
+              "source": null,
+              "reviewKey": "pocket-clean-hard|D-wet0.35",
+              "reviewFile": "samples/rgd.wav",
+              "trimSeconds": null,
+              "highpassHz": null,
+              "crestTrimDb": -1.09,
+              "targetPeakDb": -1.59,
+              "durationSeconds": 0.885,
+              "peakDb": -5.09,
+              "tailRelDb": -52.8,
+              "onsetSeconds": 0.03,
+              "appliedGainDb": -4.55,
+              "groupOffsetDb": 0,
+              "slotTrimDb": -3.5,
+              "rmsDb": -18.9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "pocket-jaw",
+      "slots": [
+        {
+          "group": "pocket-jaw",
+          "band": 0.5,
+          "peakDb": -9,
+          "gainTrimDb": 0,
+          "items": [
+            {
+              "file": "samples/pocket-jaw-050-1-sample-02.wav",
+              "note": "磕袋角入袋中力（已裁掉 200ms 前摇）",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.25,
+              "tailExtraSeconds": 0.8,
+              "sourceId": "sample-02",
+              "source": "子球与袋口/磕袋角入袋/大力/中大力外袋角1/中大力外袋角1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.175,
+              "highpassHz": 150,
+              "crestTrimDb": -0.76,
+              "targetPeakDb": -9.76,
+              "durationSeconds": 1.18,
+              "peakDb": -9.76,
+              "tailRelDb": -67.2,
+              "onsetSeconds": 0.03,
+              "appliedGainDb": -11.15,
+              "groupOffsetDb": 0,
+              "slotTrimDb": 0,
+              "rmsDb": -23.4
+            }
+          ]
+        },
+        {
+          "group": "pocket-jaw",
+          "band": 1,
+          "peakDb": -0.5,
+          "gainTrimDb": -3.5,
+          "items": [
+            {
+              "file": "samples/pocket-jaw-100-1-sample-02.wav",
+              "note": "磕袋角入袋大力（同上）",
+              "unspecified": false,
+              "fadeMs": 30,
+              "wet": 0.45,
+              "tailExtraSeconds": 1.2,
+              "sourceId": "sample-02",
+              "source": "子球与袋口/磕袋角入袋/大力/中大力外袋角1/中大力外袋角1.wav",
+              "reviewKey": null,
+              "reviewFile": null,
+              "trimSeconds": 0.175,
+              "highpassHz": 150,
+              "crestTrimDb": 0,
+              "targetPeakDb": -0.5,
+              "durationSeconds": 1.58,
+              "peakDb": -4,
+              "tailRelDb": -81.5,
+              "onsetSeconds": 0.03,
+              "appliedGainDb": -6.37,
+              "groupOffsetDb": 0,
+              "slotTrimDb": -3.5,
+              "rmsDb": -18.1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "files": 34,
+    "slots": 30,
+    "unspecified": 5
+  },
+  "installed": {
+    "directory": "public/assets/audio",
+    "files": 34,
+    "backup": "/home/kevinbarrus/projects/snk/.cache/audio-prepared-backup"
+  },
+  "checks": [
+    {
+      "name": "文件数",
+      "ok": true,
+      "detail": "34 条，覆盖 30 个槽位"
+    },
+    {
+      "name": "峰值上限",
+      "ok": true,
+      "detail": "-0.5 dBFS"
+    },
+    {
+      "name": "峰值按目标落位",
+      "ok": true,
+      "detail": "每档误差 ≤0.1dB（含组内抬起与档位修正）"
+    },
+    {
+      "name": "沿用音频逐字节相同",
+      "ok": true,
+      "detail": "cue-mid-low/cue-center 的 0.75 与 1.0 直接复制来源文件"
+    },
+    {
+      "name": "力度阶梯单调",
+      "ok": true,
+      "detail": "同组内高档位的前 300ms 能量严格大于低档位"
+    },
+    {
+      "name": "无前摇",
+      "ok": true,
+      "detail": "起音 ≤60ms（裁掉前置底噪）"
+    },
+    {
+      "name": "每组每档至少 1 条",
+      "ok": true,
+      "detail": "30 个槽位"
+    },
+    {
+      "name": "同组同档无重复文件",
+      "ok": true,
+      "detail": "洗牌基础"
+    }
+  ]
+}
