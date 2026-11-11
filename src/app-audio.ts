@@ -91,9 +91,9 @@ export class BrowserAudio {
 
   private async load(): Promise<boolean> {
     try {
-      const response = await fetch("/assets/audio/manifest.json", { signal: this.abort.signal });
+      const response = await fetch(`${import.meta.env.BASE_URL}assets/audio/manifest.json`, { signal: this.abort.signal });
       if (!response.ok) throw new Error(`Audio manifest: HTTP ${response.status}`);
-      const samples = parseAudioManifest(await response.json());
+      const samples = parseAudioManifest(await response.json(), import.meta.env.BASE_URL);
       await this.backend!.load(samples);
       if (this.abort.signal.aborted) return false;
       this.samples = samples;

@@ -11,7 +11,8 @@ export interface AudioSample {
   readonly duration: number;
 }
 
-export function parseAudioManifest(value: unknown): readonly AudioSample[] {
+export function parseAudioManifest(value: unknown, baseUrl = ""): readonly AudioSample[] {
+  const prefix = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   if (!value || typeof value !== "object" || !("version" in value) || value.version !== 1 ||
       !("samples" in value) || !Array.isArray(value.samples) || !value.samples.length) throw new Error("Invalid audio manifest");
   const samples: AudioSample[] = [];
@@ -27,7 +28,7 @@ export function parseAudioManifest(value: unknown): readonly AudioSample[] {
         !finite(gain) || gain <= 0 || gain > 4 || !finite(offset) || offset < 0 ||
         !finite(duration) || duration <= offset || duration > 10) throw new Error(`Invalid audio sample: ${String(id)}`);
     ids.add(id);
-    samples.push({ id, url, group: group as SampleGroup, intensity, gain, offset, duration });
+    samples.push({ id, url: `${prefix}${url.slice(1)}`, group: group as SampleGroup, intensity, gain, offset, duration });
   }
   for (const group of SAMPLE_GROUPS) if (!samples.some(sample => sample.group === group)) throw new Error(`Missing audio group: ${group}`);
   return samples;
