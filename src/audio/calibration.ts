@@ -1,11 +1,13 @@
 export interface SoundCurve { readonly silentBelow: number; readonly fullAt: number; readonly exponent: number; readonly gain: number }
+export interface PocketGate { readonly entrySpeed: number; readonly jawSpeed: number; readonly fade: number }
 export interface AudioCalibration {
   readonly cueSpeedPolynomial: readonly [number, number, number];
   readonly tipBands: readonly [number, number, number];
   readonly cue: SoundCurve;
   readonly ball: SoundCurve;
   readonly pocket: SoundCurve;
-  readonly pocketHistory: { readonly seconds: number; readonly distance: number; readonly jawMinimumSpeed: number };
+  readonly pocketGate: PocketGate;
+  readonly pocketHistory: { readonly seconds: number; readonly distance: number };
   readonly playback: { readonly master: number; readonly voices: number; readonly threshold: number;
     readonly knee: number; readonly ratio: number; readonly attack: number; readonly release: number };
 }
@@ -20,7 +22,10 @@ export const AUDIO_CALIBRATION: AudioCalibration = {
   cue: { silentBelow: 0, fullAt: 1, exponent: .65, gain: .3 },
   ball: { silentBelow: .03, fullAt: 4, exponent: .65, gain: .85 },
   pocket: { silentBelow: .25, fullAt: 2.8, exponent: .85, gain: .44 },
-  pocketHistory: { seconds: .8, distance: .3, jawMinimumSpeed: .08 },
+  // 2026-11-11 用户决定：入袋与袋角各设速度阈值，低于阈值完全无声。
+  // entrySpeed / jawSpeed 单位为 m/s；fade 为阈值以上的淡入区间（m/s），避免硬起音。
+  pocketGate: { entrySpeed: .8, jawSpeed: .8, fade: .25 },
+  pocketHistory: { seconds: .8, distance: .3 },
   playback: { master: .7, voices: 24, threshold: -8, knee: 12, ratio: 8, attack: .003, release: .12 }
 };
 

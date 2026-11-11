@@ -73,6 +73,38 @@ describe("sample playback decisions", () => {
     expect(mix.mix({ ...surface("tunnel", 2), ballIndex: 3 })?.volume).toBeGreaterThan(0);
   });
 
+  it("silences pots below the entry speed threshold, including the cue ball", () => {
+    const gate = AUDIO_CALIBRATION.pocketGate;
+    const mix = mixer();
+    expect(mix.mix({ ...surface("tunnel", gate.entrySpeed - .2), entrySpeed: gate.entrySpeed - .2 })).toBeNull();
+    mix.reset();
+    expect(mix.mix({ ...surface("end", .2), ballIndex: 0 })).toBeNull();
+    mix.reset();
+    expect(mix.mix({ ...surface("tunnel", gate.entrySpeed) })).toBeNull();
+    expect(mix.mix({ ...surface("tunnel", gate.entrySpeed * 2), ballIndex: 2 })).not.toBeNull();
+  });
+
+  it("fades pocket volume in over the configured allowance instead of jumping", () => {
+    const gate = AUDIO_CALIBRATION.pocketGate;
+    const speed = gate.entrySpeed + gate.fade / 2;
+    const mix = mixer();
+    const pot = mix.mix({ ...surface("tunnel", speed), entrySpeed: speed });
+    expect(pot?.volume).toBeCloseTo(volumeAt(speed, AUDIO_CALIBRATION.pocket) * .5);
+    const fullSpeed = gate.entrySpeed + gate.fade;
+    expect(mixer().mix({ ...surface("tunnel", fullSpeed), entrySpeed: fullSpeed })?.volume)
+      .toBeCloseTo(volumeAt(fullSpeed, AUDIO_CALIBRATION.pocket));
+  });
+
+  it("ignores jaw contacts below the separate jaw speed threshold", () => {
+    const gate = AUDIO_CALIBRATION.pocketGate;
+    const soft = mixer();
+    expect(soft.mix({ ...surface("jaw"), speed: gate.jawSpeed - .1 })).toBeNull();
+    expect(soft.mix(surface("tunnel", 2, 1.1))?.sound).toBe("pocket-clean");
+    const hard = mixer();
+    hard.mix({ ...surface("jaw"), speed: gate.jawSpeed + .1 });
+    expect(hard.mix(surface("tunnel", 2, 1.1))?.sound).toBe("pocket-jaw");
+  });
+
   it("rejects nonfinite events and resets per-shot pocket history", () => {
     const mix = mixer();
     expect(mix.mix({ ...cue(0), speed: NaN })).toBeNull();

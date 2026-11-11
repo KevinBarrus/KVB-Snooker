@@ -36,14 +36,18 @@ export class SampleMixer {
     if (history.jaw && !this.near(history.jaw, event)) delete history.jaw;
     if (history.entry && !this.near(history.entry, event)) delete history.entry;
     if (event.surface === "jaw") {
-      if (event.speed >= this.config.pocketHistory.jawMinimumSpeed) history.jaw = event;
+      if (event.speed >= this.config.pocketGate.jawSpeed) history.jaw = event;
       return null;
     }
     if (event.surface === "pocket") { history.entry ??= event; return null; }
     history.played = true;
     const speed = history.entry?.entrySpeed ?? event.entrySpeed;
+    const gate = this.config.pocketGate;
+    if (speed < gate.entrySpeed) return null;
+    const fade = gate.fade > 0 ? Math.min(1, (speed - gate.entrySpeed) / gate.fade) : 1;
     const group = history.jaw ? "pocket-jaw" : "pocket-clean";
-    return this.decide(group, intensityAt(speed, this.config.pocket), volumeAt(speed, this.config.pocket), group);
+    return this.decide(group, intensityAt(speed, this.config.pocket),
+      volumeAt(speed, this.config.pocket) * fade, group);
   }
 
   private near(a: SurfaceImpact, b: SurfaceImpact): boolean {
