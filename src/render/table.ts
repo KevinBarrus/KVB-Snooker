@@ -26,8 +26,10 @@ export async function beautifyTable(scene: B.Scene): Promise<void> {
   if (!pocketLight || !(gameLight instanceof B.SpotLight)) throw new Error("Missing table lights");
   pocketLight.includedOnlyMeshes = [pocket];
   pocketMaterial.invertNormalMapX = pocketMaterial.invertNormalMapY = true;
-  pocketMaterial.diffuseColor = new B.Color3(0.002, 0.002, 0.002).toGammaSpace();
-  pocketMaterial.ambientColor = pocketMaterial.diffuseColor;
+  pocketMaterial.unfreeze();
+  pocketMaterial.diffuseColor = new B.Color3(0.62, 0.42, 0.28);
+  pocketMaterial.ambientColor = new B.Color3(0.12, 0.08, 0.05);
+  pocketMaterial.specularPower = 48;
   pocketMaterial.disableLighting = false;
   const cloth = requireMesh(scene, "TableInner");
   gameLight.includedOnlyMeshes = [cloth];
@@ -52,6 +54,8 @@ export async function beautifyTable(scene: B.Scene): Promise<void> {
   cloth.material = carpet;
   const frame = new B.PBRMetallicRoughnessMaterial("FrameMat", scene);
   frame.baseTexture = base;
+  frame.baseColor = new B.Color3(2.0, 1.15, 0.65);
+  base.level = 2.0;
   frame.metallic = 1;
   frame.roughness = 0.8;
   frame.metallicRoughnessTexture = roughness;
@@ -61,5 +65,6 @@ export async function beautifyTable(scene: B.Scene): Promise<void> {
   frame.occlusionTexture = ao;
   frame.normalTexture = normal;
   frame.invertNormalMapX = frame.invertNormalMapY = true;
+  frame.unfreeze();
   requireMesh(scene, "Frame").material = frame;
 }
