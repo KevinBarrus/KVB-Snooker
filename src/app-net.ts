@@ -6,6 +6,7 @@ import { PlacementMarkers } from "./render/placement.js";
 import { loadSimulator, createDisplaySource, withTimeout } from "./app-net-scene.js";
 import { NetPausePanel } from "./app-net-pause.js";
 import * as B from "babylonjs/es6.js";
+import { tableJawShift } from "./core/physics/table-geometry.js";
 import type { Simulator } from "./core/simulator/simulator.js";
 import { DEFAULT_SCENE } from "./core/simulator/scene.js";
 import type { PredictionContext } from "./core/simulator/shot-result.js";
@@ -175,7 +176,7 @@ async function main(): Promise<void> {
   try {
     const [simulator, loadedScene] = await Promise.all([
       loadSimulator(),
-      loadTableScene(engine),
+      loadTableScene(engine, tableJawShift()),
       withTimeout(firstSnapshot, 15_000, "等待服务器快照")
     ]);
     scene = loadedScene;

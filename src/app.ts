@@ -1,5 +1,6 @@
 import * as B from "babylonjs/es6.js";
 import { MeshBody, type CollisionMeshData } from "./core/physics/mesh-body.js";
+import { applyTableGeometry, tableJawShift } from "./core/physics/table-geometry.js";
 import { Simulator } from "./core/simulator/simulator.js";
 import { DEFAULT_SCENE } from "./core/simulator/scene.js";
 import { loadBallLighting } from "./render/materials.js";
@@ -44,7 +45,7 @@ async function loadSimulator(): Promise<Simulator> {
   if (hash !== "04acfb245368bc1762cdcdf94f0bb81ab82dd82f785af661a4f63d3de9ccbbc9") {
     throw new Error("Physics table digest mismatch");
   }
-  const mesh = new MeshBody(JSON.parse(new TextDecoder().decode(bytes)) as CollisionMeshData);
+  const mesh = new MeshBody(applyTableGeometry(JSON.parse(new TextDecoder().decode(bytes)) as CollisionMeshData));
   mesh.id = "tiger-club-sno-rgb";
   return new Simulator(mesh);
 }
@@ -85,7 +86,7 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
   let audio: BrowserAudio | undefined;
   try {
     const simulator = await loadSimulator();
-    scene = await loadTableScene(engine);
+    scene = await loadTableScene(engine, tableJawShift());
     const [lighting, atlas, mask] = await Promise.all([
       loadBallLighting(scene), loadTexture(scene, "table-ui"), loadTexture(scene, "mask-table")
     ]);

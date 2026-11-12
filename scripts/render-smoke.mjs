@@ -17,7 +17,7 @@ try {
   await page.waitForFunction(() => ["ready", "error"].includes(document.body.dataset.state), undefined, { timeout: 30000 })
     .catch(error => { throw new Error(`${error.message}\n${errors.join("\n")}`); });
   const state = await page.locator("body").getAttribute("data-state");
-  assert.equal(state, "ready", await page.locator("output").textContent());
+  assert.equal(state, "ready", await page.locator("output[role=status]").textContent());
   const sceneState = await page.evaluate(async () => {
     const { scene } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     const gameLight = scene.getLightByName("GameLight");
@@ -44,7 +44,7 @@ try {
   assert.deepEqual(sceneState.materials, Array.from({ length: 8 }, (_, i) => `ball-material-${i}`));
   assert.equal(sceneState.ready, true);
   assert.deepEqual(sceneState.shadow, [0.881, 88, Math.fround(0.8)]);
-  assert.deepEqual(sceneState.frame, [1, 0.8, true]);
+  assert.deepEqual(sceneState.frame, [0, 0.4, false]);
   const motion = await page.evaluate(async () => {
     const { engine, scene, simulator, balls } = await (await import(document.querySelector('script[src*="/src/app.ts"]').src)).runtime;
     engine.stopRenderLoop();

@@ -1,9 +1,10 @@
 import * as B from "babylonjs/es6.js";
 import { assetUrl } from "./assets.js";
 import { beautifyTable } from "./table.js";
+import type { JawShift } from "./table-shape.js";
 
 // PCOL L2079-2107, L20-24
-export async function loadTableScene(engine: B.Engine): Promise<B.Scene> {
+export async function loadTableScene(engine: B.Engine, jawShift: JawShift): Promise<B.Scene> {
   const scene = new B.Scene(engine);
   try {
     B.SceneLoader.ShowLoadingScreen = false;
@@ -15,7 +16,7 @@ export async function loadTableScene(engine: B.Engine): Promise<B.Scene> {
     camera.fov = 0.88;
     camera.minZ = 0.01;
     scene.activeCamera = camera;
-    await beautifyTable(scene);
+    await beautifyTable(scene, jawShift);
     return scene;
   } catch (error) {
     scene.dispose();

@@ -6,6 +6,7 @@ import { createGameView } from "./ai/play-area.js";
 import { makeStrokeVars } from "./ai/stroke.js";
 import { GAME_STATE, GameSession } from "./game.js";
 import { MeshBody, type CollisionMeshData } from "./physics/mesh-body.js";
+import { applyTableGeometry } from "./physics/table-geometry.js";
 import { SeededRandom, setCoreRandom } from "./rng.js";
 import { Simulator } from "./simulator/simulator.js";
 
@@ -44,7 +45,7 @@ async function main(): Promise<void> {
   if (!Number.isSafeInteger(seed) || !Number.isSafeInteger(maxRounds) || maxRounds <= 0) throw new Error("seed/max-rounds must be integers; max-rounds > 0");
   const data: unknown = JSON.parse(await readFile(values.table, "utf8"));
   if (!isMeshData(data)) throw new Error("invalid collision mesh data");
-  const table = new MeshBody(data);
+  const table = new MeshBody(applyTableGeometry(data));
   table.id = values.table;
   setCoreRandom(new SeededRandom(seed));
   try {

@@ -63,6 +63,7 @@ export function setPolyFrictionAndRestitution(t: { friction: number; restitution
         t.friction = TABLE_TUNING.cushionFriction;
         t.restitution = TABLE_TUNING.cushionRestitution;
       }
+      if (key === "sidesoft") t.restitution = TABLE_TUNING.jawRestitution;
       return;
     }
   }

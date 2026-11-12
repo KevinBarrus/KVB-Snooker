@@ -1,6 +1,7 @@
 import * as B from "babylonjs/es6.js";
 import { Simulator } from "./core/simulator/simulator.js";
 import { MeshBody, type CollisionMeshData } from "./core/physics/mesh-body.js";
+import { applyTableGeometry } from "./core/physics/table-geometry.js";
 import type { RemoteView } from "./net/remote-view.js";
 
 interface DisplaySource extends Pick<Simulator, "getBallCount" | "getBallView" | "getCueBallPosition" | "getResult" | "predict"> {}
@@ -13,7 +14,7 @@ export async function loadSimulator(): Promise<Simulator> {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
   const hash = Array.from(digest, byte => byte.toString(16).padStart(2, "0")).join("");
   if (hash !== DIGEST) throw new Error("Physics table digest mismatch");
-  const mesh = new MeshBody(JSON.parse(new TextDecoder().decode(bytes)) as CollisionMeshData);
+  const mesh = new MeshBody(applyTableGeometry(JSON.parse(new TextDecoder().decode(bytes)) as CollisionMeshData));
   mesh.id = "tiger-club-sno-rgb";
   return new Simulator(mesh);
 }

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { MeshBody, type CollisionMeshData } from "../core/physics/mesh-body.js";
+import { applyTableGeometry } from "../core/physics/table-geometry.js";
 
 /** 与 src/app.ts 使用同一份物理台面资源与摘要（architecture §4.3）。 */
 export const PHYSICS_TABLE_PATH = "public/assets/physics/table.json";
@@ -67,7 +68,7 @@ export async function loadPhysicsTable(path = PHYSICS_TABLE_PATH): Promise<Loade
 
 /** 每个房间拥有独立 MeshBody；只共享已校验的只读 JSON 数据。 */
 export function createTableMesh(data: CollisionMeshData): MeshBody {
-  const mesh = new MeshBody(data);
+  const mesh = new MeshBody(applyTableGeometry(data));
   mesh.id = TABLE_MESH_ID;
   return mesh;
 }
