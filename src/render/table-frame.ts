@@ -1,7 +1,6 @@
 import { arc, extrude, QUADRANTS, Shape, type Mirror, type P2, type P3 } from "./table-mesh.js";
 import { CORNER_CUT_X, CORNER_CUT_Z, MIDDLE_HALF, RAIL_BOTTOM, RAIL_INNER_X, RAIL_INNER_Z, RAIL_TOP, SKIRT_INSET,
   railWidth } from "./table-shape.js";
-import { sidePocketWoodEnd } from "./side-pocket-leather.js";
 
 // =====================================================================
 // 台框（代码生成，对标星牌比赛台）：木框台边 + 金色铭牌带 + 围板 + 金色线脚 + 腿墩 + 罗马柱腿。
@@ -51,29 +50,18 @@ const LEG_PROFILE: [number, number, boolean][] = [
 
 interface Frame { wood: Shape; gold: Shape }
 
-function rail(frame: Frame, mirror: Mirror, from: P2, to: P2, outward: P2, middleEnd = false): void {
+function rail(frame: Frame, mirror: Mirror, from: P2, to: P2, outward: P2): void {
   const width = railWidth();
   const top = RAIL_TOP;
   const edge = arc([width - CAP_ROUND, top - CAP_ROUND], CAP_ROUND, Math.PI / 2, 0, 5);
   const side: P3 = [outward[0], 0, outward[1]];
-  const sweep = (shape: Shape, profile: P2[], out: P3, light = 1): void => {
-    const rows = extrude(profile, from, to, outward);
-    if (middleEnd) rows[0] = rows[0].map(([x, y, z]): P3 => [sidePocketWoodEnd(z - RAIL_INNER_Z), y, z]);
-    shape.grid(rows, mirror, out, { scale: WOOD_GRAIN, shade: () => light });
-  };
-  const face: P2[] = middleEnd
-    ? Array.from({ length: 25 }, (_, i): P2 => [(width - CAP_ROUND) * i / 25, top]) : [[0, top]];
-  sweep(frame.wood, [...face, ...edge, [width, top - 0.024]], [outward[0], 1, outward[1]]);
+  const sweep = (shape: Shape, profile: P2[], out: P3, light = 1): void =>
+    shape.grid(extrude(profile, from, to, outward), mirror, out, { scale: WOOD_GRAIN, shade: () => light });
+  sweep(frame.wood, [[0, top], ...edge, [width, top - 0.024]], [outward[0], 1, outward[1]]);
   sweep(frame.wood, [[width, top - 0.024], [width + 0.003, top - 0.026], [width + 0.003, top - 0.031], [width, top - BAND_TOP]], side);
   sweep(frame.gold, [[width - 0.001, top - BAND_TOP], [width - 0.001, top - BAND_BOTTOM]], side);
   sweep(frame.wood, [[width - 0.001, top - BAND_BOTTOM], [width + 0.004, top - 0.07], [width + 0.004, top - 0.077], [width, RAIL_BOTTOM]], side);
   sweep(frame.wood, [[width, RAIL_BOTTOM], [width - SKIRT_INSET, RAIL_BOTTOM]], [0, -1, 0], INSIDE_SHADE);
-  if (middleEnd) {
-    const cap = [...face, ...edge];
-    frame.wood.grid([cap.map(([depth, y]): P3 => [sidePocketWoodEnd(depth), y, RAIL_INNER_Z + depth]),
-      cap.map(([depth]): P3 => [sidePocketWoodEnd(depth), RAIL_BOTTOM, RAIL_INNER_Z + depth])], mirror, [-1, 0, 0],
-    { scale: WOOD_GRAIN });
-  }
 }
 
 function skirt(frame: Frame, mirror: Mirror, from: P2, to: P2, outward: P2): void {
@@ -164,7 +152,7 @@ export function buildFrame(): Frame {
   const skirtZ = RAIL_INNER_Z + width - SKIRT_INSET;
   const cornerLeg = CORNER_BLOCK / 2;
   for (const mirror of QUADRANTS) {
-    rail(frame, mirror, [MIDDLE_HALF, RAIL_INNER_Z], [CORNER_CUT_X, RAIL_INNER_Z], [0, 1], true);
+    rail(frame, mirror, [MIDDLE_HALF, RAIL_INNER_Z], [CORNER_CUT_X, RAIL_INNER_Z], [0, 1]);
     rail(frame, mirror, [RAIL_INNER_X, 0], [RAIL_INNER_X, CORNER_CUT_Z], [1, 0]);
     skirt(frame, mirror, [MIDDLE_OPENING, skirtZ], [skirtX - CORNER_BLOCK, skirtZ], [0, 1]);
     skirt(frame, mirror, [skirtX, 0], [skirtX, skirtZ - CORNER_BLOCK], [1, 0]);

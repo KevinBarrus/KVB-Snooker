@@ -3,7 +3,6 @@ import { arc, HALVES, QUADRANTS, resample, Shape, type Mirror, type P2, type P3 
 import { CORNER_CUT_X, CORNER_CUT_Z, MIDDLE_HALF, RAIL_INNER_X, RAIL_INNER_Z, RAIL_TOP, railWidth, reshapePoint,
   type JawShift } from "./table-shape.js";
 import { TABLE_STYLE } from "./table-style.js";
-import { addSidePocketLeather } from "./side-pocket-leather.js";
 
 // =====================================================================
 // 皮口（代码生成）：每个袋口一张皮件，从袋内到台外依次是
@@ -115,10 +114,6 @@ export function buildLeather(shift: JawShift): Shape {
   const rings = section();
   for (const site of POCKET_SITES) {
     const { inner, outer } = contour(site.middle, shift);
-    if (site.middle) {
-      addSidePocketLeather(shape, inner, site.mirror);
-      continue;
-    }
     let walk = 0;
     const lengths = inner.map((point, index) => {
       if (index > 0) {
@@ -133,8 +128,10 @@ export function buildLeather(shift: JawShift): Shape {
       const t = ring.reach(length) / length;
       return [from[0] + (to[0] - from[0]) * t, ring.y(index / SAMPLES, length), from[1] + (to[1] - from[1]) * t];
     }));
+    // 中袋顶面皮带很窄，不走缝线：把顶面的贴图位置压到缝线之前
+    const v = (row: number): number => site.middle && rings[row].v > 0.2 && rings[row].v < 0.7 ? 0.2 + (rings[row].v - 0.2) / 3 : rings[row].v;
     shape.grid(rows, site.mirror, [0, 1, 0],
-      { shade: row => rings[row].shade, uv: (row, column) => [lengths[column] / STITCH_PITCH, rings[row].v] });
+      { shade: row => rings[row].shade, uv: (row, column) => [lengths[column] / STITCH_PITCH, v(row)] });
   }
   return shape;
 }
