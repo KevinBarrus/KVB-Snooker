@@ -1,5 +1,5 @@
 import * as B from "babylonjs/es6.js";
-import { TABLE_STYLE } from "./table-style.js";
+import { TABLE_STYLE, type TableStyle } from "./table-style.js";
 
 export interface JawShift { readonly corner: number; readonly middle: number }
 
@@ -17,8 +17,8 @@ export const MIDDLE_HALF = 0.0789;
 // 落袋球在物理上会贴到袋底壁，木面过窄会让球穿出皮口外侧
 const RAIL_WIDTH_MIN = 0.085;
 
-export function railWidth(): number {
-  return Math.max(TABLE_STYLE.railWidth, RAIL_WIDTH_MIN);
+export function railWidth(style: TableStyle = TABLE_STYLE): number {
+  return Math.max(style.railWidth, RAIL_WIDTH_MIN);
 }
 
 function smoothstep(from: number, to: number, value: number): number {

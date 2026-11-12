@@ -1,3 +1,4 @@
+import { TABLE_STYLE, type TableStyle } from "./table-style.js";
 import { Shape, type Mirror, type P3 } from "./table-mesh.js";
 import { POCKET_SITES } from "./pocket-leather.js";
 import { RAIL_BOTTOM, RAIL_INNER_X, RAIL_INNER_Z, SKIRT_INSET, railWidth } from "./table-shape.js";
@@ -45,10 +46,10 @@ function ring(shape: Shape, mirror: Mirror, center: P3): void {
   shape.grid(rows, mirror, [0, 1, 0]);
 }
 
-export function buildRunners(gold: Shape): Shape {
+export function buildRunners(gold: Shape, style: TableStyle = TABLE_STYLE): Shape {
   const rods = new Shape();
-  const skirtX = RAIL_INNER_X + railWidth() - SKIRT_INSET;
-  const z = RAIL_INNER_Z + railWidth() - SKIRT_INSET + TRACK_OFFSET;
+  const skirtX = RAIL_INNER_X + railWidth(style) - SKIRT_INSET;
+  const z = RAIL_INNER_Z + railWidth(style) - SKIRT_INSET + TRACK_OFFSET;
   for (const site of POCKET_SITES) {
     const start = site.middle ? 0.03 : skirtX - 0.07;
     const end = start + (site.middle ? TRACK_LENGTH : -TRACK_LENGTH);

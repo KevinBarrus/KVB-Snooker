@@ -2,7 +2,7 @@ import * as B from "babylonjs/es6.js";
 import { arc, HALVES, QUADRANTS, resample, Shape, type Mirror, type P2, type P3 } from "./table-mesh.js";
 import { CORNER_CUT_X, CORNER_CUT_Z, MIDDLE_HALF, RAIL_INNER_X, RAIL_INNER_Z, RAIL_TOP, railWidth, reshapePoint,
   type JawShift } from "./table-shape.js";
-import { TABLE_STYLE } from "./table-style.js";
+import { TABLE_STYLE, type TableStyle } from "./table-style.js";
 
 // =====================================================================
 // 皮口（代码生成）：每个袋口一张皮件，从袋内到台外依次是
@@ -48,8 +48,8 @@ export function mouthSpan(middle: boolean): [number, number] {
     Math.atan2(offsetZ, -Math.sqrt(MOUTH_RADIUS ** 2 - offsetZ ** 2))];
 }
 
-function contour(middle: boolean, shift: JawShift): Contour {
-  const width = railWidth();
+function contour(middle: boolean, shift: JawShift, style: TableStyle): Contour {
+  const width = railWidth(style);
   const [from, to] = mouthSpan(middle);
   let inner: P2[];
   let outer: P2[];
@@ -59,7 +59,7 @@ function contour(middle: boolean, shift: JawShift): Contour {
     inner = [[-half, MIDDLE_EDGE_Z], ...arc(MIDDLE_SITE, MOUTH_RADIUS, to, from, 2 * ARC_STEPS), [half, MIDDLE_EDGE_Z]];
     outer = [[-half, outerZ], [half, outerZ]];
   } else {
-    const radius = Math.min(TABLE_STYLE.leatherCornerRadius, width + 0.03);
+    const radius = Math.min(style.leatherCornerRadius, width + 0.03);
     const outerX = RAIL_INNER_X + width;
     const outerZ = RAIL_INNER_Z + width;
     const cutX = CORNER_CUT_X - OVERLAP;
@@ -73,8 +73,7 @@ function contour(middle: boolean, shift: JawShift): Contour {
 interface Ring { reach: (length: number) => number; y: (along: number, length: number) => number; v: number; shade: number }
 
 // 皮件截面：reach 为从内沿向外沿走的距离（length 是该处内外沿间距），y 为高度，v 为贴图纵向位置。
-function section(): Ring[] {
-  const style = TABLE_STYLE;
+function section(style: TableStyle): Ring[] {
   const top = RAIL_TOP;
   const seam = (length: number): number => Math.min(SEAM_INSET, (length - LIP_ROUND - EDGE_ROUND) / 2);
   const dome = (reach: number, length: number): number =>
@@ -109,11 +108,11 @@ function section(): Ring[] {
   return rings;
 }
 
-export function buildLeather(shift: JawShift): Shape {
+export function buildLeather(shift: JawShift, style: TableStyle = TABLE_STYLE): Shape {
   const shape = new Shape();
-  const rings = section();
+  const rings = section(style);
   for (const site of POCKET_SITES) {
-    const { inner, outer } = contour(site.middle, shift);
+    const { inner, outer } = contour(site.middle, shift, style);
     let walk = 0;
     const lengths = inner.map((point, index) => {
       if (index > 0) {

@@ -2,7 +2,7 @@ import * as B from "babylonjs/es6.js";
 import { CORNER_SITE, MIDDLE_SITE, MOUTH_RADIUS, mouthSpan, POCKET_SITES } from "./pocket-leather.js";
 import { Shape, type P3 } from "./table-mesh.js";
 import { RAIL_TOP, reshapePoint, type JawShift } from "./table-shape.js";
-import { TABLE_STYLE } from "./table-style.js";
+import { TABLE_STYLE, type TableStyle } from "./table-style.js";
 
 // =====================================================================
 // 网兜（代码生成）：白色棉网袋，上口缝在袋内皮壁下沿，朝台面一侧挂在台呢垂边之下，
@@ -35,8 +35,7 @@ const LINER_OPEN = 1.15;
 
 interface Bags { net: Shape; liner: Shape }
 
-export function buildNet(shift: JawShift): Bags {
-  const style = TABLE_STYLE;
+export function buildNet(shift: JawShift, style: TableStyle = TABLE_STYLE): Bags {
   const bags: Bags = { net: new Shape(), liner: new Shape() };
   const top = RAIL_TOP - style.leatherWallDepth;
   const bottom = RAIL_TOP - style.netDepth;
@@ -76,9 +75,9 @@ export function buildNet(shift: JawShift): Bags {
 }
 
 // 菱形网眼贴图：斜向网线 + 交叉处的绳结，网眼处透明。
-function netTexture(scene: B.Scene): B.Texture {
+function netTexture(scene: B.Scene, style: TableStyle): B.Texture {
   const period = TILE_SIZE / TILE_CELLS;
-  const line = period * TABLE_STYLE.netLineRatio;
+  const line = period * style.netLineRatio;
   const data = new Uint8Array(TILE_SIZE * TILE_SIZE * 4);
   const fromLine = (value: number): number => Math.min(value % period, period - value % period);
   for (let y = 0; y < TILE_SIZE; ++y) {
@@ -96,24 +95,24 @@ function netTexture(scene: B.Scene): B.Texture {
   return texture;
 }
 
-export function netMaterial(scene: B.Scene): B.StandardMaterial {
+export function netMaterial(scene: B.Scene, style: TableStyle = TABLE_STYLE): B.StandardMaterial {
   const material = new B.StandardMaterial("PocketNetMat", scene);
   material.disableLighting = true;
   material.backFaceCulling = false;
   material.diffuseColor = B.Color3.Black();
   material.specularColor = B.Color3.Black();
-  material.emissiveColor = B.Color3.FromArray(TABLE_STYLE.netColor);
-  material.diffuseTexture = netTexture(scene);
+  material.emissiveColor = B.Color3.FromArray(style.netColor);
+  material.diffuseTexture = netTexture(scene, style);
   material.alphaCutOff = 0.2;
   return material;
 }
 
-export function linerMaterial(scene: B.Scene): B.StandardMaterial {
+export function linerMaterial(scene: B.Scene, style: TableStyle = TABLE_STYLE): B.StandardMaterial {
   const material = new B.StandardMaterial("PocketLinerMat", scene);
   material.disableLighting = true;
   material.backFaceCulling = false;
   material.diffuseColor = B.Color3.Black();
   material.specularColor = B.Color3.Black();
-  material.emissiveColor = B.Color3.FromArray(TABLE_STYLE.linerColor);
+  material.emissiveColor = B.Color3.FromArray(style.linerColor);
   return material;
 }

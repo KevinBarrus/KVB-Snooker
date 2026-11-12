@@ -489,6 +489,14 @@ RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身�
 - `?room=CODE`正式入口固定同源`/net`；`?multiplayer`创建/加入页，均先经登录门禁；`?net=`仅开发。GameMenu构造新增可选`onMultiplayer()`装配回调，由首页双人按钮导航，不再把房间码转换成本地双USER。
 - app-net-rules用已登记的SnookerRef公开落点检查和inferColour作只读预览；最终判定仅由服务器GameSession执行。app-net-presentation复用Hud、通知和BrowserAudio，网络模块不引DOM，表现模块不引网络。
 
+### 4.16 电影外观（2026-11-13 用户批准）
+
+需求唯一入口为 `cinema-visual-design.md`。装配根解析 `visual=cinema`，`loadTableScene(engine, jawShift, options?)` 接收可选电影配置；缺省调用保持当前默认场景。电影配置包含装配根从 `applyTableGeometry` 复制的 `CushionOutline`（只读 x/z 点及到下一点是否为 pocket 的标记），不传 World/Body。该数据只用于生成显示库鼻，不产生新的碰撞或规则。
+
+程序化球台生成器接受可选只读 TableStyle，缺省为 TABLE_STYLE，不修改共享预设。BallRenderer 的既有 options 增加可选球材质工厂，仍只消费 getBallCount/getBallView；球材质归 renderer，场景共享贴图归 scene。loadCue 可选材质工厂，不改控制器动作。
+
+电影观察装配位于 app-visual.ts；ui 只提供镜头选择 DOM，render 只提供相机。装配控制观察输入的独占权，既有控制器仍拥有瞄准姿态。观察中不发出击球；回到瞄准、菜单、摆球、编辑或回放时恢复原相机与输入。场景切换不增加核心事件或存档字段，不修改联机装配。
+
 ## 5. 目录结构（骨架）
 
 ```

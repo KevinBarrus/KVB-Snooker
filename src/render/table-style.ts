@@ -41,3 +41,5 @@ export const TABLE_STYLE = {
   fillLight: 0.6, // 环境补光强度：主要影响垂帘
   fillGround: 0.25 // 环境补光中来自地面方向的比例
 };
+
+export type TableStyle = Readonly<typeof TABLE_STYLE>;

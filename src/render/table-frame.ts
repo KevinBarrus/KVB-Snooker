@@ -1,3 +1,4 @@
+import { TABLE_STYLE, type TableStyle } from "./table-style.js";
 import { arc, extrude, QUADRANTS, Shape, type Mirror, type P2, type P3 } from "./table-mesh.js";
 import { CORNER_CUT_X, CORNER_CUT_Z, MIDDLE_HALF, RAIL_BOTTOM, RAIL_INNER_X, RAIL_INNER_Z, RAIL_TOP, SKIRT_INSET,
   railWidth } from "./table-shape.js";
@@ -48,10 +49,10 @@ const LEG_PROFILE: [number, number, boolean][] = [
   [0.02, 0.062, false], [0, 0.058, false]
 ];
 
-interface Frame { wood: Shape; gold: Shape }
+interface Frame { wood: Shape; gold: Shape; width: number }
 
 function rail(frame: Frame, mirror: Mirror, from: P2, to: P2, outward: P2): void {
-  const width = railWidth();
+  const width = frame.width;
   const top = RAIL_TOP;
   const edge = arc([width - CAP_ROUND, top - CAP_ROUND], CAP_ROUND, Math.PI / 2, 0, 5);
   const side: P3 = [outward[0], 0, outward[1]];
@@ -145,9 +146,9 @@ function leg(frame: Frame, mirror: Mirror, x: number, z: number): void {
   frame.gold.grid(rings, mirror, [-1, 0, 0]);
 }
 
-export function buildFrame(): Frame {
-  const frame: Frame = { wood: new Shape(), gold: new Shape() };
-  const width = railWidth();
+export function buildFrame(style: TableStyle = TABLE_STYLE): Frame {
+  const frame: Frame = { wood: new Shape(), gold: new Shape(), width: railWidth(style) };
+  const width = frame.width;
   const skirtX = RAIL_INNER_X + width - SKIRT_INSET;
   const skirtZ = RAIL_INNER_Z + width - SKIRT_INSET;
   const cornerLeg = CORNER_BLOCK / 2;
