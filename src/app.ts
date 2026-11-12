@@ -23,6 +23,7 @@ import { toCustomPracticeOptions, toCustomShapeSetup, type CustomShapeRecord } f
 import { MyShapesStore, userShapeStorage } from "./app-my-shapes.js";
 import { ShapeEditor } from "./app-shape-editor.js";
 import type { MyShapesPort } from "./ui/my-shapes-panel.js";
+import { BrowserVisual } from "./app-visual.js";
 
 const PRACTICE_SHAPE_IDS: Record<PresetShapeId, PracticeShapeId> = {
   snake: "snake",
@@ -331,6 +332,9 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
           ? "AI 回合" : game.shots.busy ? "击球进行中" : game.touchingNotice || "你的回合 · W 瞄准 / P 摆球";
     };
     scene.onBeforeRenderObservable.add(syncInteraction);
+    const visual = cinema ? new BrowserVisual(game, scene, scene.activeCamera, canvas,
+      () => editor?.active ?? false, () => { gunsight.alpha = 0; }) : undefined;
+    scene.onDisposeObservable.add(() => visual?.dispose());
     await waitForScene(scene);
     scene.render();
     const resize = () => engine.resize();

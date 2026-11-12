@@ -1,5 +1,10 @@
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #13100d; color: #eee; font: 14px system-ui, sans-serif; }
 canvas { width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+.visual-controls { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; padding: 3px; background: #101512d9; border: 1px solid #ffffff26; border-radius: 5px; z-index: 5; }
+.visual-controls[hidden] { display: none; }
+.visual-controls button { min-width: 54px; border-color: transparent; background: transparent; padding: 6px 10px; }
+.visual-controls button[aria-pressed="true"] { color: #e5d69d; background: #ffffff12; }
+@media (max-width: 680px) { .visual-controls { top: auto; bottom: 105px; } }
 output { position: absolute; left: 20px; bottom: 64px; max-width: 45vw; padding: 8px 12px; background: #171713cc; pointer-events: none; }
 body:not([data-state="ready"]) .game-options,
 body:not([data-state="ready"]) .game-menu-layer { display: none; }
