@@ -28,6 +28,7 @@
 | 经典规则 | [规则扩展](rules-v2-design.md) | spec/05、modules/core-rules |
 | 900 规则与基础时钟 | [900](snooker-900-design.md) | 架构 §4.7；正式暂停引用生命周期 |
 | 球台调参 | [调校说明](table-tuning.md) | 生效值只在 table-tuning.ts 维护 |
+| 中袋外观 | [中袋皮口与皮裙](side-pocket-visual-design.md) | 几何边界、调节位置、固定机位前后对比；不改物理喉宽 |
 | HUD 与临时消息 | [UI 设计](ui-design.md) | UI 章程、架构事件与回调 |
 | 主菜单 | [菜单](menu-design.md) | 账号权限及正式房间流程不由菜单自行定义 |
 | 练球球形 | [练球球形设计](practice-shape-design.md) | 需求见[用户球形规则](practise.md)；架构 §4.9 |

@@ -13,6 +13,7 @@
 
 - [架构契约](../../docs/architecture.md)：公开接口和依赖方向。
 - [本模块还原依据](../../docs/modules/render.md)：原作出处与语义约束。
+- [中袋皮口与皮裙](../../docs/side-pocket-visual-design.md)：局部几何、木框衔接与不改物理开口的边界。
 - [controller-design.md](../../docs/controller-design.md)。
 - [camera-replay-design.md](../../docs/camera-replay-design.md)。
 - [snooker-900-design.md](../../docs/snooker-900-design.md)。
