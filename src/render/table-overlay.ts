@@ -33,17 +33,20 @@ varying float vAlpha;
 varying vec2 vMaskUV;
 uniform sampler2D sourceSampler;
 uniform sampler2D maskSampler;
+uniform float linearOutput;
 void main(void) {
   vec4 sourceColor = texture2D(sourceSampler, vUV);
   float mask = texture2D(maskSampler, vMaskUV).r;
-  gl_FragColor = vec4(sourceColor.rgb * vColor, sourceColor.a * mask * vAlpha);
+  vec3 color = sourceColor.rgb * vColor;
+  gl_FragColor = vec4(mix(color, pow(color, vec3(2.2)), linearOutput), sourceColor.a * mask * vAlpha);
 }`;
   const material = new B.ShaderMaterial("table-overlay", scene, "pcolTableOverlay", {
-    attributes: ["position", "uv", "color", "alpha"], uniforms: ["world", "viewProjection", "border"],
+    attributes: ["position", "uv", "color", "alpha"], uniforms: ["world", "viewProjection", "border", "linearOutput"],
     samplers: ["sourceSampler", "maskSampler"], needAlphaBlending: true
   });
   mask.wrapU = mask.wrapV = B.Texture.CLAMP_ADDRESSMODE;
   material.setTexture("sourceSampler", atlas);
+  material.setFloat("linearOutput", scene.imageProcessingConfiguration.applyByPostProcess ? 1 : 0);
   material.setTexture("maskSampler", mask);
   material.setVector4("border", new B.Vector4(0, 0, 3.66, 1.859));
   return material;

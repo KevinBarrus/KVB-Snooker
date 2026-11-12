@@ -2,9 +2,12 @@ import * as B from "babylonjs/es6.js";
 import { assetUrl } from "./assets.js";
 import { beautifyTable } from "./table.js";
 import type { JawShift } from "./table-shape.js";
+import type { CushionOutline } from "./table-cushions.js";
+
+export interface SceneAppearance { readonly cinema?: { readonly outline: CushionOutline } }
 
 // PCOL L2079-2107, L20-24
-export async function loadTableScene(engine: B.Engine, jawShift: JawShift): Promise<B.Scene> {
+export async function loadTableScene(engine: B.Engine, jawShift: JawShift, appearance: SceneAppearance = {}): Promise<B.Scene> {
   const scene = new B.Scene(engine);
   try {
     B.SceneLoader.ShowLoadingScreen = false;
@@ -16,7 +19,9 @@ export async function loadTableScene(engine: B.Engine, jawShift: JawShift): Prom
     camera.fov = 0.88;
     camera.minZ = 0.01;
     scene.activeCamera = camera;
-    await beautifyTable(scene, jawShift);
+    if (appearance.cinema) {
+      await (await import("./cinema-table.js")).buildCinemaTable(scene, jawShift, appearance.cinema.outline);
+    } else await beautifyTable(scene, jawShift);
     return scene;
   } catch (error) {
     scene.dispose();

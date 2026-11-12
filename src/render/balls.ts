@@ -6,7 +6,7 @@ import { BallShadows } from "./shadows.js";
 // PCOL L1886-1900, L2040-2077
 export class BallRenderer {
   private readonly meshes: B.Mesh[] = [];
-  private readonly materials = new Map<number, BallMaterial>();
+  private readonly materials = new Map<number, B.Material>();
   private readonly shadows: BallShadows;
 
   constructor(
@@ -14,10 +14,11 @@ export class BallRenderer {
     private readonly simulator: Pick<Simulator, "getBallCount" | "getBallView">,
     radius: number,
     private readonly tableHeight: number,
-    private readonly lighting: BallLighting,
+    private readonly lighting: BallLighting | null,
     atlas: B.Texture,
     mask: B.Texture,
-    private readonly options: { readonly redDots?: () => boolean } = {}
+    private readonly options: { readonly redDots?: () => boolean;
+      readonly createMaterial?: (number: number, dots: boolean) => B.Material } = {}
   ) {
     if (!Number.isFinite(radius) || 2 * radius <= 1e-6) throw new Error(`Invalid ball radius: ${radius}`);
     this.shadows = new BallShadows(scene, simulator.getBallCount(), radius, atlas, mask);
@@ -31,7 +32,7 @@ export class BallRenderer {
       templates.set(high, mesh);
       let material = this.materials.get(number);
       if (!material) {
-        material = new BallMaterial(scene, number, lighting);
+        material = this.createMaterial(number);
         this.materials.set(number, material);
       }
       mesh.material = material;
@@ -41,11 +42,17 @@ export class BallRenderer {
     this.sync();
   }
 
-  private dotCueMaterial: BallMaterial | null = null;
+  private dotCueMaterial: B.Material | null = null;
   private hidden = false;
 
-  private dottedCue(): BallMaterial {
-    return this.dotCueMaterial ??= new BallMaterial(this.scene, 0, this.lighting, true);
+  private createMaterial(number: number, dots = false): B.Material {
+    if (this.options.createMaterial) return this.options.createMaterial(number, dots);
+    if (!this.lighting) throw new Error("Ball renderer requires lighting or a material factory");
+    return new BallMaterial(this.scene, number, this.lighting, dots);
+  }
+
+  private dottedCue(): B.Material {
+    return this.dotCueMaterial ??= this.createMaterial(0, true);
   }
 
   setHidden(hidden: boolean): void { this.hidden = hidden; }

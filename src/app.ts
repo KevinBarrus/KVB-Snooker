@@ -9,6 +9,7 @@ import { loadTexture } from "./render/assets.js";
 import { BallRenderer } from "./render/balls.js";
 import { waitForScene } from "./render/ready.js";
 import { loadCue } from "./render/cue.js";
+import type { CushionOutline } from "./render/table-cushions.js";
 import { Gunsight } from "./render/gunsight.js";
 import { PlacementMarkers } from "./render/placement.js";
 import { BrowserGame } from "./app-game.js";
@@ -36,7 +37,7 @@ const PRACTICE_SHAPE_IDS: Record<PresetShapeId, PracticeShapeId> = {
   "five-spots": "five-spots"
 };
 
-async function loadSimulator(): Promise<Simulator> {
+async function loadSimulator(): Promise<{ simulator: Simulator; outline: CushionOutline }> {
   const response = await fetch("/assets/physics/table.json");
   if (!response.ok) throw new Error(`Physics table: HTTP ${response.status}`);
   const bytes = await response.arrayBuffer();
@@ -45,9 +46,12 @@ async function loadSimulator(): Promise<Simulator> {
   if (hash !== "04acfb245368bc1762cdcdf94f0bb81ab82dd82f785af661a4f63d3de9ccbbc9") {
     throw new Error("Physics table digest mismatch");
   }
-  const mesh = new MeshBody(applyTableGeometry(JSON.parse(new TextDecoder().decode(bytes)) as CollisionMeshData));
+  const table = applyTableGeometry(JSON.parse(new TextDecoder().decode(bytes)) as CollisionMeshData);
+  const outline = table.side.q.map(face => ({ x: table.side.p[face.i[0] * 3],
+    z: table.side.p[face.i[0] * 3 + 2], pocket: face.f?.includes("pocket") ?? false }));
+  const mesh = new MeshBody(table);
   mesh.id = "tiger-club-sno-rgb";
-  return new Simulator(mesh);
+  return { simulator: new Simulator(mesh), outline };
 }
 
 async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Simulator; balls: BallRenderer;
@@ -85,10 +89,13 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
   let disposeGame: (() => void) | undefined;
   let audio: BrowserAudio | undefined;
   try {
-    const simulator = await loadSimulator();
-    scene = await loadTableScene(engine, tableJawShift());
+    const { simulator, outline } = await loadSimulator();
+    const cinema = new URLSearchParams(location.search).get("visual") === "cinema";
+    const appearance = cinema ? await import("./render/cinema-materials.js") : null;
+    scene = await loadTableScene(engine, tableJawShift(), cinema ? { cinema: { outline } } : {});
+    const renderScene = scene;
     const [lighting, atlas, mask] = await Promise.all([
-      loadBallLighting(scene), loadTexture(scene, "table-ui"), loadTexture(scene, "mask-table")
+      cinema ? null : loadBallLighting(scene), loadTexture(scene, "table-ui"), loadTexture(scene, "mask-table")
     ]);
     if (!(scene.activeCamera instanceof B.TargetCamera)) throw new Error("Missing game camera");
     const game = new BrowserGame(simulator, scene, scene.activeCamera, canvas);
@@ -99,8 +106,9 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const myShapes = new MyShapesStore(viewer ? userShapeStorage(localStorage, viewer.id) : localStorage);
     const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(),
       getBallView: index => editor?.active ? editor.getBallView(index) : game.getDisplayBallView(index) },
-      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.cueBallRedDots });
-    const cue = await loadCue(scene, lighting);
+      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.cueBallRedDots,
+        ...(appearance ? { createMaterial: (number, dots) => appearance.cinemaBallMaterial(renderScene, number, dots) } : {}) });
+    const cue = await loadCue(scene, lighting, appearance ? (_texture, mesh) => appearance.cinemaCueMaterial(renderScene, mesh) : undefined);
     const placement = new PlacementMarkers(scene, atlas, mask);
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
     editor = new ShapeEditor(simulator, scene, scene.activeCamera, canvas, atlas, mask, {
