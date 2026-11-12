@@ -15,6 +15,10 @@ interface NetLaunchConfig {
 
 export function parseConfig(search: string): NetLaunchConfig | null {
   const params = new URLSearchParams(search);
+  const formalRoom = params.get("room")?.trim().toUpperCase();
+  if (formalRoom && /^[A-Z2-9]{6}$/.test(formalRoom)) return { roomId: formalRoom, token: "",
+    server: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/net`, interpolationDelayMs: 100 };
+  if (!import.meta.env.DEV) return null;
   const roomId = params.get("net")?.trim();
   if (!roomId) return null;
   const rawServer = params.get("server")?.trim();

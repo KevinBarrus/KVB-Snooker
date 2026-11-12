@@ -1,3 +1,4 @@
+import { rulesView } from "./room-rules.js";
 import type { Simulator } from "../core/simulator/simulator.js";
 import type { GameSession } from "../core/game.js";
 import { GAME_STATE } from "../core/game.js";
@@ -43,6 +44,7 @@ export function buildSnapshot(
   const simulator = session.simulator;
   return {
     type: "snapshot",
+    rules: rulesView(session),
     pause,
     match,
     version,

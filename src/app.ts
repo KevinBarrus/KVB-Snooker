@@ -59,7 +59,8 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
   const canvas = document.querySelector("canvas");
   const status = document.querySelector("output");
   if (!canvas || !status) throw new Error("Missing render host");
-  const authRequired = import.meta.env.PROD || import.meta.env.VITE_AUTH_REQUIRED === "true";
+  const networkEntry = new URLSearchParams(location.search).has("multiplayer") || new URLSearchParams(location.search).has("room");
+  const authRequired = networkEntry || import.meta.env.PROD || import.meta.env.VITE_AUTH_REQUIRED === "true";
   let auth: AuthClient | undefined;
   let viewer: MenuIdentity | null = null;
   if (authRequired) {
@@ -71,6 +72,11 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
       viewer = { id: session.user.id, email: session.user.email, role: session.user.role };
       auth = client;
     } finally { gate.dispose(); }
+  }
+  if (networkEntry) {
+    if (new URLSearchParams(location.search).has("room")) await import("./app-net.js");
+    else await (await import("./app-multiplayer.js")).openMultiplayer();
+    return undefined;
   }
   const engine = new B.Engine(canvas, true, { preserveDrawingBuffer: true });
   engine.enableOfflineSupport = false;
@@ -111,9 +117,9 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const options = document.querySelector<HTMLFormElement>(".game-options");
     audio = new BrowserAudio(game.bus, options ?? document.body);
     const offAudioUnlock = game.bus.on("sim/shooting-start", () => audio?.unlockNow());
-    const menuState = new GameMenu({ onPauseSignal: () => { game.pause.request(); canvas.focus(); } });
+    const menuState = new GameMenu({ onMultiplayer: () => location.assign("/?multiplayer"), onPauseSignal: () => { game.pause.request(); canvas.focus(); } });
     menuState.viewer = viewer;
-    menuState.onlineEnabled = !authRequired;
+    menuState.onlineEnabled = true;
     let menuDom: GameMenuDom;
     const launchFromMenu = (req: MatchLaunchRequest) => {
       audio?.unlockNow();

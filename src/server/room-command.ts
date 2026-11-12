@@ -1,9 +1,12 @@
+import { isRuleAction } from "../net/rule-view.js";
 import type { DecideTurnAction, MatchAction, PauseAction, PrepareShotAction } from "../net/protocol.js";
 
 /** 命令去重用的规范化动作摘要：只含实质参数，不含 clientSentAtMs 等发送元数据。 */
 export function commandSignature(action: unknown): string {
   if (!action || typeof action !== "object") return "unknown:non-object";
   const record = action as { readonly type?: unknown; readonly vars?: unknown; readonly takeOver?: unknown; readonly attemptId?: unknown };
+  if (isRuleAction(action)) return JSON.stringify(action.type === "place-cue" ? [action.type, action.attemptId, action.x, action.z]
+    : action.type === "nominate" ? [action.type, action.attemptId, action.ballIndex] : [action.type, action.attemptId]);
   if (isPauseAction(action)) return `${action.type}:${action.attemptId}`;
   if (record.type === "ready-next-frame" || record.type === "concede-frame") return `${record.type}:${String(record.attemptId)}`;
   if (record.type === "prepare-shot") {

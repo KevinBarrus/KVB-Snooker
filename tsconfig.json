@@ -36,10 +36,14 @@
     "src/app-audio.ts",
     "src/app-shape-editor.ts",
     "src/app-my-shapes.ts",
+    "src/app-net-rules.ts",
+    "src/app-net-presentation.ts",
     "src/app-net-pause.ts",
     "src/app-net-scene.ts",
     "src/app-practice.ts",
     "src/app-local-pause.ts",
-    "src/app-game-hud.ts"
+    "src/app-game-hud.ts",
+    "src/app-net-lobby.ts",
+    "src/app-multiplayer.ts"
   ]
 }

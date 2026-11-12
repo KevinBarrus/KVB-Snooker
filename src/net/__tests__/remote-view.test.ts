@@ -12,7 +12,7 @@ function ball(index: number, number: number, x: number, y: number, z: number, ac
 function snapshot(version: StateVersion, serverTimeMs: number, balls: readonly SnapshotBall[],
   options: { phase?: RoomPhase; checkpoint?: SerialData | null } = {}): SnapshotMessage {
   return {
-    type: "snapshot", pause: { phase: "running", requester: null, used: [0, 0], ready: [false, false], remainingSeconds: null, countdownSeconds: 0 }, match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version, eventSeq: version, serverTimeMs, phase: options.phase ?? "ready",
+    type: "snapshot", rules: { players: [{ pts: 0, penalty: 0, brk: 0 }, { pts: 0, penalty: 0, brk: 0 }], decision: null, freeBall: false, nomination: { enabled: false, selected: null, options: [] }, touching: [] }, pause: { phase: "running", requester: null, used: [0, 0], ready: [false, false], remainingSeconds: null, countdownSeconds: 0 }, match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version, eventSeq: version, serverTimeMs, phase: options.phase ?? "ready",
     context: { playerIndex: 0, ballOn: 2, inHand: 0, scores: [0, 0], round: 0 },
     balls, checkpoint: options.checkpoint === undefined ? null : options.checkpoint, pendingShot: null
   };

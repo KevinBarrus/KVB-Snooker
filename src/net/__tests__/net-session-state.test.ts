@@ -40,7 +40,7 @@ function snapshot(version: StateVersion, serverTimeMs: number,
   options: { balls?: readonly SnapshotBall[]; phase?: RoomPhase; eventSeq?: number; context?: ContextView;
     checkpoint?: SerialData | null; pendingShot?: PendingShotView | null } = {}): SnapshotMessage {
   return {
-    type: "snapshot", pause: { phase: "running", requester: null, used: [0, 0], ready: [false, false], remainingSeconds: null, countdownSeconds: 0 }, match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version, eventSeq: options.eventSeq ?? version, serverTimeMs,
+    type: "snapshot", rules: { players: [{ pts: 0, penalty: 0, brk: 0 }, { pts: 0, penalty: 0, brk: 0 }], decision: null, freeBall: false, nomination: { enabled: false, selected: null, options: [] }, touching: [] }, pause: { phase: "running", requester: null, used: [0, 0], ready: [false, false], remainingSeconds: null, countdownSeconds: 0 }, match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, version, eventSeq: options.eventSeq ?? version, serverTimeMs,
     phase: options.phase ?? "ready", context: options.context ?? CONTEXT,
     balls: options.balls ?? [ball(0, 0, 0, 0.9, 0), ball(1, 1, 0.5, 0.9, 0)],
     checkpoint: options.checkpoint === undefined ? null : options.checkpoint,

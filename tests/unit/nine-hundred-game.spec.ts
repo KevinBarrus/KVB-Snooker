@@ -183,7 +183,7 @@ describe("900 压哨与决胜", () => {
     const game = makeGame("snooker-900");
     begin(game);
     game.simulator.respotIndexXYZ(0, 0, game.simulator.spotY, 0.15);
-    stroke(game, { powerFactor: 0 });
+    stroke(game, { powerFactor: 0, fbSpin: -0.5 });
     expect(game.advanceTime(900)).toBe("frame");
     expect(game.clock?.phase).toBe("frame-expired");
     runOut(game);

@@ -91,9 +91,11 @@ export class GameMenu {
   viewer: MenuIdentity | null = null;
   onlineEnabled = true;
   private returnDir: ReturnDirectory = { tab: "ai", twoPlayerSub: null, practiceSub: null };
+  private readonly onMultiplayer?: () => void;
   private readonly onPauseSignal?: () => void;
 
-  constructor(options: { onPauseSignal?: () => void; locale?: MenuLocale } = {}) {
+  constructor(options: { onMultiplayer?: () => void; onPauseSignal?: () => void; locale?: MenuLocale } = {}) {
+    this.onMultiplayer = options.onMultiplayer;
     this.onPauseSignal = options.onPauseSignal;
     if (options.locale) this.locale = options.locale;
   }
@@ -137,6 +139,7 @@ export class GameMenu {
 
   selectTab(tab: MainMenuTab): void {
     if (tab === "guide") return;
+    if (tab === "two-player" && this.onMultiplayer && this.onlineEnabled) { this.onMultiplayer(); return; }
     this.activeTab = tab;
     if (tab !== "two-player") {
       this.matchIdPopupOpen = false;

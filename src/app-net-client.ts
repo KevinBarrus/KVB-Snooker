@@ -1,3 +1,5 @@
+import { isLobbyView } from "./net/lobby.js";
+import { isRulesView } from "./net/rule-view.js";
 import { isPauseView } from "./net/protocol.js";
 /**
  * 联机开发原型的浏览器传输层：原生 WebSocket 收发、hello、1 秒 ping、
@@ -43,7 +45,7 @@ interface PendingCommand {
   retries: number;
 }
 
-const KNOWN_SERVER_TYPES = ["welcome", "snapshot", "event", "ack", "pong", "error", "cue-pose"] as const;
+const KNOWN_SERVER_TYPES = ["lobby", "welcome", "snapshot", "event", "ack", "pong", "error", "cue-pose"] as const;
 
 /** 开发原型客户端连接。浏览器专用（WebSocket/DOM），由联机装配根创建。 */
 export class NetClient {
@@ -98,6 +100,8 @@ export class NetClient {
     }
     return true;
   }
+
+  sendReady(ready: boolean): boolean { return this.sendRaw({ type: "lobby-ready", ready }); }
 
   sendCuePose(message: CuePoseMessage): boolean { return this.sendRaw(message); }
 
@@ -205,6 +209,7 @@ export class NetClient {
     const candidate = value as { readonly type?: unknown };
     if (typeof candidate.type !== "string" || !(KNOWN_SERVER_TYPES as readonly string[]).includes(candidate.type)) return null;
     switch (candidate.type) {
+      case "lobby": return "lobby" in value && isLobbyView(value.lobby) ? value as ServerMessage : null;
       case "cue-pose": {
         const pose = value as Partial<CuePoseState>;
         if (!isStateVersion(pose.version) || !isStateVersion(pose.sequence) || !isSeatIndex(pose.seat) ||
@@ -224,11 +229,11 @@ export class NetClient {
       case "snapshot": {
         const snapshot = value as { readonly version?: unknown; readonly serverTimeMs?: unknown;
           readonly eventSeq?: unknown; readonly phase?: unknown; readonly context?: unknown;
-          readonly balls?: unknown; readonly checkpoint?: unknown; readonly pendingShot?: unknown; readonly match?: unknown; readonly motion?: unknown; readonly pause?: unknown };
+          readonly balls?: unknown; readonly checkpoint?: unknown; readonly pendingShot?: unknown; readonly match?: unknown; readonly motion?: unknown; readonly pause?: unknown; readonly rules?: unknown };
         if (!isStateVersion(snapshot.version) || typeof snapshot.serverTimeMs !== "number" ||
             typeof snapshot.eventSeq !== "number" || typeof snapshot.phase !== "string" ||
             !snapshot.context || typeof snapshot.context !== "object" || !Array.isArray(snapshot.balls) ||
-            !isPauseView(snapshot.pause) || !isMatchProgressView(snapshot.match) || !validMotionSamples(snapshot.motion, snapshot.serverTimeMs, snapshot.balls.length)) return null;
+            !isRulesView(snapshot.rules) || !isPauseView(snapshot.pause) || !isMatchProgressView(snapshot.match) || !validMotionSamples(snapshot.motion, snapshot.serverTimeMs, snapshot.balls.length)) return null;
         return value as ServerMessage;
       }
       case "event": {

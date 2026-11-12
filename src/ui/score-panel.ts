@@ -169,7 +169,7 @@ export class ScorePanelDom {
     const cache = this.cache[index];
     if (cache.head !== state.head) {
       cache.head = state.head;
-      els.head.innerHTML = state.head;
+      els.head.textContent = state.head;
     }
     if (cache.pts !== state.pts) {
       cache.pts = state.pts;

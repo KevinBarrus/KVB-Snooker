@@ -54,7 +54,7 @@ export class NetMatchPanel {
   sync(nowMs: number, shotBusy: boolean): void {
     const snapshot = this.session.latestSnapshot;
     const seat = this.session.seat;
-    this.element.hidden = !snapshot || seat === null;
+    this.element.hidden = !snapshot || seat === null || this.session.lobby?.phase === "waiting";
     if (!snapshot || seat === null) return;
     const match = snapshot.match;
     if (this.attemptId !== match.attemptId) {

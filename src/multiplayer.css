@@ -1,0 +1,16 @@
+.multiplayer-entry, .net-lobby-panel {
+  color: #eee9dd; background: #131c18; border: 1px solid #657562;
+  padding: 28px; border-radius: 8px; z-index: 650;
+  font-family: inherit; box-sizing: border-box;
+}
+.multiplayer-entry { position: fixed; inset: 15vh max(24px, calc((100vw - 600px) / 2)) auto; }
+.multiplayer-entry form { display: flex; gap: 12px; margin: 24px 0; }
+.multiplayer-entry select, .multiplayer-entry input { flex: 1; min-width: 0; }
+.multiplayer-entry a { color: #ddd1b5; }
+.multiplayer-entry button, .multiplayer-entry input, .multiplayer-entry select,
+.net-lobby-panel button { font: inherit; color: #eee9dd; padding: 10px 16px; border: 1px solid #657562; border-radius: 4px; background: #23362d; }
+.multiplayer-entry button, .net-lobby-panel button { cursor: pointer; }
+.multiplayer-entry button:disabled, .net-lobby-panel button:disabled { opacity: .45; cursor: default; }
+.net-lobby-panel { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); width: min(560px, 90vw); }
+.net-lobby-panel button { margin: 8px 12px 0 0; }
+.net-lobby-panel[hidden], .net-hud[hidden] { display: none; }

@@ -1,3 +1,4 @@
+import type { LobbyView } from "./lobby.js";
 /**
  * 联机开发原型客户端会话状态（架构 §4.8 窄接口，零 DOM、零定时器、零物理）。
  * 维护连接/席位/版本/阶段与事件序号；命令重试、出杆阶段与时序测量委托 ShotCommandTracker，
@@ -40,6 +41,9 @@ export interface NetSessionOptions {
 
 /** 联机开发原型客户端状态机。权威状态只来自 welcome/snapshot/event，客户端不派生裁决。 */
 export class NetSessionState {
+  private lobbyValue: LobbyView | null = null;
+  get lobby(): LobbyView | null { return this.lobbyValue; }
+  onLobby(lobby: LobbyView): void { this.lobbyValue = lobby; }
   private readonly clock: PingClock;
   private readonly tracker: ShotCommandTracker;
   private connectionValue: NetConnectionState = "idle";
@@ -100,19 +104,20 @@ export class NetSessionState {
 
   /** 犯规/选择阶段：本地席位是否拥有下一步选择权（最简 decide-turn）。 */
   canDecide(): boolean {
-    return !this.paused && this.connectionValue === "ready" && this.phaseValue === "deciding" &&
+    return this.lobbyValue?.phase !== "waiting" && !this.paused && this.connectionValue === "ready" && this.phaseValue === "deciding" &&
       this.seatValue !== null && this.contextValue !== null && this.contextValue.playerIndex === this.seatValue;
   }
 
   /** 是否允许在本机发起新出杆意图：稳定阶段、本地球权、无未完成意图。 */
   canLaunch(): boolean {
-    return !this.paused && this.connectionValue === "ready" && this.phaseValue === "ready" &&
+    return this.lobbyValue?.phase !== "waiting" && !this.paused && this.connectionValue === "ready" && this.phaseValue === "ready" &&
       this.versionValue >= 0 && this.tracker.readyForNewShot && this.isLocalTurn();
   }
 
   /** 发起连接前清空会话权威状态；时钟样本保留（同一客户端时钟）。 */
   beginConnect(nowMs: number): void {
     void nowMs;
+    this.lobbyValue = null;
     this.connectionValue = "connecting";
     this.errorValue = null;
     this.rejectValue = null;
@@ -152,6 +157,7 @@ export class NetSessionState {
     this.phaseValue = snapshot.phase;
     this.contextValue = snapshot.context;
     this.snapshotValue = snapshot;
+    if (this.lobbyValue && snapshot.match.phase === "finished") this.lobbyValue = { ...this.lobbyValue, phase: "finished" };
     this.lastSnapshotServerMs = snapshot.serverTimeMs;
     this.tracker.observeSnapshot(snapshot.balls, nowMs);
     return true;

@@ -1,3 +1,8 @@
+import "./multiplayer.css";
+import { NetLobbyPanel } from "./app-net-lobby.js";
+import { NetPresentation } from "./app-net-presentation.js";
+import { NetRules } from "./app-net-rules.js";
+import { PlacementMarkers } from "./render/placement.js";
 import { loadSimulator, createDisplaySource, withTimeout } from "./app-net-scene.js";
 import { NetPausePanel } from "./app-net-pause.js";
 import * as B from "babylonjs/es6.js";
@@ -17,7 +22,6 @@ import { PersonController } from "./controller/person-controller.js";
 import { GamingInput } from "./controller/gaming-input.js";
 import { isShotViewMode } from "./controller/shot-view.js";
 import { ViewNotice, ViewNoticeDom } from "./ui/view-notice.js";
-import type { PlacementCommands } from "./controller/in-hand.js";
 import { NetHud, parseConfig } from "./app-net-support.js";
 import { NetClient } from "./app-net-client.js";
 import { NetMatchPanel } from "./app-net-match.js";
@@ -35,17 +39,9 @@ import {
 } from "./net/protocol.js";
 
 const ZERO_LATENCY: LatencyConfig = { enabled: false, inboundMs: 0, outboundMs: 0, jitterMs: 0, appliesTo: "one-way-per-direction" };
-const NO_PLACEMENT: PlacementCommands = {
-  ray: () => ({ origin: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 0 } }),
-  valid: () => false,
-  place: () => false,
-  begin: () => false,
-  focus: () => null,
-  end: () => false
-};
 async function main(): Promise<void> {
   const config = parseConfig(location.search);
-  if (!config) throw new Error("联机入口需要 ?net=<roomId>");
+  if (!config) throw new Error("联机入口需要有效房间码");
   const canvas = document.querySelector("canvas");
   const status = document.querySelector("output");
   if (!(canvas instanceof HTMLCanvasElement) || !status) throw new Error("Missing render host");
@@ -61,6 +57,9 @@ async function main(): Promise<void> {
   let client: NetClient | null = null;
   const matchPanel = new NetMatchPanel(session, command => client?.sendCommand(command) ?? false, () => canvas.focus());
   const pausePanel = new NetPausePanel(session, command => client?.sendCommand(command) ?? false, () => canvas.focus());
+  let presentation: NetPresentation | null = null;
+  let rules: NetRules | null = null;
+  let lobby: NetLobbyPanel | null = null;
   let person: PersonController | null = null;
   let launcher: NetShotLauncher | null = null;
   let resolveReady: () => void = () => {};
@@ -80,6 +79,7 @@ async function main(): Promise<void> {
     const nowMs = performance.now();
     let accepted = true;
     switch (message.type) {
+      case "lobby": session.onLobby(message.lobby); break;
       case "welcome": session.onWelcome(message, nowMs); remote.setClockOffset(session.clockOffsetMs); break;
       case "snapshot": {
         session.onSnapshot(message, nowMs);
@@ -103,6 +103,8 @@ async function main(): Promise<void> {
       case "error": session.onServerError(message, nowMs); break;
     }
     const cueBall = session.latestSnapshot?.balls[0];
+    if (accepted) presentation?.receive(message);
+    rules?.receive(message);
     matchPanel.receive(message);
     pausePanel.receive(message);
     if (accepted && cueBall) remoteCue.receive(message, session.seat, cueBall, nowMs);
@@ -158,7 +160,7 @@ async function main(): Promise<void> {
         struck: launcher?.isStruck ?? false, displayServerMs: remote.interpolationStats.targetServerMs };
     }
   };
-  window.__snkNet = testHandle;
+  if (import.meta.env.DEV) window.__snkNet = testHandle;
 
   session.beginConnect(performance.now());
   client = new NetClient({
@@ -201,26 +203,19 @@ async function main(): Promise<void> {
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
     const viewNotice = new ViewNotice();
     const viewNoticeDom = new ViewNoticeDom(document, () => canvas.focus());
-    const decision = document.createElement("div");
-    decision.className = "net-decision";
-    decision.hidden = true;
-    const sendDecision = (takeOver: boolean): void => {
-      if (!session.canDecide()) return;
-      const commandId = typeof crypto.randomUUID === "function"
-        ? `d-${crypto.randomUUID()}`
-        : `d-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      client?.sendCommand({ type: "command", commandId, expectedVersion: session.version,
-        action: { type: "decide-turn", takeOver } });
-      decision.hidden = true;
-    };
-    const ownButton = document.createElement("button");
-    ownButton.type = "button"; ownButton.textContent = "自己接手";
-    ownButton.addEventListener("click", () => { sendDecision(true); canvas.focus(); });
-    const otherButton = document.createElement("button");
-    otherButton.type = "button"; otherButton.textContent = "让对手继续";
-    otherButton.addEventListener("click", () => { sendDecision(false); canvas.focus(); });
-    decision.append(ownButton, otherButton);
-    document.body.append(hud.element, viewNoticeDom.element, decision, matchPanel.element);
+    const ruleControls = new NetRules(session, simulator, personController, command => client?.sendCommand(command) ?? false,
+      (x, y) => {
+        const rect = canvas.getBoundingClientRect();
+        const ray = scene!.createPickingRay((x - rect.left) * engine.getRenderWidth() / rect.width,
+          (y - rect.top) * engine.getRenderHeight() / rect.height, B.Matrix.Identity(), camera);
+        return { origin: ray.origin, direction: ray.direction };
+      }, text => { viewNotice.show(text); viewNoticeDom.sync(viewNotice); }, () => canvas.focus());
+    rules = ruleControls;
+    presentation = new NetPresentation(session, personController, shotLauncher, canvas);
+    lobby = new NetLobbyPanel(session, ready => client?.sendReady(ready) ?? false);
+    const placement = new PlacementMarkers(scene, atlas, mask);
+    hud.element.hidden = new URLSearchParams(location.search).get("debug") !== "1";
+    document.body.append(hud.element, viewNoticeDom.element, matchPanel.element);
     const cycleView = (): void => {
       if (!session.isLocalTurn() && !shotLauncher.busy) return;
       const shotView = personController.camera.shotView;
@@ -239,11 +234,11 @@ async function main(): Promise<void> {
         if (session.connectionState !== "ready") return 0;
         return session.canLaunch() && turnReady ? GAME_STATE.READY : GAME_STATE.SIMULATING;
       },
-      canAim: () => session.canLaunch() && turnReady && !shotLauncher.busy && remote.getBallView(0).active,
-      canPlace: () => false,
+      canAim: () => !ruleControls.commands.busy && session.canLaunch() && turnReady && !shotLauncher.busy && remote.getBallView(0).active,
+      canPlace: () => turnReady && !shotLauncher.busy && ruleControls.canPlace,
       cycleView,
-      locked: () => session.paused
-    }, NO_PLACEMENT);
+      locked: () => session.paused || ruleControls.commands.busy
+    }, ruleControls.placement);
     await waitForScene(scene);
     scene.render();
     const resize = () => engine.resize();
@@ -254,6 +249,7 @@ async function main(): Promise<void> {
     let wasCanLaunch = false;
     let displayAttempt: string | null = null;
     let turnResetPending = false;
+    let cueAnchor = "";
     let previousFrameAtMs = performance.now();
     let fpsFrames = 0;
     let fpsWindowStart = previousFrameAtMs;
@@ -272,7 +268,8 @@ async function main(): Promise<void> {
       remote.update(nowMs);
       personController.camera.shotView.smoothing.aspect = scene!.getEngine().getAspectRatio(camera);
       personController.camera.shotView.smoothing.verticalFov = camera.fov;
-      pausePanel.sync(nowMs);
+      pausePanel.sync(nowMs); lobby?.sync();
+      ruleControls.update(nowMs);
       controls.update();
       const canLaunch = session.paused ? wasCanLaunch : session.canLaunch();
       const attempt = session.latestSnapshot?.match.attemptId ?? null;
@@ -286,6 +283,13 @@ async function main(): Promise<void> {
         personController.activate();
         turnResetPending = false;
         turnReady = true;
+        if (ruleControls.canPlace) controls.inHand.enter();
+      }
+      const cueState = session.latestSnapshot?.balls[0];
+      const anchor = cueState ? `${cueState.x}:${cueState.y}:${cueState.z}` : "";
+      if (turnReady && session.phase === "ready" && !shotLauncher.busy && !session.pendingServerShot &&
+          remote.interpolationStats.marginMs <= 0 && anchor !== cueAnchor) {
+        personController.reanchorCueBall(); cueAnchor = anchor;
       }
       personController.active = turnReady;
       if (!session.paused) personController.update(dt);
@@ -319,7 +323,8 @@ async function main(): Promise<void> {
       controls.update();
       viewNotice.update(dt);
       viewNoticeDom.sync(viewNotice);
-      decision.hidden = !session.canDecide();
+      placement.sync(remote.getCueBallPosition(), controls.inHand);
+      presentation?.update(dt, remote.interpolationStats.targetServerMs, controls.inHand.active);
       matchPanel.sync(nowMs, shotLauncher.busy);
       balls.sync();
       diagnostics.capture(nowMs, rawDt * 1000, session, remote, personController.camera);
@@ -331,9 +336,10 @@ async function main(): Promise<void> {
         turnReady
       });
       const nextStatus = session.connectionState !== "ready" ? session.connectionState
+         : session.lobby?.phase === "waiting" ? "等待双方准备"
         : session.phase === "between-frames" ? "本局结束 · 等待双方准备下一局"
         : session.phase === "finished" ? "整场结束"
-        : session.isLocalTurn() ? (shotLauncher.busy ? "击球中" : "本机回合 · W 瞄准 / Space 出杆") : "对手回合 · 自由观察";
+        : session.isLocalTurn() ? (shotLauncher.busy ? "击球中" : turnReady ? "本机回合 · W 瞄准 / Space 出杆" : "球位同步中") : "对手回合 · 自由观察";
       if (nextStatus !== lastStatus) { lastStatus = nextStatus; status.textContent = nextStatus; }
       scene!.render();
     });
@@ -345,7 +351,7 @@ async function main(): Promise<void> {
       controls.dispose();
       hud.element.remove();
       viewNoticeDom.element.remove();
-      decision.remove();
+      ruleControls.dispose(); placement.dispose(); presentation?.dispose(); lobby?.dispose();
       matchPanel.element.remove();
       pausePanel.dispose();
       opponentCue.dispose();

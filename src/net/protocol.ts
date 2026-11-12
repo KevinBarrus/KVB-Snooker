@@ -1,3 +1,6 @@
+import type { LobbyMessage, LobbyReadyMessage } from "./lobby.js";
+import type { ImpactEvent } from "../core/simulator/impact.js";
+import type { RuleAction, RulesView } from "./rule-view.js";
 import type { PauseView } from "../core/match-pause.js";
 /**
  * 联机开发原型窄接口 v0（2026-11-07 登记于 docs/architecture.md §4.8）。
@@ -8,7 +11,7 @@ import type { SerialData } from "../core/simulator/shot-result.js";
 import type { FrameResult, MatchProgressView, MatchResult } from "../core/match-progress.js";
 export type { FrameResult, MatchProgressView, MatchResult } from "../core/match-progress.js";
 
-export const NET_PROTOCOL_VERSION = 6;
+export const NET_PROTOCOL_VERSION = 7;
 export const DEFAULT_NET_PORT = 8787;
 export const DEFAULT_DEV_TOKEN = "dev-local";
 export const ROOM_RULESET = "classic" as const;
@@ -98,6 +101,7 @@ export interface MotionSample {
 }
 
 export interface SnapshotMessage {
+  readonly rules: RulesView;
   readonly pause: PauseView;
   readonly motion?: readonly MotionSample[];
   readonly type: "snapshot";
@@ -143,6 +147,7 @@ export function isMatchProgressView(value: unknown): value is MatchProgressView 
 }
 
 export type ServerEvent =
+  | { readonly type: "shot-impact"; readonly shotId: string; readonly impact: ImpactEvent }
   | { readonly type: "frame-ended"; readonly frame: FrameResult }
   | { readonly type: "frame-started"; readonly match: MatchProgressView }
   | { readonly type: "match-ended"; readonly result: MatchResult }
@@ -235,7 +240,7 @@ export function isCuePose(value: unknown): value is CuePose | null {
     Math.abs(pose.yaw!) <= 4 * Math.PI && Math.abs(pose.pitch!) <= Math.PI;
 }
 
-export type ServerMessage = WelcomeMessage | SnapshotMessage | ServerEventMessage | AckMessage | PongMessage | ServerErrorMessage | CuePoseState;
+export type ServerMessage = LobbyMessage | WelcomeMessage | SnapshotMessage | ServerEventMessage | AckMessage | PongMessage | ServerErrorMessage | CuePoseState;
 
 export interface HelloMessage {
   readonly type: "hello";
@@ -266,7 +271,7 @@ export interface PauseAction {
   readonly type: "pause-request" | "pause-accept" | "pause-decline" | "pause-cancel" | "pause-ready";
   readonly attemptId: string;
 }
-export type ClientCommandAction = PrepareShotAction | DecideTurnAction | MatchAction | PauseAction;
+export type ClientCommandAction = PrepareShotAction | DecideTurnAction | MatchAction | PauseAction | RuleAction;
 
 export interface CommandMessage {
   readonly type: "command";
@@ -281,7 +286,7 @@ export interface PingMessage {
   readonly clientTimeMs: number;
 }
 
-export type ClientMessage = HelloMessage | CommandMessage | PingMessage | CuePoseMessage;
+export type ClientMessage = LobbyReadyMessage | HelloMessage | CommandMessage | PingMessage | CuePoseMessage;
 
 /** 击球参数合法范围：只做服务端防御性校验，不改变核心物理公式。 */
 export interface StrokeVarBounds {
@@ -343,6 +348,7 @@ export function parseClientMessage(raw: string): { readonly message: ClientMessa
   }
   if (!value || typeof value !== "object") return { reason: REJECT.BAD_PROTOCOL };
   const candidate = value as { readonly type?: unknown };
+  if (candidate.type === "lobby-ready") return { message: value as LobbyReadyMessage };
   if (candidate.type === "hello") return { message: value as HelloMessage };
   if (candidate.type === "ping") return { message: value as PingMessage };
   if (candidate.type === "cue-pose") return { message: value as CuePoseMessage };

@@ -45,7 +45,9 @@
     "audio:install": "node scripts/audio-final-set.mjs --install",
     "audio:cut": "node scripts/audio-cut.mjs",
     "test:audio": "node scripts/audio-smoke.mjs",
-    "test:pause": "node scripts/pause-smoke.mjs"
+    "test:pause": "node scripts/pause-smoke.mjs",
+    "net:players": "tsc -p tsconfig.server.json && node .cache/net-server/server/player-main.js",
+    "test:players": "npm run build && npm run identity:build && tsc -p tsconfig.server.json && node scripts/player-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

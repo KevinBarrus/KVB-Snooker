@@ -443,15 +443,6 @@ RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身�
 - `BrowserGame.pause` 提供本地 `request()/ready()/view/blocksPlay` 装配入口；`app-local-pause.ts` 驱动本地暂停，AI及单机双人测试由一个操作方确认。`app-game-hud.ts`、`app-practice.ts`、`app-net-scene.ts` 只拆分既有装配职责，保持原有算法。
 - `ui/pause-panel.ts` 只接只读状态与动作回调。paused/resuming 使用不透明全屏模态遮挡并约束焦点，禁止回放、菜单或快捷键穿透；本地菜单按钮接入相同流程。恢复清理 Input 按键/指针残留，保持瞄准与摆球实际状态。
 
-### 4.14 可玩经典联机接线（2026-11-10）
-
-范围与分工见 [内测联机接线](multiplayer-playable-design.md)。网络协议v7扩展经典规则操作与只读展示，不改变GameSession接口：
-
-- `RuleAction`：`place-cue {x,z}`、`nominate {ballIndex:number|null}`、`replace-shot`，均携带attemptId，复用CommandMessage的版本、席位与去重。服务端使用GameSession公开操作，暂停/已准备/运动/非持权者拒绝；place-cue仅校验最终落点，不做路径障碍判定。
-- `SnapshotMessage.rules:RulesView`：双方pts/penalty/brk、犯规待选项、自由球资格、手动提名与可选球、贴球编号；只读展示，不授权客户端判罚。自动彩球提名仍由prepareStroke以真实方向判定。
-- `shot-impact`事件包含shotId及原ImpactEvent，事件时间来自权威运动推进的显示时间；声音在客户端播放游标到达时消费一次，预测和重连不补播旧音效。
-- 房间与身份契约在具体适配交付时补充，不允许使用自报userId或开发令牌冒充正式鉴权。
-
 ### 4.14 内测身份、会话与部署（2026-11-10 施工契约）
 
 产品范围见[内测身份设计](internal-beta-identity-design.md)。本轮只完成两个预建内测账号、PostgreSQL 会话、登录门禁、按用户隔离本地球形和部署基础；不开放注册、不接正式联机权限、不修改联机协议/房间/席位。
@@ -477,13 +468,26 @@ RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身�
 **本地球形**
 
 - 登录用户的 `MyShapesStore` 使用 `snk.user.<userId>.practice.shapes.v1` 命名空间；旧匿名键 `snk.practice.shapes.v1` 原样保留，提供手动导入入口，不自动归属第一个登录账号。
-- 正式构建中双人创建/加入入口明确不可用；`GameMenu` 在状态层拒绝进入，不能接受房间码后启动本地双 USER 测试。
+- 身份单元交付时禁用正式双人入口；后续§4.15接入真实房间后开放，仍禁止把房间码转换成本地双USER测试。
 
 **部署**
 
 - 同源 HTTPS；PostgreSQL 与身份服务不暴露公网端口，反向代理只暴露 80/443。数据卷持久化账号。
 - `public/assets/**` 保持 Git 忽略；部署前准备并校验资源，缺失即失败。配置示例、迁移、健康检查、更新和回滚见设计 §6—§7。
 - 本地/正式构建浏览器验收记录写入项目状态；无公网服务器时远程上线列为待完成，不虚报。
+
+### 4.15 可玩经典联机接线（2026-11-10）
+
+范围与分工见 [内测联机接线](multiplayer-playable-design.md)。网络协议v7扩展经典规则操作与只读展示，不改变GameSession接口：
+
+- `RuleAction`：`place-cue {x,z}`、`nominate {ballIndex:number|null}`、`replace-shot`，均携带attemptId，复用CommandMessage的版本、席位与去重。服务端使用GameSession公开操作，暂停/已准备/运动/非持权者拒绝；place-cue仅校验最终落点，不做路径障碍判定。
+- `SnapshotMessage.rules:RulesView`：双方pts/penalty/brk、犯规待选项、自由球资格、手动提名与可选球、贴球编号；只读展示，不授权客户端判罚。自动彩球提名仍由prepareStroke以真实方向判定。
+- `shot-impact`事件包含shotId及原ImpactEvent，事件时间来自权威运动推进的显示时间；声音在客户端播放游标到达时消费一次，预测和重连不补播旧音效。
+- `PlayerAccess { origin; authenticate(IncomingMessage): Promise<NetIdentity|null> }` 注入传输，内部HTTP适配调用§4.14的会话校验器；`NetIdentity {userId;name}`只保存在服务器。每次命令和每秒心跳重新验证，会话撤销不能继续操作。身份不可用拒绝连接，不回退开发令牌。
+- `POST /api/rooms {ruleset:"classic",bestOf}`创建、`POST /api/rooms/:code/join {}`加入、`GET /api/rooms/current`找回当前房间、`GET /api/rooms/:code`成员查看、`POST /api/rooms/:code/leave {}`离开等待/已结束房间。响应 `{room:LobbyView|null}`，leave为`{ok:true}`；仅同源Cookie，服务端生成六码、分配席位，创建时固定赛制。进行中不能单方删除；房间仍是进程内存，不构成长久存档。
+- `LobbyView {roomId,bestOf,ruleset,phase,players:[{seat,name,connected,ready}]}`不含邮箱、凭证或内部用户ID。WebSocket新增服务器`lobby {lobby}`、客户端`lobby-ready {ready}`；双方连接且资源就绪后主动准备才开始。未准备拒绝所有游戏命令。掉线前的身份保留原席位，但正式重连宽限/裁决后续接入。
+- `?room=CODE`正式入口固定同源`/net`；`?multiplayer`创建/加入页，均先经登录门禁；`?net=`仅开发。GameMenu构造新增可选`onMultiplayer()`装配回调，由首页双人按钮导航，不再把房间码转换成本地双USER。
+- app-net-rules用已登记的SnookerRef公开落点检查和inferColour作只读预览；最终判定仅由服务器GameSession执行。app-net-presentation复用Hud、通知和BrowserAudio，网络模块不引DOM，表现模块不引网络。
 
 ## 5. 目录结构（骨架）
 
@@ -504,7 +508,7 @@ src/
 ├── audio/                   # mixer.ts hooks.ts
 ├── net/                     # 联机原型：protocol.ts、remote-view.ts、net-session-state.ts（零 DOM）
 ├── server/                  # Node 权威房间：room.ts、room-manager.ts、transport.ts、latency.ts、main.ts
-├── app-net.ts               # 联机原型装配根（仅开发入口动态加载）
+├── app-net.ts               # 已认证房间与隔离开发入口的浏览器装配
 └── app.ts                   # 本地装配根
 public/assets/physics/table.json
 tests/

@@ -1,3 +1,6 @@
+import { RoomImpact } from "./room-impact.js";
+import { isRuleAction, type RuleAction } from "../net/rule-view.js";
+import { applyRuleAction } from "./room-rules.js";
 import { RoomPause } from "./room-pause.js";
 import { CommandLedger } from "./command-ledger.js";
 import { readRoomCheckpoint, type RoomCheckpoint } from "./room-checkpoint.js";
@@ -64,6 +67,7 @@ export class RoomSession {
   private readonly poses = new RoomCuePose();
   private readonly random: SeededRandom;
   private readonly pause = new RoomPause();
+  private readonly impacts: RoomImpact;
   constructor(roomId: string, options: RoomOptions, mesh: MeshBody) {
     if (!Number.isFinite(options.prepareLeadMs) || options.prepareLeadMs < 0 ||
         !Number.isFinite(options.tickHz) || options.tickHz <= 0 ||
@@ -77,6 +81,7 @@ export class RoomSession {
       tickHz: options.tickHz, snapshotHz: options.snapshotHz, prepareLeadMs: options.prepareLeadMs
     };
     this.simulator = new SimulatorClass(mesh);
+    this.impacts = new RoomImpact(this.simulator);
     this.match = new RoomMatch(this.simulator, options);
     this.random = new SeededRandom(options.seed);
     this.aiDependencies = { routeCache: new RouteCache(), random: () => this.random.next() };
@@ -164,6 +169,7 @@ export class RoomSession {
       while (this.accumulatorMs >= stepMs && this.session.state === GAME_STATE.SIMULATING) {
         this.session.step(stepMs / 1000);
         this.accumulatorMs -= stepMs;
+        if (this.activeShot) events.push(...this.impacts.drain(this.activeShot.shotId).map(event => this.pushEvent(event, nowMs - this.accumulatorMs)));
         if (this.session.state === GAME_STATE.SIMULATING) this.motion.capture(this.simulator, nowMs - this.accumulatorMs);
       }
       if (this.activeShot && this.session.state !== GAME_STATE.SIMULATING) this.settle(nowMs, events);
@@ -175,7 +181,7 @@ export class RoomSession {
     if (pauseChanged) this.version++;
     let snapshot: SnapshotMessage | null = null;
     const interval = 1000 / this.options.snapshotHz;
-    if (events.length > 0 || pauseChanged ||
+    if (events.some(message => message.event.type !== "shot-impact") || pauseChanged ||
         (this.pause.blocksPlay && (this.lastSnapshotMs === null || nowMs - this.lastSnapshotMs >= 250)) ||
         (this.session.state === GAME_STATE.SIMULATING &&
           (this.lastSnapshotMs === null || nowMs - this.lastSnapshotMs >= interval))) {
@@ -211,6 +217,7 @@ export class RoomSession {
   }
   close(): void {
     this.closed = true;
+    this.impacts.dispose();
     this.pendingShot = null;
     this.activeShot = null;
     this.seatByConnection.clear();
@@ -220,7 +227,7 @@ export class RoomSession {
   }
   private dispatch(seat: SeatIndex, message: CommandMessage, nowMs: number): RoomCommandResult {
     const action = message.action;
-    if (!isPrepareShotAction(action) && !isDecideTurnAction(action) && !isMatchAction(action) && !isPauseAction(action)) {
+    if (!isPrepareShotAction(action) && !isDecideTurnAction(action) && !isMatchAction(action) && !isPauseAction(action) && !isRuleAction(action)) {
       return this.cachedReject(message, REJECT.UNKNOWN_ACTION, nowMs);
     }
     if (message.expectedVersion !== this.version) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
@@ -228,9 +235,10 @@ export class RoomSession {
     if (this.pause.blocksPlay) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
     if (isMatchAction(action)) return this.matchCommand(seat, message, action, nowMs);
     if (!this.match.active) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
+    if (isRuleAction(action) && action.attemptId !== this.match.view.attemptId) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
     return isPrepareShotAction(action)
       ? this.prepareShot(seat, message, action, nowMs)
-      : this.decideTurn(seat, message, action, nowMs);
+      : this.ruleCommand(seat, message, action, nowMs);
   }
   private pauseCommand(seat: SeatIndex, message: CommandMessage, action: PauseAction, nowMs: number): RoomCommandResult {
     if (action.attemptId !== this.match.view.attemptId) return this.cachedReject(message, REJECT.STALE_VERSION, nowMs);
@@ -291,20 +299,13 @@ export class RoomSession {
       prepareLeadMs: this.options.prepareLeadMs, vars: Array.from(vars) }, nowMs);
     return { ack, events: [event], snapshot: this.buildSnapshotNow(nowMs) };
   }
-  private decideTurn(seat: SeatIndex, message: CommandMessage, action: DecideTurnAction, nowMs: number): RoomCommandResult {
-    const session = this.session;
-    if (session.state !== GAME_STATE.DECIDING) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
-    const decision = session.decision;
-    if (!decision || decision.playerIndex !== seat) return this.cachedReject(message, REJECT.NOT_YOUR_TURN, nowMs);
-    const next: SeatIndex = action.takeOver ? seat : seat === 0 ? 1 : 0;
-    if (!session.chooseNextPlayer(seat, next)) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
-    this.ensureCueBallActive();
+  private ruleCommand(seat: SeatIndex, message: CommandMessage, action: RuleAction | DecideTurnAction, nowMs: number): RoomCommandResult {
+    if (this.pendingShot || this.activeShot) return this.cachedReject(message, REJECT.WRONG_PHASE, nowMs);
+    const reason = applyRuleAction(this.session, seat, action);
+    if (reason) return this.cachedReject(message, reason, nowMs);
     this.version++;
-    const ack: AckMessage = {
-      type: "ack", commandId: message.commandId, accepted: true, stateVersion: this.version,
-      serverTimeMs: nowMs, duplicate: false
-    };
-    return { ack, events: [], snapshot: this.buildSnapshotNow(nowMs) };
+    return { ack: { type: "ack", commandId: message.commandId, accepted: true, stateVersion: this.version,
+      serverTimeMs: nowMs, duplicate: false }, events: [], snapshot: this.buildSnapshotNow(nowMs) };
   }
   private fire(nowMs: number, events: ServerEventMessage[]): void {
     const pending = this.pendingShot;
@@ -324,6 +325,7 @@ export class RoomSession {
     this.pendingShot = null;
     this.activeShot = { shotId: pending.shotId, seat: pending.seat };
     this.match.progress.recordStrike(pending.shotId);
+    events.push(...this.impacts.drain(pending.shotId).map(event => this.pushEvent(event, pending.touchAtServerMs)));
     this.version++;
     events.push(this.pushEvent({
       type: "shot-fired", shotId: pending.shotId, seat: pending.seat,
@@ -348,11 +350,9 @@ export class RoomSession {
       settledAtServerMs: nowMs
     }, nowMs));
     events.push(...this.match.settle().map(event => this.pushEvent(event, nowMs)));
-    if (this.session.state === GAME_STATE.READY) this.ensureCueBallActive();
+    if (this.session.state === GAME_STATE.READY) ensureCueBallActive(this.session, this.simulator);
   }
-  private ensureCueBallActive(): boolean {
-    return ensureCueBallActive(this.session, this.simulator);
-  }
+
   private welcome(seat: SeatIndex, nowMs: number): WelcomeMessage {
     return {
       type: "welcome", protocolVersion: NET_PROTOCOL_VERSION, roomId: this.roomId, seat,

@@ -8,6 +8,14 @@ import {
 } from "../game-menu";
 
 describe("ui game menu", () => {
+  it("正式双人入口交给装配回调，不创建本地双USER对局", () => {
+    const onMultiplayer = vi.fn();
+    const menu = new GameMenu({ onMultiplayer });
+    menu.selectTab("two-player");
+    expect(onMultiplayer).toHaveBeenCalledOnce();
+    expect(menu.activeMatch).toBeNull();
+    expect(menu.activeTab).toBeNull();
+  });
   it("进入游戏默认居中展开主菜单，点击操作指南返回空且不切换面板", () => {
     const menu = new GameMenu();
     expect(menu.mainMenuOpen).toBe(true);

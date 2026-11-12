@@ -5,7 +5,7 @@ import { RemoteView } from "../../net/remote-view.js";
 import type { SnapshotMessage } from "../../net/protocol.js";
 
 function snapshot(time: number, phase: "ready" | "simulating" = "simulating", shotId?: string): SnapshotMessage {
-  return { type: "snapshot", pause: { phase: "running", requester: null, used: [0, 0], ready: [false, false], remainingSeconds: null, countdownSeconds: 0 }, match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, serverTimeMs: time, version: 1, eventSeq: 1, phase,
+  return { type: "snapshot", rules: { players: [{ pts: 0, penalty: 0, brk: 0 }, { pts: 0, penalty: 0, brk: 0 }], decision: null, freeBall: false, nomination: { enabled: false, selected: null, options: [] }, touching: [] }, pause: { phase: "running", requester: null, used: [0, 0], ready: [false, false], remainingSeconds: null, countdownSeconds: 0 }, match: new MatchProgress({ matchId: "test-match", bestOf: 3, firstOpeningPlayer: 0 }).view, serverTimeMs: time, version: 1, eventSeq: 1, phase,
     context: { playerIndex: 0, ballOn: 2, inHand: 0, scores: [0, 0], round: 0 },
     balls: [{ index: 0, number: 0, active: true, x: time / 1000, y: 0.9, z: 0,
       qx: 0, qy: 0, qz: 0, qw: 1 }], checkpoint: null,

@@ -53,14 +53,20 @@ async function stopServer(server) {
 
 function netUrl(info, roomId, seat) {
   return `${VITE_URL}/?net=${encodeURIComponent(roomId)}&token=${DEV_TOKEN}` +
-    `&server=${encodeURIComponent(`ws://127.0.0.1:${info.port}/net`)}&seat=${seat}`;
+    `&server=${encodeURIComponent(`ws://127.0.0.1:${info.port}/net`)}&seat=${seat}&debug=1`;
 }
 
 async function openClient(browser, info, roomId, seat, label) {
   const page = await browser.newPage({ viewport: { width: 640, height: 400 } });
   page.on("pageerror", error => console.error(`[${label}] pageerror: ${error.message}`));
   await page.goto(netUrl(info, roomId, seat));
-  await page.waitForFunction(() => document.body.dataset.state === "ready" && Boolean(window.__snkNet), undefined, { timeout: 30000 });
+  try {
+    await historyDeadline(page, () => document.body.dataset.state === "ready" && Boolean(window.__snkNet), 30000, `${label} 场景就绪`);
+  } catch (error) {
+    console.error(`[${label}] 初始化失败`, await page.evaluate(() => ({ state: document.body.dataset.state, status: document.querySelector("output")?.textContent })));
+    await page.close();
+    throw error;
+  }
   await page.evaluate(() => window.__snkNet.ready);
   await historyDeadline(page, () => { const net = window.__snkNet; return net !== undefined && net.snapshot() !== null && net.snapshot().seat !== null; }, 20000, `${label} 等待快照`);
   await historyDeadline(page, () => window.__snkNet !== undefined && window.__snkNet.connectionState === "ready", 10000, `${label} 连接就绪`);
