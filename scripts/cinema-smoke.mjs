@@ -8,14 +8,15 @@ const timeout = setTimeout(() => void browser.close(), 180000);
 const reports = [];
 const physical = [];
 try {
-  for (const cinema of [false, true]) {
+  for (const mode of (process.env.VISUAL_MODES ?? "default,cinema").split(",")) {
+    const cinema = mode !== "default";
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
     page.on("response", response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
     const url = new URL(process.env.RENDER_URL ?? "http://127.0.0.1:5174");
-    if (cinema) url.searchParams.set("visual", "cinema");
+    if (cinema) url.searchParams.set("visual", mode);
     await page.goto(url.href);
     await page.waitForFunction(() => ["ready", "error"].includes(document.body.dataset.state), undefined, { timeout: 60000 });
     assert.equal(await page.locator("body").getAttribute("data-state"), "ready", errors.join("\n"));
@@ -25,6 +26,18 @@ try {
       window.cinemaTest.engine.stopRenderLoop();
       window.cinemaInitial = window.cinemaTest.simulator.serialize();
     });
+    physical.push(await page.evaluate(() => {
+      const { simulator } = window.cinemaTest;
+      simulator.reset(true, true);
+      simulator.restore(window.cinemaInitial);
+      const p = simulator.getCueBallPosition();
+      simulator.stroke(new Float32Array([p.x - .02625, p.y, p.z, 1, 0, 0, 7, .005]));
+      for (let i = 0; i < 180; ++i) simulator.step(1 / 120);
+      const outcome = { state: simulator.serialize(), result: simulator.getResult() };
+      simulator.reset(true, true);
+      simulator.restore(window.cinemaInitial);
+      return outcome;
+    }));
     const advance = count => page.evaluate(count => {
       const { game, balls, scene } = window.cinemaTest;
       for (let i = 0; i < count; ++i) game.update(1 / 60);
@@ -107,17 +120,35 @@ try {
     });
     geometry.extents.forEach(diameter => assert.ok(Math.abs(diameter / 0.0525 - 1) < .02));
     assert.equal(geometry.cueCount, 1);
-    physical.push(await page.evaluate(() => {
-      const { simulator } = window.cinemaTest;
-      simulator.restore(window.cinemaInitial);
-      const p = simulator.getCueBallPosition();
-      simulator.stroke(new Float32Array([p.x - .02625, p.y, p.z, 1, 0, 0, 7, .005]));
-      for (let i = 0; i < 180; ++i) simulator.step(1 / 120);
-      return { state: simulator.serialize(), result: simulator.getResult() };
-    }));
+    if (mode === "blender") {
+      const imported = await page.evaluate(async () => {
+        const { scene } = window.cinemaTest;
+        const cue = scene.getMeshByName("StickAlpha");
+        const vertices = cue.getVerticesData("position");
+        const x = Array.from(vertices).filter((_, i) => i % 3 === 0);
+        const bounds = [Math.min(...x), Math.max(...x)];
+        const cushion = scene.meshes.find(mesh => mesh.material?.name === "MAT_CushionCloth");
+        const p = cushion.getVerticesData("position"), matrix = cushion.getWorldMatrix().m;
+        const nose = [];
+        for (let i = 0; i < p.length; i += 3) {
+          const world = [0,1,2].map(axis => matrix[axis] * p[i] + matrix[axis+4] * p[i+1] + matrix[axis+8] * p[i+2] + matrix[axis+12]);
+          if (Math.abs(world[1] - .90625) < 1e-5) nose.push([world[0], world[2]]);
+        }
+        const manifest = await (await fetch('/assets/render/blender/asset.json')).json();
+        const errors = manifest.outline.filter(point => !point.pocket).map(point =>
+          Math.min(...nose.map(([x,z]) => Math.hypot(x-point.x,z-point.z))));
+        return { bounds, materialCount: cue.material.subMaterials.length,
+          maxNoseError: Math.max(...errors), oldCloth: !!scene.getMeshByName("TableInner"),
+          missingTextures: scene.materials.flatMap(material => material.getActiveTextures()).filter(texture => !texture.isReady()).length };
+      });
+      assert.ok(Math.abs(imported.bounds[0] + 1.45) < 1e-5 && Math.abs(imported.bounds[1]) < 1e-5, JSON.stringify(imported));
+      assert.equal(imported.materialCount, 4);
+      assert.ok(imported.maxNoseError < 1e-5, JSON.stringify(imported));
+      assert.equal(imported.oldCloth, false); assert.equal(imported.missingTextures, 0);
+    }
     await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
     assert.deepEqual(errors, [], errors.join("\n"));
-    reports.push({ mode: cinema ? "cinema" : "default", ...performance });
+    reports.push({ mode, ...performance });
     await page.close();
   }
   assert.deepEqual(physical[0], physical[1], "Appearance must not change deterministic physics");

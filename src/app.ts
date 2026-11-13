@@ -91,9 +91,10 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
   let audio: BrowserAudio | undefined;
   try {
     const { simulator, outline } = await loadSimulator();
-    const cinema = new URLSearchParams(location.search).get("visual") === "cinema";
+    const look = new URLSearchParams(location.search).get("visual");
+    const blender = look === "blender", cinema = blender || look === "cinema";
     const appearance = cinema ? await import("./render/cinema-materials.js") : null;
-    scene = await loadTableScene(engine, tableJawShift(), cinema ? { cinema: { outline } } : {});
+    scene = await loadTableScene(engine, tableJawShift(), blender ? { blender: { outline } } : cinema ? { cinema: { outline } } : {});
     const renderScene = scene;
     const [lighting, atlas, mask] = await Promise.all([
       cinema ? null : loadBallLighting(scene), loadTexture(scene, "table-ui"), loadTexture(scene, "mask-table")
@@ -107,9 +108,10 @@ async function main(): Promise<{ engine: B.Engine; scene: B.Scene; simulator: Si
     const myShapes = new MyShapesStore(viewer ? userShapeStorage(localStorage, viewer.id) : localStorage);
     const balls = new BallRenderer(scene, { getBallCount: () => simulator.getBallCount(),
       getBallView: index => editor?.active ? editor.getBallView(index) : game.getDisplayBallView(index) },
-      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.cueBallRedDots,
+      DEFAULT_SCENE.ballRadius, 0.88, lighting, atlas, mask, { redDots: () => game.cueBallRedDots, highDetail: blender,
         ...(appearance ? { createMaterial: (number, dots) => appearance.cinemaBallMaterial(renderScene, number, dots) } : {}) });
-    const cue = await loadCue(scene, lighting, appearance ? (_texture, mesh) => appearance.cinemaCueMaterial(renderScene, mesh) : undefined);
+    const cue = blender ? await (await import("./render/blender-table.js")).loadBlenderCue(scene)
+      : await loadCue(scene, lighting, appearance ? (_texture, mesh) => appearance.cinemaCueMaterial(renderScene, mesh) : undefined);
     const placement = new PlacementMarkers(scene, atlas, mask);
     const gunsight = new Gunsight(scene, atlas, mask, simulator.ballRadius);
     editor = new ShapeEditor(simulator, scene, scene.activeCamera, canvas, atlas, mask, {

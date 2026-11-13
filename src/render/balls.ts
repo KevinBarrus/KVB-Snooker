@@ -17,7 +17,7 @@ export class BallRenderer {
     private readonly lighting: BallLighting | null,
     atlas: B.Texture,
     mask: B.Texture,
-    private readonly options: { readonly redDots?: () => boolean;
+    private readonly options: { readonly redDots?: () => boolean; readonly highDetail?: boolean;
       readonly createMaterial?: (number: number, dots: boolean) => B.Material } = {}
   ) {
     if (!Number.isFinite(radius) || 2 * radius <= 1e-6) throw new Error(`Invalid ball radius: ${radius}`);
@@ -28,7 +28,7 @@ export class BallRenderer {
       const high = number === 0;
       const template = templates.get(high);
       const mesh = template ? template.clone(`ball-${index}`, undefined, true) :
-        B.MeshBuilder.CreateSphere(`ball-${index}`, { segments: high ? 32 : 20, diameter: 2 * radius }, scene);
+        B.MeshBuilder.CreateSphere(`ball-${index}`, { segments: high || options.highDetail ? 32 : 20, diameter: 2 * radius }, scene);
       templates.set(high, mesh);
       let material = this.materials.get(number);
       if (!material) {

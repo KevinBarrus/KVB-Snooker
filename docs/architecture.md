@@ -497,6 +497,12 @@ RoomOptions 增加可选 bestOf/firstOpeningPlayer/matchId，测试可固定身�
 
 电影观察装配位于 app-visual.ts；ui 只提供镜头选择 DOM，render 只提供相机。装配控制观察输入的独占权，既有控制器仍拥有瞄准姿态。观察中不发出击球；回到瞄准、菜单、摆球、编辑或回放时恢复原相机与输入。场景切换不增加核心事件或存档字段，不修改联机装配。
 
+### 4.17 Blender 视觉资产（2026-11-13 用户批准）
+
+需求见 blender-table-design.md。`SceneAppearance.blender?: {outline:CushionOutline}` 与 cinema 互斥；`visual=blender` 只改变静态资产和球/球杆材质，不改变物理或镜头控制。`loadBlenderCue(scene):Promise<B.Mesh>` 返回皮头原点、向 -X 延伸的单网格，与原 cue 姿态/显隐接口相同。PBR 子材质通过 MultiMaterial 保留，禁止强制转成 StandardMaterial。
+
+`loadBlenderAsset(scene, filename)` 使用离线、固定版本校验的官方 glTF 加载器；导出为米制、基础 glTF 2.0 PBR。加载后验证资产记录的物理轮廓与装配传入值相同；几何变更须重新导出，不能静默使用过期袋角。资产不包含动态球和碰撞网格。BallRenderer.options.highDetail 可使彩球采用与母球相同的32段球体，缺省保持32/20档及快照契约。资源归 Scene，加载失败释放 Scene；原作缺省路径不加载新的资源或全局插件。
+
 ## 5. 目录结构（骨架）
 
 ```

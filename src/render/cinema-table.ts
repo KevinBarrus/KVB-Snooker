@@ -7,9 +7,9 @@ import { buildNet, linerMaterial, netMaterial } from "./pocket-net.js";
 import { buildRunners } from "./pocket-runner.js";
 import { reshapeMesh, type JawShift } from "./table-shape.js";
 import { buildCushions, mapClothUV, retainClothBed, type CushionOutline } from "./table-cushions.js";
-import { CINEMA_STYLE, CINEMA_TABLE_STYLE } from "./cinema-style.js";
+import { CINEMA_TABLE_STYLE } from "./cinema-style.js";
 import { cinemaClothMaterial, cinemaMaterial } from "./cinema-materials.js";
-import { buildCinemaRoom } from "./cinema-room.js";
+import { buildCinemaEnvironment } from "./cinema-environment.js";
 import { createCinemaPipeline } from "./cinema-pipeline.js";
 
 export async function buildCinemaTable(scene: B.Scene, shift: JawShift, outline: CushionOutline): Promise<void> {
@@ -46,24 +46,5 @@ export async function buildCinemaTable(scene: B.Scene, shift: JawShift, outline:
   const bags = buildNet(shift, style);
   bags.net.applyTo(new B.Mesh("PocketNet", scene)).material = netMaterial(scene, style);
   bags.liner.applyTo(new B.Mesh("PocketLiner", scene)).material = linerMaterial(scene, style);
-  const room = buildCinemaRoom(scene);
-  const key = new B.DirectionalLight("cinema-key", new B.Vector3(0.04, -1, 0.08), scene);
-  key.intensity = CINEMA_STYLE.keyIntensity;
-  key.excludedMeshes = room.meshes;
-  const fill = new B.HemisphericLight("cinema-fill", B.Vector3.Up(), scene);
-  fill.intensity = CINEMA_STYLE.fillIntensity;
-  fill.groundColor.set(0.035, 0.045, 0.035);
-  fill.excludedMeshes = room.meshes;
-  const ambient = new B.HemisphericLight("cinema-room-light", B.Vector3.Up(), scene);
-  ambient.intensity = CINEMA_STYLE.roomIntensity;
-  ambient.groundColor.set(0.05, 0.045, 0.055);
-  ambient.includedOnlyMeshes = room.meshes;
-  const probe = new B.ReflectionProbe("cinema-reflections", 256, scene, true);
-  probe.position.set(0, 0.90625, 0);
-  probe.cubeTexture.renderList = room.meshes;
-  probe.cubeTexture.gammaSpace = false;
-  probe.refreshRate = B.RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
-  scene.customRenderTargets.push(probe.cubeTexture);
-  scene.environmentTexture = probe.cubeTexture;
-  scene.onDisposeObservable.add(() => probe.dispose());
+  buildCinemaEnvironment(scene);
 }

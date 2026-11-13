@@ -43,4 +43,6 @@ PCOL L1105-1115 使用 planebatch，L9911 指定 shader 根路径。当前同源
 
 ## 历史记录
 
+2026-11-13 用户批准电影外观及随后的 Blender 整台重建，分别见 [电影设计](../cinema-visual-design.md) 与 [Blender 设计](../blender-table-design.md)。新增模式使用独立 PBR、静态模型和统一后处理；上述 PCOL shader/探针怪癖只在默认还原路径保留，不能将扩展误记为原作行为。
+
 早期实现差异、测试次数与逐次施工记录见 [迁移存档](../history/2026-11-07/render.md)，不作为当前验收结果。新增证据写在本文，产品变化写所属设计文档，不再追加到 AGENTS.md。
